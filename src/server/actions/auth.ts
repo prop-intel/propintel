@@ -127,11 +127,6 @@ export async function signupAction(formData: FormData) {
       );
     }
 
-    console.log("User created successfully:", {
-      id: newUser.id,
-      email: newUser.email,
-    });
-
     // Create account record for credentials provider
     await db.insert(accounts).values({
       userId: newUser.id,
