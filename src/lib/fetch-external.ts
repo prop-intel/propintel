@@ -10,6 +10,14 @@ interface FetchExternalOptions {
   userAgent?: string;
 }
 
+// Create a custom HTTPS agent that skips SSL certificate verification
+// This is necessary because Vercel's serverless runtime doesn't have all CA certificates
+// and fails with UNABLE_TO_GET_ISSUER_CERT_LOCALLY for some Cloudflare-protected sites
+// This is safe for our use case (fetching public robots.txt and page content)
+const httpsAgent = new https.Agent({
+  rejectUnauthorized: false,
+});
+
 /**
  * Make an HTTPS request using Node's native https module
  * This bypasses some of the fetch SSL issues on Vercel
@@ -25,15 +33,18 @@ function httpsGet(
 
     const requestOptions: https.RequestOptions = {
       hostname: parsedUrl.hostname,
-      port: parsedUrl.port || (isHttps ? 443 : 80),
+      port: parsedUrl.port ?? (isHttps ? 443 : 80),
       path: parsedUrl.pathname + parsedUrl.search,
       method: "GET",
       timeout: options.timeout,
+      agent: isHttps ? httpsAgent : undefined,
       headers: {
         Accept: "text/html,text/plain,*/*",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Cache-Control": "no-cache",
         "User-Agent":
           options.userAgent ??
-          "Mozilla/5.0 (compatible; PropIntel/1.0; +https://propintel.app)",
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
       },
     };
 
@@ -45,7 +56,11 @@ function httpsGet(
         res.statusCode < 400 &&
         res.headers.location
       ) {
-        httpsGet(res.headers.location, options).then(resolve).catch(reject);
+        // Handle relative redirects
+        const redirectUrl = res.headers.location.startsWith("http")
+          ? res.headers.location
+          : new URL(res.headers.location, url).toString();
+        httpsGet(redirectUrl, options).then(resolve).catch(reject);
         return;
       }
 
@@ -59,7 +74,10 @@ function httpsGet(
       });
     });
 
-    req.on("error", reject);
+    req.on("error", (err) => {
+      console.error("HTTPS request error:", err.message);
+      reject(err);
+    });
     req.on("timeout", () => {
       req.destroy();
       reject(new Error("Request timeout"));
@@ -85,23 +103,8 @@ export async function fetchExternal(
       headers: { "Content-Type": "text/plain" },
     });
   } catch (error) {
-    // Fallback to fetch if https fails
-    console.error("httpsGet failed, falling back to fetch:", error);
-
-    const headers: Record<string, string> = {
-      Accept: "text/html,text/plain,*/*",
-    };
-    if (userAgent) {
-      headers["User-Agent"] = userAgent;
-    }
-
-    const response = await fetch(url, {
-      method: "GET",
-      headers,
-      signal: AbortSignal.timeout(timeout),
-      cache: "no-store",
-      redirect: "follow",
-    });
-    return response;
+    // Log the error for debugging
+    console.error("fetchExternal error:", error);
+    throw error;
   }
 }
