@@ -8,6 +8,7 @@ import {
   isCrawlerAllowed,
   AI_CRAWLER_USER_AGENTS,
 } from "@/lib/robots-parser";
+import { fetchExternal } from "@/lib/fetch-external";
 
 export const robotsRouter = createTRPCRouter({
   // Fetch and parse robots.txt
@@ -24,18 +25,9 @@ export const robotsRouter = createTRPCRouter({
       if (!site) throw new TRPCError({ code: "NOT_FOUND" });
 
       try {
-        // Try with custom User-Agent first
-        let response = await fetch(`https://${site.domain}/robots.txt`, {
-          headers: { "User-Agent": "PropIntel-Analyzer/1.0" },
-          signal: AbortSignal.timeout(10000),
+        const response = await fetchExternal(`https://${site.domain}/robots.txt`, {
+          userAgent: "PropIntel-Analyzer/1.0",
         });
-
-        // If fetch fails or returns error, try without custom User-Agent as fallback
-        if (!response.ok && response.status !== 404) {
-          response = await fetch(`https://${site.domain}/robots.txt`, {
-            signal: AbortSignal.timeout(10000),
-          });
-        }
 
         if (!response.ok) {
           if (response.status === 404) {
@@ -74,18 +66,9 @@ export const robotsRouter = createTRPCRouter({
       if (!site) throw new TRPCError({ code: "NOT_FOUND" });
 
       try {
-        // Try with custom User-Agent first
-        let response = await fetch(`https://${site.domain}/llms.txt`, {
-          headers: { "User-Agent": "PropIntel-Analyzer/1.0" },
-          signal: AbortSignal.timeout(10000),
+        const response = await fetchExternal(`https://${site.domain}/llms.txt`, {
+          userAgent: "PropIntel-Analyzer/1.0",
         });
-
-        // If fetch fails or returns error, try without custom User-Agent as fallback
-        if (!response.ok && response.status !== 404) {
-          response = await fetch(`https://${site.domain}/llms.txt`, {
-            signal: AbortSignal.timeout(10000),
-          });
-        }
 
         if (!response.ok) {
           if (response.status === 404) {
@@ -121,18 +104,9 @@ export const robotsRouter = createTRPCRouter({
       if (!site) throw new TRPCError({ code: "NOT_FOUND" });
 
       try {
-        // Try with custom User-Agent first
-        let response = await fetch(`https://${site.domain}/robots.txt`, {
-          headers: { "User-Agent": "PropIntel-Analyzer/1.0" },
-          signal: AbortSignal.timeout(10000),
+        const response = await fetchExternal(`https://${site.domain}/robots.txt`, {
+          userAgent: "PropIntel-Analyzer/1.0",
         });
-
-        // If fetch fails or returns error, try without custom User-Agent as fallback
-        if (!response.ok && response.status !== 404) {
-          response = await fetch(`https://${site.domain}/robots.txt`, {
-            signal: AbortSignal.timeout(10000),
-          });
-        }
 
         if (!response.ok) {
           // No robots.txt = all allowed
