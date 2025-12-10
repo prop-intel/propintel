@@ -14,13 +14,13 @@ export async function fetchExternal(
 ): Promise<Response> {
   const { timeout = 10000, userAgent } = options;
 
-  // Build headers
-  const headers: HeadersInit = {};
+  // Build headers - use Record type to allow string indexing
+  const headers: Record<string, string> = {
+    Accept: "text/html,text/plain,*/*",
+  };
   if (userAgent) {
     headers["User-Agent"] = userAgent;
   }
-  // Add Accept header to behave more like a browser
-  headers["Accept"] = "text/html,text/plain,*/*";
 
   const fetchOptions: RequestInit = {
     method: "GET",
