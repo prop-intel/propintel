@@ -29,3 +29,27 @@ export {
   crawlerVisits,
   crawlerVisitsRelations,
 } from "./sites/schema";
+
+// Re-export jobs schemas
+export {
+  jobs,
+  jobsRelations,
+  crawledPages,
+  crawledPagesRelations,
+  reports,
+  reportsRelations,
+  analyses,
+  analysesRelations,
+} from "./jobs/schema";
+
+// Re-export job types
+export type {
+  Job,
+  NewJob,
+  CrawledPage,
+  NewCrawledPage,
+  Report,
+  NewReport,
+  Analysis,
+  NewAnalysis,
+} from "./jobs/schema";
