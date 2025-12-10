@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
 import { sites, siteUrls, crawlerVisits } from "@/server/db/schema";
 import { eq, and } from "drizzle-orm";
