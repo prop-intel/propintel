@@ -44,8 +44,8 @@ export function AddSiteDialog() {
   });
 
   const createSite = api.site.create.useMutation({
-    onSuccess: () => {
-      utils.site.list.invalidate();
+    onSuccess: async () => {
+      await utils.site.list.invalidate();
       setOpen(false);
       form.reset();
     },

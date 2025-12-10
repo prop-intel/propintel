@@ -44,10 +44,7 @@ export function PermissionMatrix({ permissions, isLoading }: PermissionMatrixPro
   // Group by company
   const byCompany: Record<string, CrawlerPermission[]> = {};
   for (const p of permissions ?? []) {
-    if (!byCompany[p.company]) {
-      byCompany[p.company] = [];
-    }
-    byCompany[p.company]!.push(p);
+    (byCompany[p.company] ??= []).push(p);
   }
 
   return (
