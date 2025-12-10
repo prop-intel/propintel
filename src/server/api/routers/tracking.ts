@@ -4,6 +4,7 @@ import { sites } from "@/server/db/schema";
 import { eq, and } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { TRPCError } from "@trpc/server";
+import { fetchExternal } from "@/lib/fetch-external";
 
 export const trackingRouter = createTRPCRouter({
   // Get tracking script for site
@@ -54,10 +55,8 @@ export const trackingRouter = createTRPCRouter({
       if (!site) throw new TRPCError({ code: "NOT_FOUND" });
 
       try {
-        // Fetch the site's homepage
-        const response = await fetch(`https://${site.domain}`, {
-          headers: { "User-Agent": "PropIntel-Verification/1.0" },
-          signal: AbortSignal.timeout(10000),
+        const response = await fetchExternal(`https://${site.domain}`, {
+          userAgent: "PropIntel-Verification/1.0",
         });
 
         if (!response.ok) {
@@ -72,9 +71,11 @@ export const trackingRouter = createTRPCRouter({
           error: hasScript ? null : "Tracking script not found on page",
         };
       } catch (error) {
+        console.error(`Failed to test installation for ${site.domain}:`, error);
+        const errorMessage = error instanceof Error ? error.message : "Failed to fetch site";
         return {
           installed: false,
-          error: error instanceof Error ? error.message : "Failed to fetch site",
+          error: `Failed to fetch site: ${errorMessage}`,
         };
       }
     }),
