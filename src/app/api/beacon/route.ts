@@ -4,8 +4,6 @@ import { sites, siteUrls, crawlerVisits } from "@/server/db/schema";
 import { eq, and } from "drizzle-orm";
 import { detectCrawler } from "@/lib/crawler-detection";
 
-export const runtime = "edge";
-
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
