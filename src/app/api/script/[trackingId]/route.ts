@@ -3,8 +3,6 @@ import { db } from "@/server/db";
 import { sites } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
 
-export const runtime = "edge";
-
 interface RouteParams {
   params: Promise<{ trackingId: string }>;
 }
