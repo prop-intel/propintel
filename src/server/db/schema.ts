@@ -18,3 +18,14 @@ export {
   sessionsRelations,
   verificationTokens,
 } from "./auth/schema";
+
+// Re-export site schemas
+export {
+  sites,
+  sitesRelations,
+  siteUrls,
+  siteUrlsRelations,
+  crawlers,
+  crawlerVisits,
+  crawlerVisitsRelations,
+} from "./sites/schema";
