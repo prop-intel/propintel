@@ -1,6 +1,12 @@
 #!/bin/bash
 # Update DATABASE_URL for all Lambda functions
 
+# SECURITY: Never hardcode credentials! Read from environment variable
+if [ -z "$DATABASE_URL" ]; then
+  echo "❌ ERROR: DATABASE_URL environment variable is required"
+  echo "   Usage: DATABASE_URL='postgresql://...' ./update-db-url.sh"
+  exit 1
+fi
 
 aws lambda list-functions --region us-west-2 \
   --query "Functions[?starts_with(FunctionName, 'propintel-api-dev')].FunctionName" \
