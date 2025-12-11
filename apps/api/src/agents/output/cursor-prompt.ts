@@ -9,7 +9,7 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { generateObject } from 'ai';
 import { z } from 'zod';
 import { Langfuse } from 'langfuse';
-import { AEOAnalysis, AEORecommendation, CursorPrompt, PageAnalysis } from '../../types';
+import { type AEOAnalysis, type AEORecommendation, type CursorPrompt, type PageAnalysis } from '../../types';
 
 // ===================
 // Client Initialization
@@ -67,7 +67,7 @@ export async function generateCursorPrompt(
   recommendations: AEORecommendation[],
   tenantId: string,
   jobId: string,
-  model: string = 'gpt-4o-mini'
+  model = 'gpt-4o-mini'
 ): Promise<CursorPrompt> {
   const trace = langfuse.trace({
     name: 'aeo-cursor-prompt',

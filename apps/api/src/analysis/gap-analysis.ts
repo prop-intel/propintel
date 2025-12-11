@@ -5,8 +5,8 @@
  * compared to competitors.
  */
 
-import { CrawledPage, AEOAnalysis, QueryGap } from '../types';
-import { TemplateType, detectTemplate } from './template-detector';
+import { type CrawledPage, type AEOAnalysis, type QueryGap } from '../types';
+import { type TemplateType, detectTemplate } from './template-detector';
 
 // ===================
 // Types
@@ -234,7 +234,7 @@ function identifyFeatureGaps(
     p.headings.h2.some(h => h.toLowerCase().includes('faq') || h.includes('?'))
   );
 
-  let competitorsWithFAQ: string[] = [];
+  const competitorsWithFAQ: string[] = [];
   for (const [domain, pages] of competitorPages) {
     if (pages.some(p => 
       p.schemas.some(s => s.type === 'FAQPage') ||
@@ -262,7 +262,7 @@ function identifyFeatureGaps(
     p.headings.h1.some(h => h.toLowerCase().includes('vs'))
   );
 
-  let competitorsWithComparison: string[] = [];
+  const competitorsWithComparison: string[] = [];
   for (const [domain, pages] of competitorPages) {
     if (pages.some(p => 
       p.url.toLowerCase().includes('vs') ||
@@ -290,7 +290,7 @@ function identifyFeatureGaps(
     p.headings.h1.some(h => h.toLowerCase().startsWith('how to'))
   );
 
-  let competitorsWithHowTo: string[] = [];
+  const competitorsWithHowTo: string[] = [];
   for (const [domain, pages] of competitorPages) {
     if (pages.some(p => p.schemas.some(s => s.type === 'HowTo'))) {
       competitorsWithHowTo.push(domain);

@@ -9,7 +9,7 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { generateObject } from 'ai';
 import { z } from 'zod';
 import { Langfuse } from 'langfuse';
-import { TavilySearchResult, PageAnalysis, CompetitorVisibility } from '../../types';
+import { type TavilySearchResult, type PageAnalysis, type CompetitorVisibility } from '../../types';
 
 // ===================
 // Client Initialization
@@ -101,7 +101,7 @@ export async function compareContent(
   searchResults: TavilySearchResult[],
   tenantId: string,
   jobId: string,
-  model: string = 'gpt-4o-mini'
+  model = 'gpt-4o-mini'
 ): Promise<ContentComparisonResult> {
   const trace = langfuse.trace({
     name: 'aeo-content-comparison',

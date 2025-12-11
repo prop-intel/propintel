@@ -7,14 +7,14 @@
 
 import { Langfuse } from 'langfuse';
 import {
-  AEOReport,
-  AEOAnalysis,
-  AEORecommendation,
-  CursorPrompt,
-  LLMEOAnalysis,
-  SEOAnalysis,
-  Report,
-  CrawledPage,
+  type AEOReport,
+  type AEOAnalysis,
+  type AEORecommendation,
+  type CursorPrompt,
+  type LLMEOAnalysis,
+  type SEOAnalysis,
+  type Report,
+  type CrawledPage,
 } from '../../types';
 
 // ===================
@@ -86,7 +86,8 @@ export async function generateAEOReport(
     const report: AEOReport = {
       meta: {
         jobId,
-        tenantId,
+        userId: tenantId, // tenantId is now userId
+        tenantId, // Keep for backward compatibility
         domain,
         generatedAt: new Date().toISOString(),
         pagesAnalyzed: pages.length,

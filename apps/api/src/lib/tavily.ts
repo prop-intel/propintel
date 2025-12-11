@@ -7,7 +7,7 @@
  * @see https://docs.tavily.com/
  */
 
-import { TavilySearchResult, TavilyResult } from '../types';
+import { type TavilySearchResult, type TavilyResult } from '../types';
 
 // ===================
 // Configuration

@@ -9,8 +9,8 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { generateObject } from 'ai';
 import { z } from 'zod';
 import { Langfuse } from 'langfuse';
-import { AEOAnalysis, AEORecommendation, QueryGap, CompetitorVisibility } from '../../types';
-import { ContentComparisonResult } from '../analysis/content-comparison';
+import { type AEOAnalysis, type AEORecommendation, type QueryGap, type CompetitorVisibility } from '../../types';
+import { type ContentComparisonResult } from '../analysis/content-comparison';
 
 // ===================
 // Client Initialization
@@ -70,7 +70,7 @@ export async function generateAEORecommendations(
   contentComparison: ContentComparisonResult,
   tenantId: string,
   jobId: string,
-  model: string = 'gpt-4o-mini'
+  model = 'gpt-4o-mini'
 ): Promise<AEORecommendation[]> {
   const trace = langfuse.trace({
     name: 'aeo-recommendations',

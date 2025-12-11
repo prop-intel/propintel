@@ -1,4 +1,4 @@
-import { CrawledPage, LLMEOAnalysis } from '../types';
+import { type CrawledPage, type LLMEOAnalysis } from '../types';
 
 // ===================
 // Constants

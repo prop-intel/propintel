@@ -149,8 +149,8 @@ export async function updateJob(
 
 export async function listJobs(
   userId: string,
-  limit: number = 20,
-  offset: number = 0
+  limit = 20,
+  offset = 0
 ): Promise<{ jobs: Job[]; hasMore: boolean }> {
   const result = await db.query.jobs.findMany({
     where: eq(jobs.userId, userId),
@@ -169,7 +169,7 @@ export async function listJobs(
 
 export async function listJobsForUser(
   userId: string,
-  limit: number = 20
+  limit = 20
 ): Promise<Job[]> {
   const result = await db.query.jobs.findMany({
     where: eq(jobs.userId, userId),

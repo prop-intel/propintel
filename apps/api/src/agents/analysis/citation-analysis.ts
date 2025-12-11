@@ -8,7 +8,7 @@
  */
 
 import { Langfuse } from 'langfuse';
-import { QueryCitation, QueryGap, TavilySearchResult } from '../../types';
+import { type QueryCitation, type QueryGap, type TavilySearchResult } from '../../types';
 
 // ===================
 // Client Initialization
@@ -244,7 +244,8 @@ function identifyGaps(
       if (!searchResult || searchResult.results.length === 0) continue;
 
       const winner = searchResult.results[0];
-      
+      if (!winner) continue;
+
       gaps.push({
         query: citation.query,
         yourPosition: citation.yourPosition,
@@ -319,7 +320,7 @@ function generateSuggestedAction(
     'other': 'Create dedicated content targeting this specific query',
   };
 
-  return actions[queryType] || actions['other'];
+  return actions[queryType] ?? actions.other ?? 'Create dedicated content targeting this specific query';
 }
 
 /**
@@ -362,8 +363,9 @@ function generateFindings(
   }
 
   // Gap analysis
-  if (gaps.length > 0) {
-    const topCompetitor = gaps[0].winningDomain;
+  const firstGap = gaps[0];
+  if (firstGap) {
+    const topCompetitor = firstGap.winningDomain;
     const competitorWins = gaps.filter(g => g.winningDomain === topCompetitor).length;
     if (competitorWins >= 2) {
       findings.push(`Key competitor: ${topCompetitor} wins ${competitorWins} queries you're missing`);

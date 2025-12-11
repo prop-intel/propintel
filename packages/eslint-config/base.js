@@ -43,6 +43,7 @@ export function createBaseConfig(options = {}) {
           "error",
           { drizzleObjectName: ["db", "ctx.db"] },
         ],
+        "@typescript-eslint/prefer-nullish-coalescing": "off",
       },
     },
     {

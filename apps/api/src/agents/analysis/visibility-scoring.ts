@@ -6,9 +6,9 @@
  */
 
 import { Langfuse } from 'langfuse';
-import { QueryCitation, CompetitorVisibility, AEOAnalysis, PageAnalysis, TargetQuery, TavilySearchResult, QueryGap } from '../../types';
-import { CitationAnalysisResult } from './citation-analysis';
-import { ContentComparisonResult } from './content-comparison';
+import { type QueryCitation, type CompetitorVisibility, type AEOAnalysis, type PageAnalysis, type TargetQuery, type TavilySearchResult, type QueryGap } from '../../types';
+import { type CitationAnalysisResult } from './citation-analysis';
+import { type ContentComparisonResult } from './content-comparison';
 
 // ===================
 // Configuration
@@ -293,7 +293,8 @@ function generateScoreSummary(
   }
 
   // Key contributor
-  const topContributor = Object.entries(breakdown)
+  type BreakdownEntry = [string, { score: number; weight: number; contribution: number }];
+  const topContributor = (Object.entries(breakdown) as BreakdownEntry[])
     .filter(([key]) => key !== 'gapPenalty')
     .sort((a, b) => b[1].contribution - a[1].contribution)[0];
 

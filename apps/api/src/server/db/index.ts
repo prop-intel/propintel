@@ -4,7 +4,7 @@ import { createPgClient } from "@propintel/database/client/pg";
 function getDatabaseUrl(): string {
   const url = process.env.DATABASE_URL;
 
-  if (!url || !url.trim()) {
+  if (!url?.trim()) {
     return "postgresql://postgres:password@localhost:5432/propintel_test";
   }
 
@@ -12,12 +12,10 @@ function getDatabaseUrl(): string {
 
   if (
     !trimmedUrl.includes("@") ||
-    trimmedUrl.match(/^postgresql:\/\/localhost/) ||
-    trimmedUrl.match(/^postgresql:\/\/127\.0\.0\.1/)
+    (/^postgresql:\/\/localhost/.exec(trimmedUrl)) ||
+    (/^postgresql:\/\/127\.0\.0\.1/.exec(trimmedUrl))
   ) {
-    const match = trimmedUrl.match(
-      /^postgresql:\/\/(?:localhost|127\.0\.0\.1)(?::(\d+))?(?:\/(.+))?$/
-    );
+    const match = /^postgresql:\/\/(?:localhost|127\.0\.0\.1)(?::(\d+))?(?:\/(.+))?$/.exec(trimmedUrl);
     if (match) {
       const port = match[1] || "5432";
       const dbName = match[2] || "propintel_test";

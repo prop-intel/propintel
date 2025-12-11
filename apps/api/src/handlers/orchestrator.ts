@@ -1,14 +1,14 @@
 import type { SQSHandler, SQSEvent, SQSRecord } from 'aws-lambda';
 import { ECSClient, RunTaskCommand, DescribeTasksCommand } from '@aws-sdk/client-ecs';
-import { CrawlJobMessage } from '../lib/sqs';
+import { type CrawlJobMessage } from '../lib/sqs';
 import { getJobById, updateJob, saveReportReference, saveAnalysis } from '../lib/db';
 import { uploadAEOReport } from '../lib/s3';
 import { generateSummary, generateRecommendations, generateCopyReadyPrompt } from '../lib/ai';
 import { analyzeLLMEO } from '../analysis/llmeo';
 import { analyzeSEO } from '../analysis/seo';
-import { Report, CrawledPage as CrawledPageType, AEOReport, PageAnalysis, TargetQuery, CrawlConfig, Job as LegacyJob, TavilySearchResult, CompetitorVisibility, QueryCitation, AEORecommendation, CursorPrompt } from '../types';
+import { type Report, type CrawledPage as CrawledPageType, type AEOReport, type PageAnalysis, type TargetQuery, type CrawlConfig, type Job as LegacyJob, type TavilySearchResult, type CompetitorVisibility, type QueryCitation, type AEORecommendation, type CursorPrompt } from '../types';
 import type { Job } from '@propintel/database';
-import { CitationAnalysisResult } from '../agents/analysis';
+import { type CitationAnalysisResult } from '../agents/analysis';
 
 // AEO Agent imports
 import { analyzePages, generateTargetQueries, discoverCompetitors } from '../agents/discovery';
@@ -48,7 +48,7 @@ export const handler: SQSHandler = async (event: SQSEvent): Promise<void> => {
 };
 
 async function processRecord(record: SQSRecord): Promise<void> {
-  const message: CrawlJobMessage = JSON.parse(record.body);
+  const message = JSON.parse(record.body) as CrawlJobMessage;
   const { jobId, tenantId: userId } = message; // tenantId is now userId
 
   console.log(`Processing job ${jobId} for user ${userId}`);
@@ -196,7 +196,8 @@ async function runCrawler(job: Job): Promise<CrawledPageType[]> {
   
   const crawlerJob: LegacyJob = {
     id: job.id,
-    tenantId: job.userId,
+    userId: job.userId,
+    tenantId: job.userId, // Keep for backward compatibility
     targetUrl: job.targetUrl,
     status: job.status,
     config: (job.config as CrawlConfig) || defaultConfig,
@@ -354,7 +355,8 @@ async function runAEOPipelineWithOrchestrator(
     {
       meta: {
         jobId,
-        tenantId: userId,
+        userId,
+        tenantId: userId, // Keep for backward compatibility
         domain,
         generatedAt: new Date().toISOString(),
         pagesAnalyzed: pages.length,
@@ -502,7 +504,8 @@ async function runAEOPipeline(
     {
       meta: {
         jobId,
-        tenantId: userId,
+        userId,
+        tenantId: userId, // Keep for backward compatibility
         domain,
         generatedAt: new Date().toISOString(),
         pagesAnalyzed: pages.length,
@@ -556,7 +559,8 @@ async function runLegacyAnalysis(job: Job, pages: CrawledPageType[]): Promise<Re
   const report: Report = {
     meta: {
       jobId: job.id,
-      tenantId: userId,
+      userId,
+      tenantId: userId, // Keep for backward compatibility
       domain,
       generatedAt: new Date().toISOString(),
       pagesAnalyzed: pages.length,

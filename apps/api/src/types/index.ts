@@ -53,6 +53,7 @@ export interface CreateJobRequest {
 export interface Job {
   id: string;
   userId: string;
+  tenantId?: string; // Deprecated: use userId instead
   targetUrl: string;
   status: JobStatus;
   config: CrawlConfig;
@@ -224,6 +225,7 @@ export interface Report {
   meta: {
     jobId: string;
     userId: string;
+    tenantId?: string; // Deprecated: use userId instead
     domain: string;
     generatedAt: string;
     pagesAnalyzed: number;

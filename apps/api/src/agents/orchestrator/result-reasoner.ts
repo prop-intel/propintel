@@ -9,7 +9,7 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { generateObject } from 'ai';
 import { z } from 'zod';
 import { Langfuse } from 'langfuse';
-import { AgentContext } from '../context';
+import { type AgentContext } from '../context';
 
 // ===================
 // Client Initialization
@@ -48,7 +48,7 @@ export async function reasonOverResults(
   context: AgentContext,
   tenantId: string,
   jobId: string,
-  model: string = 'gpt-4o-mini'
+  model = 'gpt-4o-mini'
 ): Promise<{
   shouldContinue: boolean;
   nextSteps: string[];

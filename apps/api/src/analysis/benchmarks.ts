@@ -5,7 +5,7 @@
  * and goal-setting in AEO/SEO optimization.
  */
 
-import { TemplateType } from './template-detector';
+import type { TemplateType } from './template-detector';
 
 // ===================
 // Types
@@ -462,7 +462,7 @@ export function detectIndustry(
   domain: string,
   pages: Array<{ url: string; title?: string; schemas: Array<{ type: string }> }>
 ): IndustryType {
-  const signals: Map<IndustryType, number> = new Map();
+  const signals = new Map<IndustryType, number>();
 
   // Initialize
   const industries: IndustryType[] = [

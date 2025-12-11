@@ -7,7 +7,7 @@
  */
 
 import { Langfuse } from 'langfuse';
-import { TargetQuery, TavilySearchResult, QueryCitation } from '../../types';
+import { type TargetQuery, type TavilySearchResult, type QueryCitation } from '../../types';
 import { search, searchBatch, isConfigured } from '../../lib/tavily';
 
 // ===================
@@ -126,7 +126,7 @@ function analyzeQueryCitation(
 
   for (let i = 0; i < searchResult.results.length; i++) {
     const item = searchResult.results[i];
-    if (domainMatches(item.domain, targetDomain)) {
+    if (item && domainMatches(item.domain, targetDomain)) {
       yourPosition = i < 3 ? 'cited' : 'mentioned';
       yourRank = i + 1;
       break;
@@ -144,9 +144,11 @@ function analyzeQueryCitation(
   let winningDomain: string | undefined;
   let winningReason: string | undefined;
 
-  if (yourPosition === 'absent' && topResults.length > 0) {
-    winningDomain = topResults[0].domain;
-    winningReason = determineWinningReason(searchResult.results[0], searchResult.query);
+  const firstTopResult = topResults[0];
+  const firstResult = searchResult.results[0];
+  if (yourPosition === 'absent' && firstTopResult && firstResult) {
+    winningDomain = firstTopResult.domain;
+    winningReason = determineWinningReason(firstResult, searchResult.query);
   }
 
   return {
@@ -214,7 +216,7 @@ export function calculateVisibilityMetrics(
 export function getFrequentDomains(
   searchResults: TavilySearchResult[],
   targetDomain: string,
-  limit: number = 10
+  limit = 10
 ): Map<string, number> {
   const domainCounts = new Map<string, number>();
 

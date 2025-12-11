@@ -5,8 +5,8 @@
  * combining comparison and gap analysis.
  */
 
-import { ComparisonReport } from '../analysis/competitor-comparison';
-import { GapAnalysisResult } from '../analysis/gap-analysis';
+import { type ComparisonReport } from '../analysis/competitor-comparison';
+import { type GapAnalysisResult } from '../analysis/gap-analysis';
 
 // ===================
 // Types
@@ -192,7 +192,7 @@ function generateActionPlan(
     shortTerm.push({
       action: action.action,
       rationale: action.rationale,
-      effort: action.effort as 'low' | 'medium' | 'high',
+      effort: action.effort,
       impact: 'high',
       metrics: ['Visibility score', 'Citation rate'],
     });

@@ -25,7 +25,7 @@ export function createTrace(config: {
   // Return a no-op trace object
   return {
     generation: () => ({
-      end: () => {},
+      end: () => { /* no-op when Langfuse not configured */ },
     }),
   };
 }

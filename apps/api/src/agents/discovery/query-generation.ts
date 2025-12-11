@@ -9,7 +9,7 @@
 import { createOpenAI } from '@ai-sdk/openai';
 import { generateObject } from 'ai';
 import { z } from 'zod';
-import { PageAnalysis, TargetQuery } from '../../types';
+import { type PageAnalysis, type TargetQuery } from '../../types';
 import { createTrace, flushLangfuse } from '../../lib/langfuse';
 
 // ===================

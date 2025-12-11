@@ -8,7 +8,7 @@
  */
 
 import { Langfuse } from 'langfuse';
-import { TargetQuery, GoogleAIOResult } from '../../types';
+import { type TargetQuery, type GoogleAIOResult } from '../../types';
 
 // ===================
 // Client Initialization

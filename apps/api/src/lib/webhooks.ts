@@ -5,7 +5,7 @@
  * formatted payloads and retry logic.
  */
 
-import { AEOReport, Report } from '../types';
+import { type AEOReport, type Report } from '../types';
 
 // ===================
 // Types
@@ -80,7 +80,7 @@ export async function sendWebhookWithRetry(
   config: WebhookConfig,
   event: string,
   report: AEOReport | Report,
-  maxRetries: number = 3
+  maxRetries = 3
 ): Promise<{ success: boolean; attempts: number; error?: string }> {
   let lastError: string | undefined;
 
@@ -114,7 +114,7 @@ function formatSlackPayload(event: string, report: AEOReport | Report): unknown 
   const domain = report.meta.domain;
   const scores = report.scores;
 
-  const aeoScore = isAEO ? (report as AEOReport).scores.aeoVisibilityScore : 0;
+  const aeoScore = isAEO ? (report).scores.aeoVisibilityScore : 0;
   const overallScore = scores.overallScore;
 
   // Determine color based on score
@@ -176,7 +176,7 @@ function formatDiscordPayload(event: string, report: AEOReport | Report): unknow
   const domain = report.meta.domain;
   const scores = report.scores;
 
-  const aeoScore = isAEO ? (report as AEOReport).scores.aeoVisibilityScore : 0;
+  const aeoScore = isAEO ? (report).scores.aeoVisibilityScore : 0;
   const overallScore = scores.overallScore;
 
   // Determine color based on score (Discord uses decimal colors)
@@ -227,7 +227,7 @@ function formatDiscordPayload(event: string, report: AEOReport | Report): unknow
 function formatGenericPayload(
   event: string,
   report: AEOReport | Report,
-  includeFullReport: boolean = false
+  includeFullReport = false
 ): WebhookPayload {
   const isAEO = 'aeoAnalysis' in report;
 
@@ -236,7 +236,7 @@ function formatGenericPayload(
     jobId: report.meta.jobId,
     pagesAnalyzed: report.meta.pagesAnalyzed,
     scores: {
-      aeoVisibility: isAEO ? (report as AEOReport).scores.aeoVisibilityScore : null,
+      aeoVisibility: isAEO ? (report).scores.aeoVisibilityScore : null,
       llmeo: report.scores.llmeoScore,
       seo: report.scores.seoScore,
       overall: report.scores.overallScore,

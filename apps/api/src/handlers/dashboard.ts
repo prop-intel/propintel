@@ -8,7 +8,7 @@ import type { APIGatewayProxyHandlerV2 } from 'aws-lambda';
 import { listJobsForUser } from '../lib/db';
 import { getReport } from '../lib/s3';
 import { validateRequest } from '../lib/auth';
-import { ApiResponse, AEOReport } from '../types';
+import { type ApiResponse, type AEOReport } from '../types';
 import type { Job } from '@propintel/database';
 
 // ===================

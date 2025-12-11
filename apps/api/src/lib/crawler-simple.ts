@@ -1,13 +1,13 @@
 import * as cheerio from 'cheerio';
 import robotsParser from 'robots-parser';
 import {
-  Job,
-  CrawledPage,
-  SchemaOrgData,
-  ImageData,
-  HeadingStructure,
-  HreflangLink,
-  CrawlConfig,
+  type Job,
+  type CrawledPage,
+  type SchemaOrgData,
+  type ImageData,
+  type HeadingStructure,
+  type HreflangLink,
+  type CrawlConfig,
 } from '../types';
 import { uploadHtmlSnapshot, uploadPageData } from './s3';
 
@@ -306,12 +306,12 @@ function extractSchemas($: cheerio.CheerioAPI): SchemaOrgData[] {
     try {
       const content = $(el).html();
       if (content) {
-        const data = JSON.parse(content);
+        const data = JSON.parse(content) as Record<string, unknown> | Record<string, unknown>[];
         const items = Array.isArray(data) ? data : [data];
-        
+
         for (const item of items) {
           schemas.push({
-            type: item['@type'] || 'Unknown',
+            type: (item['@type'] as string) || 'Unknown',
             properties: item,
             isValid: true,
           });
@@ -343,8 +343,8 @@ function extractSchemas($: cheerio.CheerioAPI): SchemaOrgData[] {
 }
 
 function extractLinks($: cheerio.CheerioAPI, baseUrl: string): { internal: string[]; external: string[] } {
-  const internal: Set<string> = new Set();
-  const external: Set<string> = new Set();
+  const internal = new Set<string>();
+  const external = new Set<string>();
   const base = new URL(baseUrl);
 
   $('a[href]').each((_, el) => {

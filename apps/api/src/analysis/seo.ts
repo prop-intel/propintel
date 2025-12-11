@@ -1,4 +1,4 @@
-import { CrawledPage, SEOAnalysis } from '../types';
+import { type CrawledPage, type SEOAnalysis } from '../types';
 
 // ===================
 // Constants

@@ -5,8 +5,8 @@
  * how consistently the site maintains its content.
  */
 
-import { CrawledPage, AEOAnalysis } from '../types';
-import { DiffReport } from './diff-generator';
+import { type CrawledPage, type AEOAnalysis } from '../types';
+import { type DiffReport } from './diff-generator';
 
 // ===================
 // Types

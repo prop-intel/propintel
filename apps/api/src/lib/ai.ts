@@ -2,7 +2,7 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { generateText, generateObject } from 'ai';
 import { z } from 'zod';
 import { Langfuse } from 'langfuse';
-import { CrawledPage, LLMEOAnalysis, SEOAnalysis, Recommendation } from '../types';
+import { type CrawledPage, type LLMEOAnalysis, type SEOAnalysis, type Recommendation } from '../types';
 
 // ===================
 // Client Initialization
@@ -29,7 +29,7 @@ const createTrace = (config: { name: string; userId: string; metadata?: Record<s
   // Return a no-op trace object
   return {
     generation: () => ({
-      end: () => {},
+      end: () => { /* no-op when Langfuse not configured */ },
     }),
   };
 };
@@ -83,7 +83,7 @@ export async function generateSummary(
   seoAnalysis: SEOAnalysis,
   tenantId: string,
   jobId: string,
-  model: string = 'gpt-4o-mini'
+  model = 'gpt-4o-mini'
 ): Promise<{
   strengths: string[];
   weaknesses: string[];
@@ -173,7 +173,7 @@ export async function generateRecommendations(
   seoAnalysis: SEOAnalysis,
   tenantId: string,
   jobId: string,
-  model: string = 'gpt-4o-mini'
+  model = 'gpt-4o-mini'
 ): Promise<Recommendation[]> {
   const trace = createTrace({
     name: 'generate-recommendations',
@@ -263,7 +263,7 @@ export async function generateCopyReadyPrompt(
   },
   tenantId: string,
   jobId: string,
-  model: string = 'gpt-4o-mini'
+  model = 'gpt-4o-mini'
 ): Promise<string> {
   const trace = createTrace({
     name: 'generate-copy-prompt',
@@ -330,7 +330,7 @@ Generate a comprehensive prompt that the content team can use to improve their s
 
 export async function detectLanguage(
   text: string,
-  model: string = 'gpt-4o-mini'
+  model = 'gpt-4o-mini'
 ): Promise<string> {
   const result = await generateText({
     model: openai(model),

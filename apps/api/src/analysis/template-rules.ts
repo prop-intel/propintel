@@ -5,8 +5,8 @@
  * Different content types have different optimization requirements.
  */
 
-import { CrawledPage, LLMEOAnalysis, SEOAnalysis } from '../types';
-import { TemplateType, detectTemplate } from './template-detector';
+import { type CrawledPage, type LLMEOAnalysis, type SEOAnalysis } from '../types';
+import { type TemplateType, detectTemplate } from './template-detector';
 
 // ===================
 // Types
@@ -125,7 +125,7 @@ const TEMPLATE_RULES: Record<TemplateType, TemplateRules> = {
       // Check for product schema completeness
       const productSchema = page.schemas.find(s => s.type === 'Product');
       if (productSchema) {
-        const props = productSchema.properties as Record<string, unknown>;
+        const props = productSchema.properties;
         if (!props.name) { issues.push('Missing product name in schema'); score -= 10; }
         if (!props.description) { issues.push('Missing product description in schema'); score -= 10; }
         if (!props.image) { issues.push('Missing product image in schema'); score -= 10; }

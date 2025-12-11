@@ -5,7 +5,7 @@
  * to enable template-specific scoring and recommendations.
  */
 
-import { CrawledPage } from '../types';
+import { type CrawledPage } from '../types';
 
 // ===================
 // Types
@@ -218,7 +218,7 @@ const TITLE_PATTERNS: Record<TemplateType, RegExp[]> = {
  * Detect the template type of a page
  */
 export function detectTemplate(page: CrawledPage): TemplateDetectionResult {
-  const scores: Map<TemplateType, number> = new Map();
+  const scores = new Map<TemplateType, number>();
   const signals: string[] = [];
 
   // Initialize scores
@@ -304,7 +304,7 @@ export function analyzeTemplateDistribution(pages: CrawledPage[]): {
   siteType: 'blog' | 'ecommerce' | 'saas' | 'docs' | 'mixed';
   templatesByUrl: Map<string, TemplateDetectionResult>;
 } {
-  const distribution: Map<TemplateType, number> = new Map();
+  const distribution = new Map<TemplateType, number>();
   const templatesByUrl = new Map<string, TemplateDetectionResult>();
 
   for (const page of pages) {
@@ -342,7 +342,7 @@ export function analyzeTemplateDistribution(pages: CrawledPage[]): {
  * Analyze content for template signals
  */
 function analyzeContent(page: CrawledPage): Map<TemplateType, number> {
-  const scores: Map<TemplateType, number> = new Map();
+  const scores = new Map<TemplateType, number>();
 
   // Word count signals
   if (page.wordCount > 1500) {
@@ -373,7 +373,7 @@ function analyzeContent(page: CrawledPage): Map<TemplateType, number> {
 
   // Check for FAQ-style headings
   const questionHeadings = [...page.headings.h2, ...page.headings.h3]
-    .filter(h => /\?$/.test(h) || /^(what|how|why|when|where|who|which|can|do|is|are)\s/i.test(h));
+    .filter(h => h.endsWith("?") || /^(what|how|why|when|where|who|which|can|do|is|are)\s/i.test(h));
   if (questionHeadings.length >= 3) {
     scores.set('faq', (scores.get('faq') || 0) + 25);
   }

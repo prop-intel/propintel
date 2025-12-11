@@ -3,6 +3,7 @@ import {
   SendMessageCommand,
   DeleteMessageCommand,
 } from '@aws-sdk/client-sqs';
+import type { SQSEvent, Context, Callback } from 'aws-lambda';
 
 const sqsClient = new SQSClient({});
 const QUEUE_URL = process.env.SQS_QUEUE_URL || '';
@@ -39,7 +40,8 @@ export async function enqueueJob(message: CrawlJobMessage): Promise<string> {
             awsRegion: 'local',
           }],
         };
-        handler(mockSQSEvent as any, {} as any, () => {}).catch((error) => {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+        handler(mockSQSEvent as SQSEvent, {} as Context, (() => { /* callback unused */ }) as Callback).catch((error: unknown) => {
           console.error('[SQS-LOCAL] Error processing job:', {
             jobId: message.jobId,
             error: error instanceof Error ? error.message : String(error),

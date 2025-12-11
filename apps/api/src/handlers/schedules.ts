@@ -16,7 +16,7 @@ import {
 import { validateRequest } from '../lib/auth';
 import { enqueueJob } from '../lib/sqs';
 import { createJob, getUser } from '../lib/db';
-import { ApiResponse, CreateJobRequest, DEFAULT_CRAWL_CONFIG } from '../types';
+import { type ApiResponse, type CreateJobRequest, DEFAULT_CRAWL_CONFIG } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 
 // ===================
@@ -48,6 +48,12 @@ interface ScheduledEvent {
   config?: Partial<CreateJobRequest>;
 }
 
+interface CreateScheduleBody {
+  targetUrl: string;
+  cronExpression: string;
+  config?: Partial<CreateJobRequest>;
+}
+
 // ===================
 // Handlers
 // ===================
@@ -67,7 +73,7 @@ export const createSchedule: APIGatewayProxyHandlerV2 = async (event) => {
     }
 
     const userId = authResult.userId;
-    const body = JSON.parse(event.body || '{}');
+    const body = JSON.parse(event.body || '{}') as CreateScheduleBody;
 
     // Validate required fields
     if (!body.targetUrl) {
@@ -232,7 +238,7 @@ export const deleteSchedule: APIGatewayProxyHandlerV2 = async (event) => {
         Rule: ruleName,
         Ids: [`${scheduleId}-target`],
       })
-    ).catch(() => {}); // Ignore if no targets
+    ).catch(() => { /* Ignore if no targets exist */ });
 
     // Delete the rule
     await eventBridgeClient.send(

@@ -66,7 +66,7 @@ export async function generateAgentSummary(
   agentResult: unknown,
   tenantId: string,
   jobId: string,
-  model: string = 'gpt-4o-mini'
+  model = 'gpt-4o-mini'
 ): Promise<{
   summary: string;
   keyFindings: string[];
@@ -150,7 +150,7 @@ export async function generateBriefSummary(
   agentResult: unknown,
   tenantId: string,
   jobId: string,
-  model: string = 'gpt-4o-mini'
+  model = 'gpt-4o-mini'
 ): Promise<string> {
   const trace = langfuse.trace({
     name: 'brief-summary-generation',

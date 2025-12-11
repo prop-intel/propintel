@@ -28,12 +28,8 @@ export interface AgentContext {
   jobId: string;
   tenantId: string;
   domain: string;
-  summaries: {
-    [agentId: string]: AgentSummary;
-  };
-  s3References: {
-    [agentId: string]: string; // S3 key
-  };
+  summaries: Record<string, AgentSummary>;
+  s3References: Record<string, string>;
   metadata: {
     createdAt: string;
     lastUpdated: string;
@@ -69,7 +65,7 @@ export class ContextManager {
   async storeAgentResult(
     agentId: string,
     result: unknown,
-    model: string = 'gpt-4o-mini'
+    model = 'gpt-4o-mini'
   ): Promise<void> {
     // Store full result in S3
     const s3Key = await storeAgentResult(
@@ -173,7 +169,7 @@ export class ContextManager {
   /**
    * Compress context by summarizing older results more aggressively
    */
-  async compressContext(model: string = 'gpt-4o-mini'): Promise<void> {
+  async compressContext(model = 'gpt-4o-mini'): Promise<void> {
     const summaries = Object.values(this.context.summaries);
     const completedSummaries = summaries.filter(s => s.status === 'completed');
 
@@ -221,7 +217,7 @@ export class ContextManager {
   /**
    * Check if context is approaching token limit
    */
-  isApproachingLimit(limit: number = 100000): boolean {
+  isApproachingLimit(limit = 100000): boolean {
     return this.context.metadata.tokenEstimate > limit * 0.8;
   }
 }

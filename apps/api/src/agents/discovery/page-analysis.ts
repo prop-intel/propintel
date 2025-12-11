@@ -12,7 +12,7 @@
 import { createOpenAI } from '@ai-sdk/openai';
 import { generateObject } from 'ai';
 import { z } from 'zod';
-import { CrawledPage, PageAnalysis } from '../../types';
+import { type CrawledPage, type PageAnalysis } from '../../types';
 import { createTrace, flushLangfuse } from '../../lib/langfuse';
 
 // ===================
@@ -62,7 +62,7 @@ export async function analyzePageContent(
   page: CrawledPage,
   tenantId: string,
   jobId: string,
-  model: string = 'gpt-4o-mini'
+  model = 'gpt-4o-mini'
 ): Promise<PageAnalysis> {
   const trace = createTrace({
     name: 'aeo-page-analysis',
@@ -142,7 +142,7 @@ export async function analyzePages(
   pages: CrawledPage[],
   tenantId: string,
   jobId: string,
-  model: string = 'gpt-4o-mini'
+  model = 'gpt-4o-mini'
 ): Promise<PageAnalysis> {
   // Find the best page to analyze (prefer homepage or page with most content)
   const bestPage = selectBestPage(pages);

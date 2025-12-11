@@ -5,8 +5,8 @@
  * for comprehensive competitive intelligence.
  */
 
-import { CrawledPage, AEOAnalysis, LLMEOAnalysis, SEOAnalysis } from '../types';
-import { TemplateType, analyzeTemplateDistribution } from './template-detector';
+import { type CrawledPage, type AEOAnalysis, type LLMEOAnalysis, type SEOAnalysis } from '../types';
+import { type TemplateType, analyzeTemplateDistribution } from './template-detector';
 
 // ===================
 // Types

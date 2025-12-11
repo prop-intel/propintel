@@ -5,13 +5,13 @@
  * and error handling.
  */
 
-import { ContextManager, AgentContext } from './context';
+import { type ContextManager, type AgentContext } from './context';
 import { getAgentMetadata, areDependenciesSatisfied } from './registry';
 import { analyzePages, generateTargetQueries, discoverCompetitors } from './discovery';
 import { researchQueries, analyzeCitations } from './research';
-import { analyzeCitationPatterns, compareContent, calculateVisibilityScore, buildAEOAnalysis, CitationAnalysisResult, ContentComparisonResult } from './analysis';
+import { analyzeCitationPatterns, compareContent, calculateVisibilityScore, buildAEOAnalysis, type CitationAnalysisResult, type ContentComparisonResult } from './analysis';
 import { generateAEORecommendations, generateCursorPrompt } from './output';
-import { CrawledPage, PageAnalysis, TargetQuery, AEOAnalysis, TavilySearchResult, CompetitorVisibility, QueryCitation, AEORecommendation } from '../types';
+import { type CrawledPage, type PageAnalysis, type TargetQuery, type AEOAnalysis, type TavilySearchResult, type CompetitorVisibility, type QueryCitation, type AEORecommendation } from '../types';
 
 // ===================
 // Helper Functions
@@ -69,7 +69,7 @@ export async function executeAgents(
   context: ContextManager,
   tenantId: string,
   jobId: string,
-  model: string = 'gpt-4o-mini'
+  model = 'gpt-4o-mini'
 ): Promise<void> {
   // Get already completed agents
   const completedAgents = new Set(

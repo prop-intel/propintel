@@ -5,7 +5,7 @@
  * that requires JavaScript rendering to extract content.
  */
 
-import { CrawledPage } from '../types';
+import { type CrawledPage } from '../types';
 
 // ===================
 // Configuration
@@ -139,7 +139,7 @@ export function detectSPA(page: CrawledPage, htmlContent?: string): SPADetection
     }
 
     // Check for empty body or minimal structure
-    const bodyMatch = htmlContent.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+    const bodyMatch = /<body[^>]*>([\s\S]*?)<\/body>/i.exec(htmlContent);
     if (bodyMatch) {
       const bodyContent = bodyMatch[1].trim();
       const tagCount = (bodyContent.match(/<[^>]+>/g) || []).length;

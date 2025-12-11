@@ -6,7 +6,7 @@ import {
   ListObjectsV2Command,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { Report, AEOReport } from '../types';
+import { type Report, type AEOReport } from '../types';
 import { generateMarkdownReport as generateAEOMarkdownReport } from '../agents/output/report-generator';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -275,7 +275,7 @@ export async function getReport(
 
 export async function getPresignedUrl(
   key: string,
-  expiresIn: number = 3600
+  expiresIn = 3600
 ): Promise<string> {
   if (IS_LOCAL) {
     // Return a file:// URL for local storage

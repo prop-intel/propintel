@@ -5,9 +5,9 @@
  * using Playwright and save the results to S3.
  */
 
-import { chromium, Browser, Page } from 'playwright';
+import { chromium, type Browser, type Page } from 'playwright';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
-import { CrawledPage } from '../types';
+import { type CrawledPage } from '../types';
 import { updateJob } from '../lib/db';
 
 // ===================
@@ -46,7 +46,7 @@ async function main(): Promise<void> {
     throw new Error('CONFIG environment variable not set');
   }
 
-  const config: RenderConfig = JSON.parse(configJson);
+  const config = JSON.parse(configJson) as RenderConfig;
   console.log(`[Renderer] Job: ${config.jobId}, URL: ${config.targetUrl}`);
 
   let browser: Browser | undefined;
@@ -179,7 +179,7 @@ async function renderPage(
     if (config.waitForSelector) {
       await page.waitForSelector(config.waitForSelector, {
         timeout: config.waitForTimeout,
-      }).catch(() => {});
+      }).catch(() => { /* timeout is ok */ });
     } else {
       // Default wait for body content
       await page.waitForTimeout(config.waitForTimeout);
@@ -195,6 +195,8 @@ async function renderPage(
   }
 }
 
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-return */
+// Note: page.evaluate() runs in browser context where DOM types are different
 async function extractPageData(
   page: Page,
   url: string,
@@ -325,6 +327,7 @@ async function extractPageData(
     warnings: [],
   };
 }
+/* eslint-enable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-return */
 
 // ===================
 // Storage Functions

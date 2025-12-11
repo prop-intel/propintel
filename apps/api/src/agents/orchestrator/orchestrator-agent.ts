@@ -5,10 +5,10 @@
  * Uses LLM for planning and reasoning, manages context, and executes agents.
  */
 
-import { ContextManager, AgentContext } from '../context';
+import { ContextManager, type AgentContext } from '../context';
 import { createExecutionPlan } from './plan-generator';
 import { reasonOverResults } from './result-reasoner';
-import { ExecutionPlan } from '../../types';
+import { type ExecutionPlan } from '../../types';
 import { getAgentRegistry } from '../registry';
 import { executeAgents } from '../executor';
 
@@ -30,7 +30,7 @@ export class OrchestratorAgent {
   async initialize(
     targetUrl: string,
     domain: string,
-    model: string = 'gpt-4o-mini'
+    model = 'gpt-4o-mini'
   ): Promise<ExecutionPlan> {
     const context = this.context.getContext();
     this.plan = await createExecutionPlan(
@@ -48,7 +48,7 @@ export class OrchestratorAgent {
   /**
    * Execute the plan
    */
-  async execute(model: string = 'gpt-4o-mini'): Promise<void> {
+  async execute(model = 'gpt-4o-mini'): Promise<void> {
     if (!this.plan) {
       throw new Error('Orchestrator not initialized. Call initialize() first.');
     }

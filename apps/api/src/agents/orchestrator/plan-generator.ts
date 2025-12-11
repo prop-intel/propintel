@@ -8,8 +8,8 @@
 import { createOpenAI } from '@ai-sdk/openai';
 import { generateObject } from 'ai';
 import { z } from 'zod';
-import { ExecutionPlan, ExecutionPhase } from '../../types';
-import { AgentContext } from '../context';
+import { type ExecutionPlan, type ExecutionPhase } from '../../types';
+import { type AgentContext } from '../context';
 import { createTrace, flushLangfuse } from '../../lib/langfuse';
 
 // ===================
@@ -61,7 +61,7 @@ export async function createExecutionPlan(
   context: AgentContext,
   tenantId: string,
   jobId: string,
-  model: string = 'gpt-4o-mini'
+  model = 'gpt-4o-mini'
 ): Promise<ExecutionPlan> {
   const trace = createTrace({
     name: 'execution-plan-generation',

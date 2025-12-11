@@ -7,7 +7,7 @@
  */
 
 import { Langfuse } from 'langfuse';
-import { TargetQuery, CompetitorVisibility, TavilySearchResult } from '../../types';
+import { type TargetQuery, type CompetitorVisibility, type TavilySearchResult } from '../../types';
 import { searchBatch } from '../../lib/tavily';
 
 // ===================
@@ -115,7 +115,7 @@ export async function discoverCompetitors(
 export async function getTopCompetitors(
   queries: string[],
   targetDomain: string,
-  limit: number = 5
+  limit = 5
 ): Promise<string[]> {
   const results = await searchBatch(queries.slice(0, 5), {
     maxResults: 5,

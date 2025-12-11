@@ -12,7 +12,7 @@ const DEV_API_KEYS: Record<string, { userId: string; name: string }> = {
 };
 
 async function ensureDevUserExists(userId: string, name: string): Promise<AuthUser> {
-  if (devUserCache && devUserCache.id === userId) {
+  if (devUserCache?.id === userId) {
     return devUserCache;
   }
 
@@ -78,7 +78,7 @@ export async function validateSession(
 
 function extractSessionToken(event: APIGatewayProxyEventV2): string | null {
   const authHeaders = event.headers || {};
-  const authHeader = authHeaders['authorization'] || authHeaders['Authorization'] || authHeaders['AUTHORIZATION'];
+  const authHeader = authHeaders.authorization || authHeaders.Authorization || authHeaders.AUTHORIZATION;
   
   if (authHeader) {
     const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : authHeader.trim();
@@ -87,13 +87,13 @@ function extractSessionToken(event: APIGatewayProxyEventV2): string | null {
     }
   }
 
-  const cookieHeader = authHeaders['cookie'] || authHeaders['Cookie'] || authHeaders['COOKIE'];
+  const cookieHeader = authHeaders.cookie || authHeaders.Cookie || authHeaders.COOKIE;
   if (cookieHeader) {
-    const match = cookieHeader.match(/authjs\.session-token=([^;]+)/i);
+    const match = /authjs\.session-token=([^;]+)/i.exec(cookieHeader);
     if (match) {
       return match[1].trim();
     }
-    const legacyMatch = cookieHeader.match(/next-auth\.session-token=([^;]+)/i);
+    const legacyMatch = /next-auth\.session-token=([^;]+)/i.exec(cookieHeader);
     if (legacyMatch) {
       return legacyMatch[1].trim();
     }
@@ -175,8 +175,8 @@ const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
 
 export function checkRateLimit(
   userId: string,
-  limit: number = 1000, // Increased from 100 to 1000 requests per minute
-  windowMs: number = 60000
+  limit = 1000, // Increased from 100 to 1000 requests per minute
+  windowMs = 60000
 ): { allowed: boolean; remaining: number; resetAt: number } {
   const now = Date.now();
   const key = `rate:${userId}`;

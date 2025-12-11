@@ -8,7 +8,7 @@
  */
 
 import { Langfuse } from 'langfuse';
-import { TargetQuery, PerplexityResult } from '../../types';
+import { type TargetQuery, type PerplexityResult } from '../../types';
 
 // ===================
 // Client Initialization

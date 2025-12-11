@@ -1,8 +1,8 @@
 import type { APIGatewayProxyHandlerV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import { v4 as uuidv4 } from 'uuid';
 import {
-  CreateJobRequest,
-  ApiResponse,
+  type CreateJobRequest,
+  type ApiResponse,
   DEFAULT_CRAWL_CONFIG,
 } from '../types';
 import {
@@ -82,7 +82,7 @@ export const create: APIGatewayProxyHandlerV2 = async (event): Promise<APIGatewa
 
   let request: CreateJobRequest;
   try {
-    request = JSON.parse(event.body || '{}');
+    request = JSON.parse(event.body || '{}') as CreateJobRequest;
   } catch {
     return jsonResponse(400, undefined, {
       code: 'INVALID_JSON',
@@ -264,6 +264,6 @@ export const getReport: APIGatewayProxyHandlerV2 = async (event): Promise<APIGat
   }
 
   // Wrap JSON report in standard API response format
-  const report = JSON.parse(reportContent);
+  const report = JSON.parse(reportContent) as Record<string, unknown>;
   return jsonResponse(200, report);
 };

@@ -12,7 +12,7 @@ import {
   StopTaskCommand,
 } from '@aws-sdk/client-ecs';
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
-import { CrawledPage, Job } from '../types';
+import { type CrawledPage, type Job } from '../types';
 
 // ===================
 // Configuration
@@ -105,7 +105,7 @@ export async function renderWithECS(
 
     // Attempt to stop the task if it's still running
     if (taskArn) {
-      await stopTask(taskArn).catch(() => {});
+      await stopTask(taskArn).catch(() => { /* ignore cleanup errors */ });
     }
 
     return {

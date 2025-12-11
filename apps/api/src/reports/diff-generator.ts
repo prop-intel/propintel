@@ -5,7 +5,7 @@
  * to track content changes over time.
  */
 
-import { CrawledPage, AEOAnalysis } from '../types';
+import { type CrawledPage, type AEOAnalysis } from '../types';
 
 // ===================
 // Types

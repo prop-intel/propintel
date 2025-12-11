@@ -8,7 +8,7 @@
  */
 
 import { Langfuse } from 'langfuse';
-import { TargetQuery, CommunitySignal } from '../../types';
+import { type TargetQuery, type CommunitySignal } from '../../types';
 
 // ===================
 // Client Initialization
