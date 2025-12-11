@@ -14,6 +14,49 @@ import { generateAEORecommendations, generateCursorPrompt } from './output';
 import { CrawledPage, PageAnalysis, TargetQuery, AEOAnalysis, TavilySearchResult, CompetitorVisibility, QueryCitation, AEORecommendation } from '../types';
 
 // ===================
+// Helper Functions
+// ===================
+
+/**
+ * Topologically sort agents by their dependencies
+ * Also adds any missing required dependencies to ensure execution succeeds
+ */
+function sortAgentsByDependencies(agentIds: string[], completedAgents: Set<string>): string[] {
+  const sorted: string[] = [];
+  const visited = new Set<string>();
+  const visiting = new Set<string>();
+
+  function visit(agentId: string): void {
+    if (visited.has(agentId)) return;
+    if (completedAgents.has(agentId)) return; // Already completed in previous phase
+    if (visiting.has(agentId)) {
+      // Circular dependency - just add it (shouldn't happen with valid registry)
+      return;
+    }
+
+    visiting.add(agentId);
+
+    const metadata = getAgentMetadata(agentId);
+    if (metadata) {
+      // Visit ALL dependencies first (add missing ones automatically)
+      for (const dep of metadata.inputs) {
+        visit(dep);
+      }
+    }
+
+    visiting.delete(agentId);
+    visited.add(agentId);
+    sorted.push(agentId);
+  }
+
+  for (const agentId of agentIds) {
+    visit(agentId);
+  }
+
+  return sorted;
+}
+
+// ===================
 // Agent Execution Functions
 // ===================
 
@@ -28,14 +71,24 @@ export async function executeAgents(
   jobId: string,
   model: string = 'gpt-4o-mini'
 ): Promise<void> {
+  // Get already completed agents
+  const completedAgents = new Set(
+    Object.values(context.getAllSummaries())
+      .filter(s => s.status === 'completed')
+      .map(s => s.agentId)
+  );
+  
+  // Sort agents by dependencies and add any missing required dependencies
+  const sortedAgentIds = sortAgentsByDependencies(agentIds, completedAgents);
+  
   if (runInParallel) {
     // Execute all agents in parallel
     await Promise.all(
-      agentIds.map(agentId => executeAgent(agentId, context, tenantId, jobId, model))
+      sortedAgentIds.map(agentId => executeAgent(agentId, context, tenantId, jobId, model))
     );
   } else {
-    // Execute agents sequentially
-    for (const agentId of agentIds) {
+    // Execute agents sequentially in dependency order
+    for (const agentId of sortedAgentIds) {
       await executeAgent(agentId, context, tenantId, jobId, model);
     }
   }

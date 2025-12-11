@@ -63,9 +63,12 @@ export const orchestratorRouter = createTRPCRouter({
         if (job.status === "completed") {
           // Try to fetch the report - it might not be ready immediately after completion
           try {
+            console.log("[orchestrator.getStatus] Fetching report for completed job:", input.jobId);
             const reportResult = await api.jobs.getReport(input.jobId, "json", cookie);
+            console.log("[orchestrator.getStatus] Report result received:", !!reportResult, typeof reportResult);
             if (reportResult) {
               const report = typeof reportResult === "string" ? JSON.parse(reportResult) : reportResult;
+              console.log("[orchestrator.getStatus] Report parsed, has scores:", !!report.scores, "has llmSummary:", !!report.llmSummary);
               
               // Format the LLM summary into a readable format
               reportSummary = {
@@ -78,18 +81,23 @@ export const orchestratorRouter = createTRPCRouter({
                 // Include full report for debugging/display
                 fullReport: report,
               };
+              console.log("[orchestrator.getStatus] Report summary built successfully");
             }
           } catch (reportError: any) {
             // Report might not be ready yet - this is expected and we'll keep polling
-            // Don't log expected errors (not found, not ready, etc.)
             const errorCode = reportError?.code || '';
+            const errorMessage = reportError?.message || '';
+            console.log("[orchestrator.getStatus] Report fetch error:", errorCode, errorMessage);
+            
             const isExpectedError = ['NOT_FOUND', 'PRECONDITION_FAILED', 'HTTP_404', 'HTTP_400'].includes(errorCode) ||
                                    errorCode.includes('not completed') ||
-                                   errorCode.includes('not found');
+                                   errorCode.includes('not found') ||
+                                   errorMessage.includes('not found') ||
+                                   errorMessage.includes('404');
             
-            // Only log unexpected errors
+            // Log all errors for now to help debug
             if (!isExpectedError) {
-              console.log("Report fetch error:", errorCode, reportError?.message || '');
+              console.error("[orchestrator.getStatus] Unexpected report error:", reportError);
             }
             // Return null summary so frontend knows to keep polling
             reportSummary = null;

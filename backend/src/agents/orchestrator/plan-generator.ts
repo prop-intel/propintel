@@ -99,13 +99,19 @@ Available agents:
 - Analysis: ${AVAILABLE_AGENTS.analysis.join(', ')}
 - Output: ${AVAILABLE_AGENTS.output.join(', ')}
 
-Rules:
-- Discovery agents must run first (sequential: page-analysis → query-generation → competitor-discovery)
-- Research agents can run in parallel after queries are generated
-- Analysis agents can run in parallel after research completes
-- Output agents run last (sequential: recommendations → cursor-prompt → report-generator)
-- Consider what's already completed in the context
-- Optimize for speed by parallelizing when possible`;
+CRITICAL DEPENDENCY RULES:
+1. Discovery phase (sequential): page-analysis → query-generation → competitor-discovery
+2. Research phase (parallel): tavily-research, google-aio, perplexity, community-signals can run in parallel after query-generation
+3. Analysis phase has TWO sub-phases:
+   - First: citation-analysis and content-comparison can run in parallel
+   - Second: visibility-scoring MUST run AFTER citation-analysis and content-comparison complete
+4. Output phase (sequential): recommendations → cursor-prompt → report-generator
+
+IMPORTANT: visibility-scoring depends on citation-analysis AND content-comparison. 
+Never put visibility-scoring in the same parallel phase as citation-analysis or content-comparison.
+
+Consider what's already completed in the context.
+Optimize for speed by parallelizing when possible, but ALWAYS respect dependencies.`;
 
     const userPrompt = `Create an execution plan for analyzing: ${targetUrl} (${domain})
 

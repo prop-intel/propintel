@@ -120,20 +120,20 @@ export default function AgentAnalysisPage() {
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
-      pending: { variant: "secondary" as const, icon: Clock, label: "Pending" },
-      crawling: { variant: "default" as const, icon: Loader2, label: "Crawling" },
-      analyzing: { variant: "default" as const, icon: Loader2, label: "Analyzing" },
-      completed: { variant: "default" as const, icon: CheckCircle2, label: "Completed" },
-      failed: { variant: "destructive" as const, icon: XCircle, label: "Failed" },
-      blocked: { variant: "destructive" as const, icon: XCircle, label: "Blocked" },
+      pending: { variant: "secondary" as const, icon: Clock, label: "Pending", spinning: false, className: "" },
+      crawling: { variant: "default" as const, icon: Loader2, label: "Crawling", spinning: true, className: "" },
+      analyzing: { variant: "default" as const, icon: Loader2, label: "Analyzing", spinning: true, className: "" },
+      completed: { variant: "default" as const, icon: CheckCircle2, label: "Completed", spinning: false, className: "bg-green-500 hover:bg-green-600" },
+      failed: { variant: "destructive" as const, icon: XCircle, label: "Failed", spinning: false, className: "" },
+      blocked: { variant: "destructive" as const, icon: XCircle, label: "Blocked", spinning: false, className: "" },
     };
 
     const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.pending;
     const Icon = config.icon;
 
     return (
-      <Badge variant={config.variant} className="gap-1">
-        <Icon className="h-3 w-3" />
+      <Badge variant={config.variant} className={`gap-1 ${config.className}`}>
+        <Icon className={`h-3 w-3 ${config.spinning ? "animate-spin" : ""}`} />
         {config.label}
       </Badge>
     );
@@ -237,15 +237,42 @@ export default function AgentAnalysisPage() {
                 </div>
               ) : statusHistory.length > 0 ? (
                 <div className="space-y-4">
-                  {statusHistory.map((update, index) => (
-                    <div key={index} className="border-l-2 border-primary pl-4 space-y-2">
+                  {statusHistory.map((update, index) => {
+                    const isLatest = index === statusHistory.length - 1;
+                    const overallCompleted = status?.status === "completed";
+                    const overallFailed = status?.status === "failed" || status?.status === "blocked";
+                    
+                    // Determine the effective status for this phase:
+                    // - If overall job is completed, all phases should show completed
+                    // - If overall job failed, previous phases completed before failure
+                    // - Otherwise, use the phase's own status
+                    const effectiveStatus = overallCompleted 
+                      ? "completed" 
+                      : overallFailed && !isLatest
+                        ? "completed"
+                        : update.status;
+                    
+                    const isInProgress = isLatest && (effectiveStatus === "crawling" || effectiveStatus === "analyzing");
+                    const isCompleted = effectiveStatus === "completed";
+                    const isFailed = effectiveStatus === "failed" || effectiveStatus === "blocked";
+                    
+                    return (
+                    <div key={index} className={`border-l-2 pl-4 space-y-2 ${isCompleted ? "border-green-500" : isFailed ? "border-destructive" : isInProgress ? "border-primary" : "border-muted-foreground"}`}>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 rounded-full bg-primary" />
+                          {isInProgress ? (
+                            <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                          ) : isCompleted ? (
+                            <CheckCircle2 className="h-4 w-4 text-green-500" />
+                          ) : isFailed ? (
+                            <XCircle className="h-4 w-4 text-destructive" />
+                          ) : (
+                            <div className="w-2 h-2 rounded-full bg-muted-foreground" />
+                          )}
                           <h4 className="font-semibold capitalize">{update.phase}</h4>
                         </div>
                         <div className="flex items-center gap-2">
-                          {getStatusBadge(update.status)}
+                          {getStatusBadge(effectiveStatus)}
                           <span className="text-xs text-muted-foreground">
                             {update.timestamp.toLocaleTimeString()}
                           </span>
@@ -259,7 +286,18 @@ export default function AgentAnalysisPage() {
                             {Object.entries(update.agentSummaries).map(([agentId, agentSummary]: [string, any]) => (
                               <div key={agentId} className="text-sm border rounded p-2 bg-muted/50">
                                 <div className="flex items-center justify-between mb-1">
-                                  <span className="font-medium">{agentId}</span>
+                                  <div className="flex items-center gap-2">
+                                    {agentSummary.status === "completed" ? (
+                                      <CheckCircle2 className="h-4 w-4 text-green-500" />
+                                    ) : agentSummary.status === "failed" ? (
+                                      <XCircle className="h-4 w-4 text-destructive" />
+                                    ) : agentSummary.status === "running" ? (
+                                      <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                                    ) : (
+                                      <Clock className="h-4 w-4 text-muted-foreground" />
+                                    )}
+                                    <span className="font-medium">{agentId}</span>
+                                  </div>
                                   {agentSummary.status && (
                                     <Badge
                                       variant={
@@ -271,8 +309,11 @@ export default function AgentAnalysisPage() {
                                           ? "default"
                                           : "secondary"
                                       }
-                                      className="text-xs"
+                                      className={`text-xs ${agentSummary.status === "completed" ? "bg-green-500 hover:bg-green-600" : ""}`}
                                     >
+                                      {agentSummary.status === "running" && (
+                                        <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                                      )}
                                       {agentSummary.status}
                                     </Badge>
                                   )}
@@ -294,7 +335,7 @@ export default function AgentAnalysisPage() {
                         </div>
                       )}
                     </div>
-                  ))}
+                  )})}
                 </div>
               ) : status ? (
                 <Alert>

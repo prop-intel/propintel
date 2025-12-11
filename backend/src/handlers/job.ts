@@ -263,11 +263,7 @@ export const getReport: APIGatewayProxyHandlerV2 = async (event): Promise<APIGat
     };
   }
 
-  return {
-    statusCode: 200,
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: reportContent,
-  };
+  // Wrap JSON report in standard API response format
+  const report = JSON.parse(reportContent);
+  return jsonResponse(200, report);
 };

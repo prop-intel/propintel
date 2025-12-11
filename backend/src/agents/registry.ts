@@ -121,7 +121,7 @@ const AGENT_REGISTRY: Record<string, AgentMetadata> = {
     name: 'Citation Analysis',
     description: 'Analyzes citation patterns and frequency',
     category: 'analysis',
-    inputs: ['tavily-research', 'google-aio', 'perplexity'],
+    inputs: ['tavily-research'], // google-aio and perplexity are optional (errorHandling: 'skip')
     outputs: 'CitationAnalysisResult',
     canRunInParallel: true,
     estimatedDuration: 10,
