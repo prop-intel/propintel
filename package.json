@@ -5,15 +5,23 @@
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",
+    "dev:web": "turbo run dev --filter=@propintel/web",
+    "dev:api": "turbo run dev --filter=@propintel/api",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
+    "test:all": "turbo run test",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,mdx}\" --cache --ignore-path .gitignore",
     "format:write": "prettier --write \"**/*.{ts,tsx,js,jsx,mdx}\" --cache --ignore-path .gitignore",
-    "clean": "turbo run clean && rm -rf node_modules"
+    "clean": "turbo run clean && rm -rf node_modules",
+    "db:generate": "turbo run db:generate --filter=@propintel/database",
+    "db:migrate": "turbo run db:migrate --filter=@propintel/database",
+    "db:push": "turbo run db:push --filter=@propintel/database",
+    "db:studio": "turbo run db:studio --filter=@propintel/database"
   },
   "devDependencies": {
     "prettier": "^3.5.3",
+    "prettier-plugin-tailwindcss": "^0.6.11",
     "turbo": "^2.3.0"
   },
   "packageManager": "pnpm@9.15.0",

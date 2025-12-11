@@ -13,7 +13,7 @@ export function createNextConfig(dirname) {
   return [
     { ignores: ['.next'] },
     ...compat.extends("next/core-web-vitals"),
-    ...createBaseConfig()
+    ...createBaseConfig({ tsconfigRootDir: dirname })
   ];
 }
 

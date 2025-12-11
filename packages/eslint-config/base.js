@@ -5,7 +5,7 @@ import drizzle from "eslint-plugin-drizzle";
 /**
  * Base ESLint config for all packages
  * @param {Object} options
- * @param {string} options.tsconfigPath - Path to tsconfig.json
+ * @param {string} options.tsconfigRootDir - Directory containing tsconfig.json
  */
 export function createBaseConfig(options = {}) {
   return tseslint.config(
@@ -48,7 +48,8 @@ export function createBaseConfig(options = {}) {
       },
       languageOptions: {
         parserOptions: {
-          projectService: true
+          projectService: true,
+          tsconfigRootDir: options.tsconfigRootDir
         }
       }
     }
