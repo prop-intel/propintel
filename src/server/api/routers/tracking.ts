@@ -24,20 +24,9 @@ export const trackingRouter = createTRPCRouter({
 
       return {
         trackingId: site.trackingId,
-        inlineScript: `<script>
-(function(){
-  var ua=navigator.userAgent;
-  var bots=['GPTBot','ChatGPT-User','OAI-SearchBot','ClaudeBot','Claude-Web','Claude-SearchBot','anthropic-ai','PerplexityBot','Perplexity-User','Googlebot','Google-Extended','bingbot','Bytespider','cohere-ai','Meta-ExternalAgent','Applebot-Extended'];
-  for(var i=0;i<bots.length;i++){
-    if(ua.indexOf(bots[i])!==-1){
-      var img=new Image();
-      img.src='${baseUrl}/api/beacon?tid=${site.trackingId}&ua='+encodeURIComponent(ua)+'&path='+encodeURIComponent(location.pathname)+'&t='+Date.now();
-      break;
-    }
-  }
-})();
-</script>`,
-        externalScript: `<script src="${baseUrl}/api/script/${site.trackingId}"></script>`,
+        // Pixel tracking - works with all AI crawlers because they fetch images
+        // but don't execute JavaScript
+        pixelTag: `<img src="${baseUrl}/api/pixel/${site.trackingId}" alt="" width="1" height="1" style="position:absolute;opacity:0;pointer-events:none" />`,
       };
     }),
 
@@ -64,11 +53,11 @@ export const trackingRouter = createTRPCRouter({
         }
 
         const html = await response.text();
-        const hasScript = html.includes(site.trackingId);
+        const hasPixel = html.includes(site.trackingId);
 
         return {
-          installed: hasScript,
-          error: hasScript ? null : "Tracking script not found on page",
+          installed: hasPixel,
+          error: hasPixel ? null : "Tracking pixel not found on page",
         };
       } catch (error) {
         console.error(`Failed to test installation for ${site.domain}:`, error);

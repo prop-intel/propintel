@@ -4,7 +4,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, ApiClientError } from "@/lib/api/client";
+import { api } from "@/lib/api/client";
 import type { Job, CreateJobRequest, PaginatedResponse } from "@/lib/api/types";
 
 /**
@@ -64,7 +64,7 @@ export function useCreateJob() {
     },
     onSuccess: (newJob) => {
       // Invalidate jobs list to refetch
-      queryClient.invalidateQueries({ queryKey: ["jobs"] });
+      void queryClient.invalidateQueries({ queryKey: ["jobs"] });
       // Add the new job to cache
       queryClient.setQueryData(["job", newJob.id], newJob);
     },

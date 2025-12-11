@@ -108,7 +108,7 @@ async function apiRequest<T>(
     );
   }
 
-  return (data as ApiResponse<T>).data;
+  return data.data;
 }
 
 /**
