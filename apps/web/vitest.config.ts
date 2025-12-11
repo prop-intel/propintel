@@ -11,6 +11,7 @@ export default defineConfig({
     include: ["src/**/*.test.{ts,tsx}", "tests/**/*.test.{ts,tsx}"],
     exclude: ["node_modules", ".next"],
     testTimeout: 30000,
+    passWithNoTests: true,
   },
   resolve: {
     alias: {

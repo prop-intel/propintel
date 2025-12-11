@@ -1,4 +1,4 @@
-import tseslint from 'typescript-eslint';
+import tseslint from "typescript-eslint";
 // @ts-ignore -- no types for this plugin
 import drizzle from "eslint-plugin-drizzle";
 
@@ -10,14 +10,14 @@ import drizzle from "eslint-plugin-drizzle";
 export function createBaseConfig(options = {}) {
   return tseslint.config(
     {
-      files: ['**/*.ts', '**/*.tsx'],
+      files: ["**/*.ts", "**/*.tsx"],
       plugins: {
         drizzle,
       },
       extends: [
         ...tseslint.configs.recommended,
         ...tseslint.configs.recommendedTypeChecked,
-        ...tseslint.configs.stylisticTypeChecked
+        ...tseslint.configs.stylisticTypeChecked,
       ],
       rules: {
         "@typescript-eslint/array-type": "off",
@@ -26,7 +26,10 @@ export function createBaseConfig(options = {}) {
           "warn",
           { prefer: "type-imports", fixStyle: "inline-type-imports" },
         ],
-        "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_" }],
+        "@typescript-eslint/no-unused-vars": [
+          "warn",
+          { argsIgnorePattern: "^_" },
+        ],
         "@typescript-eslint/require-await": "off",
         "@typescript-eslint/no-misused-promises": [
           "error",
@@ -44,15 +47,15 @@ export function createBaseConfig(options = {}) {
     },
     {
       linterOptions: {
-        reportUnusedDisableDirectives: true
+        reportUnusedDisableDirectives: true,
       },
       languageOptions: {
         parserOptions: {
           projectService: true,
-          tsconfigRootDir: options.tsconfigRootDir
-        }
-      }
-    }
+          tsconfigRootDir: options.tsconfigRootDir,
+        },
+      },
+    },
   );
 }
 

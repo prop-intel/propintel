@@ -9,6 +9,7 @@ type SearchParams = Promise<{
   error?: string;
   success?: string;
   mode?: string;
+  force?: string;
 }>;
 
 export default async function LoginPage({

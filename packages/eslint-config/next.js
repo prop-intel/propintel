@@ -11,9 +11,9 @@ export function createNextConfig(dirname) {
   });
 
   return [
-    { ignores: ['.next'] },
+    { ignores: [".next"] },
     ...compat.extends("next/core-web-vitals"),
-    ...createBaseConfig({ tsconfigRootDir: dirname })
+    ...createBaseConfig({ tsconfigRootDir: dirname }),
   ];
 }
 

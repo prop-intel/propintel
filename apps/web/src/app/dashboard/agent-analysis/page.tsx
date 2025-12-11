@@ -178,8 +178,8 @@ interface StatusUpdate {
   phase: string;
   status: string;
   timestamp: Date;
-  summary?: string;
-  agentSummaries?: Record<string, AgentSummary>;
+  summary?: unknown;
+  agentSummaries?: Record<string, unknown>;
 }
 
 export default function AgentAnalysisPage() {
@@ -448,7 +448,9 @@ export default function AgentAnalysisPage() {
                         <div className="ml-6 space-y-2">
                           <Label className="text-xs text-muted-foreground">Agent Steps:</Label>
                           <div className="space-y-2">
-                            {Object.entries(update.agentSummaries).map(([agentId, agentSummary]) => (
+                            {Object.entries(update.agentSummaries).map(([agentId, rawSummary]) => {
+                              const agentSummary = rawSummary as AgentSummary;
+                              return (
                               <div key={agentId} className="text-sm border rounded p-2 bg-muted/50">
                                 <div className="flex items-center justify-between mb-1">
                                   <div className="flex items-center gap-2">
@@ -495,7 +497,8 @@ export default function AgentAnalysisPage() {
                                   </div>
                                 )}
                               </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         </div>
                       )}
