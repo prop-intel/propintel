@@ -143,14 +143,16 @@ export const getSummary: APIGatewayProxyHandlerV2 = async (event) => {
     const topDomains = [...domainMap.entries()]
       .map(([domain, data]) => {
         const scores = data.scores;
-        const trend: 'up' | 'down' | 'stable' = 
-          scores.length >= 2 && scores[0] > scores[1] ? 'up' :
-          scores.length >= 2 && scores[0] < scores[1] ? 'down' : 'stable';
+        const score0 = scores[0] ?? 0;
+        const score1 = scores[1] ?? 0;
+        const trend: 'up' | 'down' | 'stable' =
+          scores.length >= 2 && score0 > score1 ? 'up' :
+          scores.length >= 2 && score0 < score1 ? 'down' : 'stable';
 
         return {
           domain,
           jobCount: data.jobs.length,
-          latestScore: scores[0] || 0,
+          latestScore: score0,
           trend,
         };
       })
@@ -228,7 +230,7 @@ export const getTrends: APIGatewayProxyHandlerV2 = async (event) => {
         if (reportJson) {
           const report = JSON.parse(reportJson) as AEOReport;
           trends.push({
-            date: completedAt.toISOString().split('T')[0],
+            date: completedAt.toISOString().split('T')[0] ?? '',
             aeoScore: report.scores?.aeoVisibilityScore || 0,
             llmeoScore: report.scores?.llmeoScore || 0,
             seoScore: report.scores?.seoScore || 0,
@@ -343,7 +345,9 @@ function generateAlerts(
   // Check for score drops
   for (const [domain, data] of domainMap) {
     if (data.scores.length >= 2) {
-      const scoreDrop = data.scores[1] - data.scores[0];
+      const score0 = data.scores[0] ?? 0;
+      const score1 = data.scores[1] ?? 0;
+      const scoreDrop = score1 - score0;
       if (scoreDrop >= 10) {
         alerts.push({
           type: 'score_drop',
@@ -358,11 +362,12 @@ function generateAlerts(
 
   // Check for low scores
   for (const [domain, data] of domainMap) {
-    if (data.scores[0] < 30) {
+    const firstScore = data.scores[0];
+    if (firstScore !== undefined && firstScore < 30) {
       alerts.push({
         type: 'gap_identified',
         severity: 'warning',
-        message: `${domain} has low AEO visibility (${data.scores[0]}/100)`,
+        message: `${domain} has low AEO visibility (${firstScore}/100)`,
         domain,
         createdAt: new Date().toISOString(),
       });

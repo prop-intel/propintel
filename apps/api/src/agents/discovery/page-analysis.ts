@@ -171,7 +171,11 @@ function selectBestPage(pages: CrawledPage[]): CrawledPage {
   // Sort by score descending
   scored.sort((a, b) => b.score - a.score);
 
-  return scored[0].page;
+  const best = scored[0];
+  if (!best) {
+    throw new Error('No pages to analyze');
+  }
+  return best.page;
 }
 
 /**

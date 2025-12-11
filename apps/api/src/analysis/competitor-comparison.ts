@@ -184,7 +184,7 @@ export function quickCompetitiveOverview(
 
   // Find biggest gap
   let biggestGap = 'No significant gaps identified';
-  if (behindIn.length > 0) {
+  if (behindIn.length > 0 && behindIn[0]) {
     biggestGap = behindIn[0];
   }
 
@@ -260,11 +260,12 @@ function generateCategoryComparison(
       score: cat.getter(d),
     })).sort((a, b) => b.score - a.score);
 
+    const yourDomain = allData[0]?.domain ?? '';
     return {
       category: cat.name,
       scores,
-      winner: scores[0].domain,
-      yourPosition: scores.findIndex(s => s.domain === allData[0].domain) + 1,
+      winner: scores[0]?.domain ?? '',
+      yourPosition: scores.findIndex(s => s.domain === yourDomain) + 1,
     };
   });
 }

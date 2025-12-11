@@ -208,7 +208,9 @@ export function quickCompare(
   
   for (const result of searchResults) {
     for (let i = 0; i < Math.min(3, result.results.length); i++) {
-      const domain = result.results[i].domain;
+      const item = result.results[i];
+      if (!item) continue;
+      const domain = item.domain;
       topPositionCounts.set(domain, (topPositionCounts.get(domain) || 0) + 1);
     }
   }

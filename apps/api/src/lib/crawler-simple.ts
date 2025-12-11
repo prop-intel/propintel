@@ -31,7 +31,8 @@ interface CrawlState {
 export async function crawlSite(job: Job): Promise<CrawledPage[]> {
   const config = job.config;
   const baseUrl = new URL(job.targetUrl);
-  
+  const tenantId = job.tenantId ?? job.userId;
+
   const state: CrawlState = {
     visited: new Set(),
     queue: [{ url: job.targetUrl, depth: 0 }],
@@ -94,7 +95,7 @@ export async function crawlSite(job: Job): Promise<CrawledPage[]> {
 
       try {
         // Crawl page using HTTP fetch
-        const page = await crawlPage(url, config, job.tenantId, job.id);
+        const page = await crawlPage(url, config, tenantId, job.id);
 
         if (page) {
           // Check for duplicate content
@@ -141,7 +142,7 @@ export async function crawlSite(job: Job): Promise<CrawledPage[]> {
     }
 
     // Save crawled data to S3
-    await uploadPageData(job.tenantId, job.id, state.pages);
+    await uploadPageData(tenantId, job.id, state.pages);
 
     return state.pages;
 

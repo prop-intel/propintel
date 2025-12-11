@@ -129,8 +129,9 @@ function generateTopRecommendation(
 ): string {
   // If there are critical schema gaps, prioritize those
   const criticalSchemaGaps = gapAnalysis.schemaGaps.filter(g => g.importance === 'critical');
-  if (criticalSchemaGaps.length > 0) {
-    return `Priority: Implement ${criticalSchemaGaps[0].schemaType} schema to enable AI-rich results`;
+  const firstCriticalGap = criticalSchemaGaps[0];
+  if (firstCriticalGap) {
+    return `Priority: Implement ${firstCriticalGap.schemaType} schema to enable AI-rich results`;
   }
 
   // If ranking is low, focus on biggest gap
@@ -140,8 +141,8 @@ function generateTopRecommendation(
   }
 
   // If doing well, focus on opportunities
-  if (comparison.competitivePosition.opportunityGaps.length > 0) {
-    const topGap = comparison.competitivePosition.opportunityGaps[0];
+  const topGap = comparison.competitivePosition.opportunityGaps[0];
+  if (topGap) {
     return `Opportunity: Add ${topGap.area} - competitors have proven this works`;
   }
 

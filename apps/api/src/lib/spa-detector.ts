@@ -140,7 +140,7 @@ export function detectSPA(page: CrawledPage, htmlContent?: string): SPADetection
 
     // Check for empty body or minimal structure
     const bodyMatch = /<body[^>]*>([\s\S]*?)<\/body>/i.exec(htmlContent);
-    if (bodyMatch) {
+    if (bodyMatch?.[1]) {
       const bodyContent = bodyMatch[1].trim();
       const tagCount = (bodyContent.match(/<[^>]+>/g) || []).length;
       if (tagCount < 10) {

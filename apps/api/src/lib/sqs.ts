@@ -41,7 +41,8 @@ export async function enqueueJob(message: CrawlJobMessage): Promise<string> {
           }],
         };
         // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-        handler(mockSQSEvent as SQSEvent, {} as Context, (() => { /* callback unused */ }) as Callback).catch((error: unknown) => {
+        const result = handler(mockSQSEvent as SQSEvent, {} as Context, (() => { /* callback unused */ }) as Callback);
+        Promise.resolve(result).catch((error: unknown) => {
           console.error('[SQS-LOCAL] Error processing job:', {
             jobId: message.jobId,
             error: error instanceof Error ? error.message : String(error),

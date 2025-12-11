@@ -207,8 +207,8 @@ export function generateQuickRecommendations(
   }
 
   // Competitor dominance
-  if (aeoAnalysis.competitors.length > 0 && aeoAnalysis.competitors[0].citationRate > aeoAnalysis.citationRate * 2) {
-    const topCompetitor = aeoAnalysis.competitors[0];
+  const topCompetitor = aeoAnalysis.competitors[0];
+  if (topCompetitor && topCompetitor.citationRate > aeoAnalysis.citationRate * 2) {
     recommendations.push({
       id: `quick-${idCounter++}`,
       priority: 'high',
@@ -292,11 +292,12 @@ function findCompetitorExample(
   }
 
   // Fall back to top competitor
-  if (competitors.length > 0) {
+  const firstCompetitor = competitors[0];
+  if (firstCompetitor) {
     return {
-      domain: competitors[0].domain,
+      domain: firstCompetitor.domain,
       url: '',
-      whatTheyDoBetter: competitors[0].strengths.join(', '),
+      whatTheyDoBetter: firstCompetitor.strengths.join(', '),
     };
   }
 

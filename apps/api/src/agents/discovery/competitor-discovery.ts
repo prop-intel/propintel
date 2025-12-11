@@ -156,6 +156,7 @@ function analyzeDomainStats(
   for (const result of results) {
     for (let i = 0; i < result.results.length; i++) {
       const item = result.results[i];
+      if (!item) continue;
       const domain = item.domain;
 
       // Skip target domain

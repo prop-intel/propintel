@@ -401,11 +401,12 @@ function generateHighlightedChanges(
   const titleChanges = pageDiffs.filter(d =>
     d.changes.some(c => c.field === 'title')
   );
-  if (titleChanges.length > 0) {
+  const firstTitleChange = titleChanges[0];
+  if (firstTitleChange) {
     highlights.push({
       description: `${titleChanges.length} page(s) with updated titles`,
       impact: 'neutral',
-      url: titleChanges[0].url,
+      url: firstTitleChange.url,
       recommendation: 'Verify new titles include target keywords',
     });
   }

@@ -195,7 +195,7 @@ async function renderPage(
   }
 }
 
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-return */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-explicit-any */
 // Note: page.evaluate() runs in browser context where DOM types are different
 async function extractPageData(
   page: Page,
@@ -203,38 +203,43 @@ async function extractPageData(
   statusCode: number
 ): Promise<CrawledPage> {
   const data = await page.evaluate(() => {
+    // Browser context - document and window are available here
+    // Using 'any' because DOM types are not available in Node.js environment
+    const doc = (globalThis as any).document;
+    const win = (globalThis as any).window;
+
     // Extract title
-    const title = document.title || '';
+    const title = doc.title || '';
 
     // Extract meta description
-    const metaDesc = document.querySelector('meta[name="description"]');
+    const metaDesc = doc.querySelector('meta[name="description"]');
     const metaDescription = metaDesc?.getAttribute('content') || '';
 
     // Extract H1
-    const h1Element = document.querySelector('h1');
+    const h1Element = doc.querySelector('h1');
     const h1 = h1Element?.textContent?.trim() || '';
 
     // Extract all headings
     const headings = {
-      h1: Array.from(document.querySelectorAll('h1')).map(h => h.textContent?.trim() || ''),
-      h2: Array.from(document.querySelectorAll('h2')).map(h => h.textContent?.trim() || ''),
-      h3: Array.from(document.querySelectorAll('h3')).map(h => h.textContent?.trim() || ''),
-      h4: Array.from(document.querySelectorAll('h4')).map(h => h.textContent?.trim() || ''),
-      h5: Array.from(document.querySelectorAll('h5')).map(h => h.textContent?.trim() || ''),
-      h6: Array.from(document.querySelectorAll('h6')).map(h => h.textContent?.trim() || ''),
+      h1: Array.from(doc.querySelectorAll('h1')).map((h: any) => h.textContent?.trim() || ''),
+      h2: Array.from(doc.querySelectorAll('h2')).map((h: any) => h.textContent?.trim() || ''),
+      h3: Array.from(doc.querySelectorAll('h3')).map((h: any) => h.textContent?.trim() || ''),
+      h4: Array.from(doc.querySelectorAll('h4')).map((h: any) => h.textContent?.trim() || ''),
+      h5: Array.from(doc.querySelectorAll('h5')).map((h: any) => h.textContent?.trim() || ''),
+      h6: Array.from(doc.querySelectorAll('h6')).map((h: any) => h.textContent?.trim() || ''),
     };
 
     // Extract links
-    const allLinks = Array.from(document.querySelectorAll('a[href]'));
+    const allLinks = Array.from(doc.querySelectorAll('a[href]'));
     const internal: string[] = [];
     const external: string[] = [];
-    const baseHost = window.location.hostname;
+    const baseHost = win.location.hostname;
 
-    allLinks.forEach(link => {
+    allLinks.forEach((link: any) => {
       const href = link.getAttribute('href');
       if (!href) return;
       try {
-        const linkUrl = new URL(href, window.location.href);
+        const linkUrl = new URL(href, win.location.href);
         if (linkUrl.hostname === baseHost) {
           internal.push(linkUrl.href);
         } else {
@@ -247,7 +252,7 @@ async function extractPageData(
     });
 
     // Extract images
-    const images = Array.from(document.querySelectorAll('img')).map(img => ({
+    const images = Array.from(doc.querySelectorAll('img')).map((img: any) => ({
       src: img.src,
       alt: img.alt || undefined,
       width: img.naturalWidth || undefined,
@@ -257,7 +262,7 @@ async function extractPageData(
 
     // Extract schemas
     const schemas: Array<{type: string; properties: Record<string, unknown>; isValid: boolean; errors?: string[]}> = [];
-    document.querySelectorAll('script[type="application/ld+json"]').forEach(script => {
+    doc.querySelectorAll('script[type="application/ld+json"]').forEach((script: any) => {
       try {
         const data = JSON.parse(script.textContent || '');
         schemas.push({
@@ -276,21 +281,21 @@ async function extractPageData(
     });
 
     // Extract robots meta
-    const robotsMeta = document.querySelector('meta[name="robots"]');
+    const robotsMeta = doc.querySelector('meta[name="robots"]');
     const robotsContent = robotsMeta?.getAttribute('content') || '';
     const noindex = robotsContent.includes('noindex');
     const nofollow = robotsContent.includes('nofollow');
 
     // Extract canonical
-    const canonicalLink = document.querySelector('link[rel="canonical"]');
+    const canonicalLink = doc.querySelector('link[rel="canonical"]');
     const canonicalUrl = canonicalLink?.getAttribute('href') || undefined;
 
     // Count words
-    const bodyText = document.body?.innerText || '';
-    const wordCount = bodyText.split(/\s+/).filter(w => w.length > 0).length;
+    const bodyText = doc.body?.innerText || '';
+    const wordCount = bodyText.split(/\s+/).filter((w: string) => w.length > 0).length;
 
     // Get HTML for snapshot
-    const html = document.documentElement.outerHTML;
+    const html = doc.documentElement.outerHTML;
 
     return {
       title,

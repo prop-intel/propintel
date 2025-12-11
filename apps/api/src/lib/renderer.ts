@@ -68,6 +68,7 @@ export async function renderWithECS(
 ): Promise<RenderResult> {
   const startTime = Date.now();
   let taskArn: string | undefined;
+  const tenantId = job.tenantId ?? job.userId;
 
   try {
     console.log(`[Renderer] Starting ECS render task for job ${job.id}`);
@@ -90,7 +91,7 @@ export async function renderWithECS(
     }
 
     // Retrieve rendered pages from S3
-    const pages = await retrieveRenderedPages(job.tenantId, job.id);
+    const pages = await retrieveRenderedPages(tenantId, job.id);
 
     console.log(`[Renderer] Render complete. ${pages.length} pages retrieved.`);
 

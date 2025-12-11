@@ -33,6 +33,10 @@ async function ensureDevUserExists(userId: string, name: string): Promise<AuthUs
     role: 'user',
   }).returning();
 
+  if (!newUser) {
+    throw new Error('Failed to create dev user');
+  }
+
   devUserCache = newUser;
   return newUser;
 }
@@ -90,11 +94,11 @@ function extractSessionToken(event: APIGatewayProxyEventV2): string | null {
   const cookieHeader = authHeaders.cookie || authHeaders.Cookie || authHeaders.COOKIE;
   if (cookieHeader) {
     const match = /authjs\.session-token=([^;]+)/i.exec(cookieHeader);
-    if (match) {
+    if (match?.[1]) {
       return match[1].trim();
     }
     const legacyMatch = /next-auth\.session-token=([^;]+)/i.exec(cookieHeader);
-    if (legacyMatch) {
+    if (legacyMatch?.[1]) {
       return legacyMatch[1].trim();
     }
   }
@@ -102,10 +106,10 @@ function extractSessionToken(event: APIGatewayProxyEventV2): string | null {
   const cookies = event.cookies || [];
   for (const cookie of cookies) {
     if (cookie.startsWith('authjs.session-token=')) {
-      return cookie.replace('authjs.session-token=', '').split(';')[0].trim();
+      return cookie.replace('authjs.session-token=', '').split(';')[0]?.trim() ?? null;
     }
     if (cookie.startsWith('next-auth.session-token=')) {
-      return cookie.replace('next-auth.session-token=', '').split(';')[0].trim();
+      return cookie.replace('next-auth.session-token=', '').split(';')[0]?.trim() ?? null;
     }
   }
 

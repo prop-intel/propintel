@@ -383,7 +383,7 @@ function generateInsights(
   // Trend insights
   if (diffReports.length >= 2) {
     const latestReport = diffReports[diffReports.length - 1];
-    if (latestReport.summary.majorChanges > 5) {
+    if (latestReport && latestReport.summary.majorChanges > 5) {
       insights.push(`Recent major changes: ${latestReport.summary.majorChanges} significant updates`);
     }
   }
