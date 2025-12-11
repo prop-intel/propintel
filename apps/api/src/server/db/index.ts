@@ -1,5 +1,5 @@
 import { Pool } from "pg";
-import { createPgClient } from "@propintel/database";
+import { createPgClient } from "@propintel/database/client/pg";
 
 function getDatabaseUrl(): string {
   const url = process.env.DATABASE_URL;
