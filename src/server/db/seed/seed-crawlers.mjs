@@ -27,7 +27,7 @@ const crawlerSeedData = [
     name: "ChatGPT-User",
     company: "OpenAI",
     userAgentPattern: "ChatGPT-User",
-    category: "browsing",
+    category: "assistant",
     description: "Real-time browsing (~75% of AI crawler traffic)",
   },
   {
@@ -49,28 +49,12 @@ const crawlerSeedData = [
     description: "Training data collection",
   },
   {
-    id: "claude-web",
-    name: "Claude-Web",
+    id: "claude-user",
+    name: "Claude-User",
     company: "Anthropic",
-    userAgentPattern: "Claude-Web",
-    category: "browsing",
-    description: "Web access features",
-  },
-  {
-    id: "claude-searchbot",
-    name: "Claude-SearchBot",
-    company: "Anthropic",
-    userAgentPattern: "Claude-SearchBot",
-    category: "search",
-    description: "Search functionality",
-  },
-  {
-    id: "anthropic-ai",
-    name: "anthropic-ai",
-    company: "Anthropic",
-    userAgentPattern: "anthropic-ai",
-    category: "training",
-    description: "General Anthropic crawler",
+    userAgentPattern: "Claude-User",
+    category: "assistant",
+    description: "User-triggered web access",
   },
 
   // Perplexity
@@ -87,7 +71,7 @@ const crawlerSeedData = [
     name: "Perplexity-User",
     company: "Perplexity",
     userAgentPattern: "Perplexity-User",
-    category: "browsing",
+    category: "assistant",
     description: "User-triggered searches",
   },
 
@@ -119,7 +103,45 @@ const crawlerSeedData = [
     description: "Bing search + Copilot",
   },
 
-  // Others
+  // Meta
+  {
+    id: "meta-externalagent",
+    name: "Meta-ExternalAgent",
+    company: "Meta",
+    userAgentPattern: "Meta-ExternalAgent",
+    category: "training",
+    description: "Meta AI training",
+  },
+  {
+    id: "facebookbot",
+    name: "FacebookBot",
+    company: "Meta",
+    userAgentPattern: "FacebookBot",
+    category: "search",
+    description: "Facebook search and link previews",
+  },
+
+  // Amazon
+  {
+    id: "amazonbot",
+    name: "Amazonbot",
+    company: "Amazon",
+    userAgentPattern: "Amazonbot",
+    category: "search",
+    description: "Alexa answers and Amazon search",
+  },
+
+  // Apple
+  {
+    id: "applebot-extended",
+    name: "Applebot-Extended",
+    company: "Apple",
+    userAgentPattern: "Applebot-Extended",
+    category: "training",
+    description: "Apple Intelligence",
+  },
+
+  // ByteDance
   {
     id: "bytespider",
     name: "Bytespider",
@@ -128,6 +150,8 @@ const crawlerSeedData = [
     category: "training",
     description: "ByteDance/TikTok",
   },
+
+  // Cohere
   {
     id: "cohere-ai",
     name: "cohere-ai",
@@ -136,21 +160,55 @@ const crawlerSeedData = [
     category: "training",
     description: "Cohere models",
   },
+
+  // DeepSeek
   {
-    id: "meta-externalagent",
-    name: "Meta-ExternalAgent",
-    company: "Meta",
-    userAgentPattern: "Meta-ExternalAgent",
+    id: "deepseekbot",
+    name: "DeepseekBot",
+    company: "DeepSeek",
+    userAgentPattern: "DeepseekBot",
     category: "training",
-    description: "Meta AI",
+    description: "DeepSeek AI training",
   },
+
+  // xAI
   {
-    id: "applebot-extended",
-    name: "Applebot-Extended",
-    company: "Apple",
-    userAgentPattern: "Applebot-Extended",
+    id: "xai-bot",
+    name: "xAI-Bot",
+    company: "xAI",
+    userAgentPattern: "xAI-Bot",
     category: "training",
-    description: "Apple Intelligence",
+    description: "Grok training",
+  },
+
+  // Common Crawl
+  {
+    id: "ccbot",
+    name: "CCBot",
+    company: "Common Crawl",
+    userAgentPattern: "CCBot",
+    category: "training",
+    description: "Open dataset used by many AI models",
+  },
+
+  // DuckDuckGo
+  {
+    id: "duckassistbot",
+    name: "DuckAssistBot",
+    company: "DuckDuckGo",
+    userAgentPattern: "DuckAssistBot",
+    category: "assistant",
+    description: "DuckDuckGo AI assistant",
+  },
+
+  // You.com
+  {
+    id: "youbot",
+    name: "YouBot",
+    company: "You.com",
+    userAgentPattern: "YouBot",
+    category: "search",
+    description: "You.com AI search",
   },
 ];
 
@@ -160,7 +218,7 @@ async function seedCrawlers() {
   for (const crawler of crawlerSeedData) {
     try {
       await sql`
-        INSERT INTO crawlers (id, name, company, "userAgentPattern", category, description, "createdAt")
+        INSERT INTO crawlers (id, name, company, user_agent_pattern, category, description, created_at)
         VALUES (
           ${crawler.id},
           ${crawler.name},
