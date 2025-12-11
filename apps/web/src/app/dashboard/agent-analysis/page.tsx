@@ -11,12 +11,175 @@ import { Play, RefreshCw, CheckCircle2, XCircle, Clock, Loader2, Globe } from "l
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+interface AgentSummary {
+  status?: string;
+  summary?: string;
+  keyFindings?: string[];
+}
+
+interface SummaryScores {
+  aeoVisibilityScore?: number;
+  llmeoScore?: number;
+  seoScore?: number;
+  overallScore?: number;
+}
+
+interface FullSummary {
+  scores?: SummaryScores;
+  strengths?: string[];
+  weaknesses?: string[];
+  opportunities?: string[];
+  nextSteps?: string[];
+  recommendations?: Recommendation[];
+  fullReport?: Record<string, unknown>;
+}
+
+// Type guard to check if summary is a FullSummary object
+function isFullSummary(summary: unknown): summary is FullSummary {
+  return typeof summary === 'object' && summary !== null;
+}
+
+// Component to display the full summary
+function SummaryDisplay({ summary }: { summary: FullSummary }) {
+  return (
+    <>
+      {summary.scores && (
+        <div>
+          <Label className="text-sm font-semibold mb-2 block">Scores</Label>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+            {summary.scores.aeoVisibilityScore !== undefined && (
+              <div className="border rounded p-2">
+                <div className="text-xs text-muted-foreground">AEO Visibility</div>
+                <div className="text-lg font-bold">{summary.scores.aeoVisibilityScore}/100</div>
+              </div>
+            )}
+            {summary.scores.llmeoScore !== undefined && (
+              <div className="border rounded p-2">
+                <div className="text-xs text-muted-foreground">LLMEO</div>
+                <div className="text-lg font-bold">{summary.scores.llmeoScore}/100</div>
+              </div>
+            )}
+            {summary.scores.seoScore !== undefined && (
+              <div className="border rounded p-2">
+                <div className="text-xs text-muted-foreground">SEO</div>
+                <div className="text-lg font-bold">{summary.scores.seoScore}/100</div>
+              </div>
+            )}
+            {summary.scores.overallScore !== undefined && (
+              <div className="border rounded p-2">
+                <div className="text-xs text-muted-foreground">Overall</div>
+                <div className="text-lg font-bold">{summary.scores.overallScore}/100</div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {summary.strengths && summary.strengths.length > 0 && (
+        <div>
+          <Label className="text-sm font-semibold mb-2 block">Strengths</Label>
+          <ul className="list-disc list-inside space-y-1 text-sm">
+            {summary.strengths.map((item, idx) => (
+              <li key={idx}>{item}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {summary.weaknesses && summary.weaknesses.length > 0 && (
+        <div>
+          <Label className="text-sm font-semibold mb-2 block">Weaknesses</Label>
+          <ul className="list-disc list-inside space-y-1 text-sm">
+            {summary.weaknesses.map((item, idx) => (
+              <li key={idx}>{item}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {summary.opportunities && summary.opportunities.length > 0 && (
+        <div>
+          <Label className="text-sm font-semibold mb-2 block">Opportunities</Label>
+          <ul className="list-disc list-inside space-y-1 text-sm">
+            {summary.opportunities.map((item, idx) => (
+              <li key={idx}>{item}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {summary.nextSteps && summary.nextSteps.length > 0 && (
+        <div>
+          <Label className="text-sm font-semibold mb-2 block">Next Steps</Label>
+          <ul className="list-disc list-inside space-y-1 text-sm">
+            {summary.nextSteps.map((item, idx) => (
+              <li key={idx}>{item}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {summary.recommendations && summary.recommendations.length > 0 && (
+        <div>
+          <Label className="text-sm font-semibold mb-2 block">Recommendations</Label>
+          <div className="space-y-2">
+            {summary.recommendations.map((rec, idx) => (
+              <div key={idx} className="border rounded p-3">
+                <div className="flex items-center justify-between mb-1">
+                  <h5 className="font-medium text-sm">{rec.title ?? `Recommendation ${idx + 1}`}</h5>
+                  {rec.priority && (
+                    <Badge variant={rec.priority === "high" ? "destructive" : rec.priority === "medium" ? "default" : "secondary"}>
+                      {rec.priority}
+                    </Badge>
+                  )}
+                </div>
+                {rec.description && (
+                  <p className="text-sm text-muted-foreground">{rec.description}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {summary.fullReport && (
+        <details className="mt-4">
+          <summary className="cursor-pointer text-sm font-semibold text-muted-foreground hover:text-foreground">
+            View Full Report (JSON)
+          </summary>
+          <div className="mt-2 rounded-md bg-muted p-4">
+            <pre className="text-xs overflow-auto max-h-96">
+              {JSON.stringify(summary.fullReport, null, 2)}
+            </pre>
+          </div>
+        </details>
+      )}
+    </>
+  );
+}
+
+interface Recommendation {
+  title?: string;
+  priority?: "high" | "medium" | "low";
+  description?: string;
+}
+
+interface ExecutionPhase {
+  name?: string;
+  runInParallel?: boolean;
+  agents?: string[];
+}
+
+interface ExecutionPlan {
+  phases?: ExecutionPhase[];
+}
+
 interface StatusUpdate {
   phase: string;
   status: string;
   timestamp: Date;
   summary?: string;
-  agentSummaries?: Record<string, any>;
+  agentSummaries?: Record<string, AgentSummary>;
 }
 
 export default function AgentAnalysisPage() {
@@ -67,8 +230,8 @@ export default function AgentAnalysisPage() {
         phase: status.currentPhase || status.status,
         status: status.status,
         timestamp: new Date(),
-        summary: status.summary || undefined,
-        agentSummaries: status.agentSummaries || undefined,
+        summary: status.summary ?? undefined,
+        agentSummaries: status.agentSummaries ?? undefined,
       };
 
       setStatusHistory((prev) => {
@@ -90,10 +253,12 @@ export default function AgentAnalysisPage() {
         if (prev.length === 0) return prev;
         const updated = [...prev];
         const lastIndex = updated.length - 1;
+        const lastItem = updated[lastIndex];
+        if (!lastItem) return prev;
         updated[lastIndex] = {
-          ...updated[lastIndex],
-          summary: status.summary || updated[lastIndex].summary,
-          agentSummaries: status.agentSummaries || updated[lastIndex].agentSummaries,
+          ...lastItem,
+          summary: status.summary ?? lastItem.summary,
+          agentSummaries: status.agentSummaries ?? lastItem.agentSummaries,
         };
         return updated;
       });
@@ -283,7 +448,7 @@ export default function AgentAnalysisPage() {
                         <div className="ml-6 space-y-2">
                           <Label className="text-xs text-muted-foreground">Agent Steps:</Label>
                           <div className="space-y-2">
-                            {Object.entries(update.agentSummaries).map(([agentId, agentSummary]: [string, any]) => (
+                            {Object.entries(update.agentSummaries).map(([agentId, agentSummary]) => (
                               <div key={agentId} className="text-sm border rounded p-2 bg-muted/50">
                                 <div className="flex items-center justify-between mb-1">
                                   <div className="flex items-center gap-2">
@@ -374,121 +539,8 @@ export default function AgentAnalysisPage() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                {status.summary && typeof status.summary === 'object' && status.summary !== null ? (
-                  <>
-                    {status.summary.scores && (
-                      <div>
-                        <Label className="text-sm font-semibold mb-2 block">Scores</Label>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                          {status.summary.scores.aeoVisibilityScore !== undefined && (
-                            <div className="border rounded p-2">
-                              <div className="text-xs text-muted-foreground">AEO Visibility</div>
-                              <div className="text-lg font-bold">{status.summary.scores.aeoVisibilityScore}/100</div>
-                            </div>
-                          )}
-                          {status.summary.scores.llmeoScore !== undefined && (
-                            <div className="border rounded p-2">
-                              <div className="text-xs text-muted-foreground">LLMEO</div>
-                              <div className="text-lg font-bold">{status.summary.scores.llmeoScore}/100</div>
-                            </div>
-                          )}
-                          {status.summary.scores.seoScore !== undefined && (
-                            <div className="border rounded p-2">
-                              <div className="text-xs text-muted-foreground">SEO</div>
-                              <div className="text-lg font-bold">{status.summary.scores.seoScore}/100</div>
-                            </div>
-                          )}
-                          {status.summary.scores.overallScore !== undefined && (
-                            <div className="border rounded p-2">
-                              <div className="text-xs text-muted-foreground">Overall</div>
-                              <div className="text-lg font-bold">{status.summary.scores.overallScore}/100</div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                    
-                    {status.summary.strengths && status.summary.strengths.length > 0 && (
-                      <div>
-                        <Label className="text-sm font-semibold mb-2 block">Strengths</Label>
-                        <ul className="list-disc list-inside space-y-1 text-sm">
-                          {status.summary.strengths.map((item: string, idx: number) => (
-                            <li key={idx}>{item}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                    
-                    {status.summary.weaknesses && status.summary.weaknesses.length > 0 && (
-                      <div>
-                        <Label className="text-sm font-semibold mb-2 block">Weaknesses</Label>
-                        <ul className="list-disc list-inside space-y-1 text-sm">
-                          {status.summary.weaknesses.map((item: string, idx: number) => (
-                            <li key={idx}>{item}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                    
-                    {status.summary.opportunities && status.summary.opportunities.length > 0 && (
-                      <div>
-                        <Label className="text-sm font-semibold mb-2 block">Opportunities</Label>
-                        <ul className="list-disc list-inside space-y-1 text-sm">
-                          {status.summary.opportunities.map((item: string, idx: number) => (
-                            <li key={idx}>{item}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                    
-                    {status.summary.nextSteps && status.summary.nextSteps.length > 0 && (
-                      <div>
-                        <Label className="text-sm font-semibold mb-2 block">Next Steps</Label>
-                        <ul className="list-disc list-inside space-y-1 text-sm">
-                          {status.summary.nextSteps.map((item: string, idx: number) => (
-                            <li key={idx}>{item}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                    
-                    {status.summary.recommendations && status.summary.recommendations.length > 0 && (
-                      <div>
-                        <Label className="text-sm font-semibold mb-2 block">Recommendations</Label>
-                        <div className="space-y-2">
-                          {status.summary.recommendations.map((rec: any, idx: number) => (
-                            <div key={idx} className="border rounded p-3">
-                              <div className="flex items-center justify-between mb-1">
-                                <h5 className="font-medium text-sm">{rec.title || `Recommendation ${idx + 1}`}</h5>
-                                {rec.priority && (
-                                  <Badge variant={rec.priority === "high" ? "destructive" : rec.priority === "medium" ? "default" : "secondary"}>
-                                    {rec.priority}
-                                  </Badge>
-                                )}
-                              </div>
-                              {rec.description && (
-                                <p className="text-sm text-muted-foreground">{rec.description}</p>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    
-                    {/* Show full report if available for debugging */}
-                    {status.summary.fullReport && (
-                      <details className="mt-4">
-                        <summary className="cursor-pointer text-sm font-semibold text-muted-foreground hover:text-foreground">
-                          View Full Report (JSON)
-                        </summary>
-                        <div className="mt-2 rounded-md bg-muted p-4">
-                          <pre className="text-xs overflow-auto max-h-96">
-                            {JSON.stringify(status.summary.fullReport, null, 2)}
-                          </pre>
-                        </div>
-                      </details>
-                    )}
-                  </>
+                {isFullSummary(status.summary) ? (
+                  <SummaryDisplay summary={status.summary} />
                 ) : status.summary ? (
                   <div className="rounded-md bg-muted p-4 text-sm whitespace-pre-wrap">
                     {typeof status.summary === 'string' 
@@ -498,7 +550,7 @@ export default function AgentAnalysisPage() {
                 ) : (
                   <Alert>
                     <AlertDescription>
-                      Report is being generated. Click "Refresh Report" to check again.
+                      Report is being generated. Click &quot;Refresh Report&quot; to check again.
                     </AlertDescription>
                   </Alert>
                 )}
@@ -515,10 +567,10 @@ export default function AgentAnalysisPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {status.executionPlan.phases?.map((phase: any, index: number) => (
+                  {(status.executionPlan as ExecutionPlan).phases?.map((phase, index) => (
                     <div key={index} className="border rounded-lg p-4 space-y-2">
                       <div className="flex items-center justify-between">
-                        <h4 className="font-semibold">{phase.name || `Phase ${index + 1}`}</h4>
+                        <h4 className="font-semibold">{phase.name ?? `Phase ${index + 1}`}</h4>
                         <Badge variant={phase.runInParallel ? "default" : "secondary"}>
                           {phase.runInParallel ? "Parallel" : "Sequential"}
                         </Badge>

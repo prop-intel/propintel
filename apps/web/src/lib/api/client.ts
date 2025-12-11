@@ -96,8 +96,8 @@ async function apiRequest<T>(
       const errorData = (await response.json()) as ApiError | { error?: { message?: string; code?: string } };
       if (errorData && typeof errorData === 'object') {
         if ('error' in errorData && errorData.error) {
-          errorCode = errorData.error.code || errorCode;
-          errorMessage = errorData.error.message || errorMessage;
+          errorCode = errorData.error.code ?? errorCode;
+          errorMessage = errorData.error.message ?? errorMessage;
         } else if ('message' in errorData) {
           errorMessage = String(errorData.message);
         }
@@ -121,7 +121,8 @@ async function apiRequest<T>(
     );
   }
 
-  return (data as ApiResponse<T>).data;
+  // After checking !data.success above, TypeScript narrows data to ApiResponse<T>
+  return data.data;
 }
 
 /**

@@ -3,6 +3,45 @@ import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { api } from "@/lib/api/client";
 import { TRPCError } from "@trpc/server";
 
+// Type for job progress data from the API
+interface JobProgress {
+  currentPhase?: string;
+  summary?: unknown;
+  orchestratorSummary?: unknown;
+  phases?: unknown[];
+  agentSummaries?: Record<string, unknown>;
+  agentStatuses?: Record<string, unknown>;
+  executionPlan?: unknown;
+}
+
+// Type for report data
+interface ReportData {
+  scores?: unknown;
+  llmSummary?: {
+    strengths?: unknown[];
+    weaknesses?: unknown[];
+    opportunities?: unknown[];
+    nextSteps?: unknown[];
+  };
+  aeoRecommendations?: unknown[];
+  recommendations?: unknown[];
+}
+
+// Helper to safely get error message
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'string') return error;
+  return 'Unknown error';
+}
+
+// Helper to safely get error code
+function getErrorCode(error: unknown): string {
+  if (error && typeof error === 'object' && 'code' in error) {
+    return String(error.code);
+  }
+  return '';
+}
+
 // Helper to extract cookie header from tRPC context
 function getCookieFromHeaders(headers: Headers): string | null {
   const cookieHeader = headers.get("cookie");
@@ -26,10 +65,11 @@ export const orchestratorRouter = createTRPCRouter({
           try {
             result = await api.jobs.get(input.jobId, cookie);
             break; // Success, exit retry loop
-          } catch (error: any) {
+          } catch (error: unknown) {
             attempts++;
             // If it's a 404 and we haven't exhausted retries, wait and retry
-            if (error?.message?.includes("404") || error?.message?.includes("not found")) {
+            const errMsg = getErrorMessage(error);
+            if (errMsg.includes("404") || errMsg.includes("not found")) {
               if (attempts < maxAttempts) {
                 // Wait a bit before retrying (job might be propagating)
                 await new Promise(resolve => setTimeout(resolve, 500 * attempts));
@@ -54,10 +94,10 @@ export const orchestratorRouter = createTRPCRouter({
         
         // Extract orchestrator data from job progress
         // Note: Orchestrator context may be stored in S3, but we extract what's available from job
-        const progress = job.progress as any; // Allow flexible typing for orchestrator data
-        
+        const progress = job.progress as JobProgress | undefined;
+
         // If job is completed, try to fetch the report for the full summary
-        let summary = progress?.summary || progress?.orchestratorSummary || null;
+        const summary = progress?.summary ?? progress?.orchestratorSummary ?? null;
         let reportSummary = null;
         
         if (job.status === "completed") {
@@ -67,33 +107,33 @@ export const orchestratorRouter = createTRPCRouter({
             const reportResult = await api.jobs.getReport(input.jobId, "json", cookie);
             console.log("[orchestrator.getStatus] Report result received:", !!reportResult, typeof reportResult);
             if (reportResult) {
-              const report = typeof reportResult === "string" ? JSON.parse(reportResult) : reportResult;
+              const report = (typeof reportResult === "string" ? JSON.parse(reportResult) : reportResult) as ReportData;
               console.log("[orchestrator.getStatus] Report parsed, has scores:", !!report.scores, "has llmSummary:", !!report.llmSummary);
-              
+
               // Format the LLM summary into a readable format
               reportSummary = {
-                strengths: report.llmSummary?.strengths || [],
-                weaknesses: report.llmSummary?.weaknesses || [],
-                opportunities: report.llmSummary?.opportunities || [],
-                nextSteps: report.llmSummary?.nextSteps || [],
-                scores: report.scores || null,
-                recommendations: report.aeoRecommendations || report.recommendations || [],
+                strengths: report.llmSummary?.strengths ?? [],
+                weaknesses: report.llmSummary?.weaknesses ?? [],
+                opportunities: report.llmSummary?.opportunities ?? [],
+                nextSteps: report.llmSummary?.nextSteps ?? [],
+                scores: report.scores ?? null,
+                recommendations: report.aeoRecommendations ?? report.recommendations ?? [],
                 // Include full report for debugging/display
                 fullReport: report,
               };
               console.log("[orchestrator.getStatus] Report summary built successfully");
             }
-          } catch (reportError: any) {
+          } catch (reportError: unknown) {
             // Report might not be ready yet - this is expected and we'll keep polling
-            const errorCode = reportError?.code || '';
-            const errorMessage = reportError?.message || '';
-            console.log("[orchestrator.getStatus] Report fetch error:", errorCode, errorMessage);
-            
+            const errorCode = getErrorCode(reportError);
+            const errorMsg = getErrorMessage(reportError);
+            console.log("[orchestrator.getStatus] Report fetch error:", errorCode, errorMsg);
+
             const isExpectedError = ['NOT_FOUND', 'PRECONDITION_FAILED', 'HTTP_404', 'HTTP_400'].includes(errorCode) ||
                                    errorCode.includes('not completed') ||
                                    errorCode.includes('not found') ||
-                                   errorMessage.includes('not found') ||
-                                   errorMessage.includes('404');
+                                   errorMsg.includes('not found') ||
+                                   errorMsg.includes('404');
             
             // Log all errors for now to help debug
             if (!isExpectedError) {
@@ -107,11 +147,11 @@ export const orchestratorRouter = createTRPCRouter({
         return {
           jobId: input.jobId,
           status: job.status,
-          currentPhase: job.progress?.currentPhase || "pending",
-          phases: progress?.phases || [],
-          agentSummaries: progress?.agentSummaries || progress?.agentStatuses || {},
-          executionPlan: progress?.executionPlan || null,
-          summary: reportSummary || summary,
+          currentPhase: job.progress?.currentPhase ?? "pending",
+          phases: progress?.phases ?? [],
+          agentSummaries: progress?.agentSummaries ?? progress?.agentStatuses ?? {},
+          executionPlan: progress?.executionPlan ?? null,
+          summary: reportSummary ?? summary,
         };
       } catch (error) {
         if (error instanceof Error && error.message.includes("404")) {

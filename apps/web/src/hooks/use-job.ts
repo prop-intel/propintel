@@ -92,14 +92,15 @@ export function useJob(
     }
 
     // Initial fetch
-    fetchJob();
+    void fetchJob();
 
     // Set up polling interval
-    const pollInterval = setInterval(async () => {
-      const shouldContinue = await fetchJob();
-      if (!shouldContinue) {
-        clearInterval(pollInterval);
-      }
+    const pollInterval = setInterval(() => {
+      void fetchJob().then((shouldContinue) => {
+        if (!shouldContinue) {
+          clearInterval(pollInterval);
+        }
+      });
     }, interval);
 
     return () => {

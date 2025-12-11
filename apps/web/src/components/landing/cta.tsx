@@ -28,7 +28,7 @@ export function CTA() {
             
             <h2 className="text-3xl md:text-5xl font-bold mb-6">Start Ranking in SearchGPT</h2>
             <p className="text-primary-foreground/80 text-lg md:text-xl mb-8 max-w-2xl mx-auto">
-                Get your first AEO report in minutes. See which queries you're winning, where you're losing, and get the code to fix it.
+                Get your first AEO report in minutes. See which queries you&apos;re winning, where you&apos;re losing, and get the code to fix it.
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">

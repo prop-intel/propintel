@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { motion } from "motion/react";
 import Link from "next/link";
-import { ArrowRight, Bot, CheckCircle2, Sparkles, Terminal } from "lucide-react";
+import { Bot, CheckCircle2, Sparkles, Terminal } from "lucide-react";
 
 export function Hero() {
   return (
@@ -43,7 +43,7 @@ export function Hero() {
             transition={{ duration: 0.5, delay: 0.2 }}
             className="text-xl text-muted-foreground mb-8 max-w-2xl leading-relaxed"
           >
-            PropIntel doesn't just track bots—it <strong>simulates</strong> them. Our agents actively search Perplexity, Google, and SearchGPT to see if you're cited, then write the code to fix your ranking.
+            PropIntel doesn&apos;t just track bots—it <strong>simulates</strong> them. Our agents actively search Perplexity, Google, and SearchGPT to see if you&apos;re cited, then write the code to fix your ranking.
           </motion.p>
 
           <motion.div
@@ -137,7 +137,7 @@ export function Hero() {
                                     <CheckCircle2 className="size-4 text-green-500" />
                                     Winning Query
                                 </h3>
-                                <p className="text-sm text-muted-foreground">"Best payment processor for SaaS"</p>
+                                <p className="text-sm text-muted-foreground">&quot;Best payment processor for SaaS&quot;</p>
                                 <div className="mt-3 text-xs bg-muted p-2 rounded border-l-2 border-green-500">
                                     Cited in <strong>Perplexity</strong> and <strong>SearchGPT</strong> results.
                                 </div>
@@ -146,7 +146,7 @@ export function Hero() {
                             <div className="bg-card border rounded-lg p-4 shadow-sm relative overflow-hidden">
                                 <div className="absolute top-0 left-0 w-1 h-full bg-red-500" />
                                 <h3 className="font-semibold mb-2 text-red-600 dark:text-red-400">Missed Opportunity</h3>
-                                <p className="text-sm text-muted-foreground mb-3">"SaaS pricing models comparison"</p>
+                                <p className="text-sm text-muted-foreground mb-3">&quot;SaaS pricing models comparison&quot;</p>
                                 
                                 <div className="bg-zinc-950 text-zinc-50 rounded-lg p-3 font-mono text-xs overflow-x-auto relative group">
                                     <div className="absolute top-2 right-2 opacity-100 bg-zinc-800 px-2 py-0.5 rounded text-[10px] flex items-center gap-1">
@@ -157,7 +157,7 @@ export function Hero() {
                                     <div><span className="text-purple-400">### 1. Add Pricing Comparison Table</span></div>
                                     <div className="pl-4 border-l border-zinc-800 ml-1 mt-1">
                                         Add a markdown table comparing flat-rate vs tiered pricing.<br/>
-                                        Use 'PaymentModel' schema markup...
+                                        Use &apos;PaymentModel&apos; schema markup...
                                     </div>
                                 </div>
                             </div>
