@@ -1,4 +1,4 @@
-import { SQSHandler, SQSEvent, SQSRecord } from 'aws-lambda';
+import type { SQSHandler, SQSEvent, SQSRecord } from 'aws-lambda';
 import { ECSClient, RunTaskCommand, DescribeTasksCommand } from '@aws-sdk/client-ecs';
 import { CrawlJobMessage } from '../lib/sqs';
 import { getJobById, updateJob, saveReportReference, saveAnalysis } from '../lib/db';

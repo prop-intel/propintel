@@ -1,4 +1,4 @@
-import { APIGatewayProxyEventV2 } from 'aws-lambda';
+import type { APIGatewayProxyEventV2 } from 'aws-lambda';
 import { eq } from 'drizzle-orm';
 import { db, authSession, authUser } from '../server/db';
 import type { AuthUser } from '@propintel/database';

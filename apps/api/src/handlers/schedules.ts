@@ -4,7 +4,7 @@
  * Manages scheduled/recurring crawl jobs using EventBridge.
  */
 
-import { APIGatewayProxyHandlerV2, EventBridgeHandler } from 'aws-lambda';
+import type { APIGatewayProxyHandlerV2, EventBridgeHandler } from 'aws-lambda';
 import {
   EventBridgeClient,
   PutRuleCommand,

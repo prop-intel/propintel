@@ -97,11 +97,11 @@ custom:
     bundle: true
     minify: false
     sourcemap: true
+    packager: pnpm
     exclude:
       - '@aws-sdk/*'
     external:
-      - '@propintel/database'
-      - '@propintel/types'
+      - 'aws-lambda'
     target: node20
     platform: node
     keepNames: true

@@ -4,7 +4,7 @@
  * Provides dashboard endpoints for metrics, trends, and summaries.
  */
 
-import { APIGatewayProxyHandlerV2 } from 'aws-lambda';
+import type { APIGatewayProxyHandlerV2 } from 'aws-lambda';
 import { listJobsForUser } from '../lib/db';
 import { getReport } from '../lib/s3';
 import { validateRequest } from '../lib/auth';
