@@ -8,10 +8,78 @@ import {
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { Report, AEOReport } from '../types';
 import { generateMarkdownReport as generateAEOMarkdownReport } from '../agents/output/report-generator';
+import * as fs from 'fs';
+import * as path from 'path';
 
-const s3Client = new S3Client({});
 const BUCKET_NAME = process.env.S3_BUCKET || 'propintel-api-dev-storage';
 const IS_LOCAL = process.env.IS_OFFLINE === 'true' || !process.env.S3_BUCKET;
+const LOCAL_STORAGE_DIR = path.join(process.cwd(), '.local-storage');
+
+// Only create S3 client if we have credentials configured
+let s3Client: S3Client | null = null;
+if (!IS_LOCAL) {
+  s3Client = new S3Client({});
+}
+
+// ===================
+// Local Storage Helpers
+// ===================
+
+function ensureLocalDir(filePath: string): void {
+  const dir = path.dirname(filePath);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+}
+
+function getLocalPath(key: string): string {
+  return path.join(LOCAL_STORAGE_DIR, key);
+}
+
+async function writeLocal(key: string, content: string): Promise<void> {
+  const filePath = getLocalPath(key);
+  ensureLocalDir(filePath);
+  fs.writeFileSync(filePath, content, 'utf-8');
+  console.log(`[LOCAL] Wrote ${content.length} bytes to ${filePath}`);
+}
+
+async function readLocal(key: string): Promise<string | null> {
+  const filePath = getLocalPath(key);
+  if (!fs.existsSync(filePath)) {
+    return null;
+  }
+  return fs.readFileSync(filePath, 'utf-8');
+}
+
+async function deleteLocal(key: string): Promise<void> {
+  const filePath = getLocalPath(key);
+  if (fs.existsSync(filePath)) {
+    fs.unlinkSync(filePath);
+  }
+}
+
+function listLocalFiles(prefix: string): string[] {
+  const baseDir = path.join(LOCAL_STORAGE_DIR, prefix);
+  if (!fs.existsSync(baseDir)) {
+    return [];
+  }
+
+  const results: string[] = [];
+  function walkDir(dir: string) {
+    const files = fs.readdirSync(dir);
+    for (const file of files) {
+      const filePath = path.join(dir, file);
+      const stat = fs.statSync(filePath);
+      if (stat.isDirectory()) {
+        walkDir(filePath);
+      } else {
+        results.push(filePath.replace(LOCAL_STORAGE_DIR + path.sep, '').replace(/\\/g, '/'));
+      }
+    }
+  }
+  walkDir(baseDir);
+  return results;
+}
 
 // ===================
 // Key Builders
@@ -44,7 +112,12 @@ export async function uploadHtmlSnapshot(
 ): Promise<string> {
   const key = s3Keys.htmlSnapshot(tenantId, jobId, pageUrl);
 
-  await s3Client.send(
+  if (IS_LOCAL) {
+    await writeLocal(key, html);
+    return key;
+  }
+
+  await s3Client!.send(
     new PutObjectCommand({
       Bucket: BUCKET_NAME,
       Key: key,
@@ -64,7 +137,12 @@ export async function uploadPageData(
 ): Promise<string> {
   const key = s3Keys.pageData(tenantId, jobId);
 
-  await s3Client.send(
+  if (IS_LOCAL) {
+    await writeLocal(key, JSON.stringify(data, null, 2));
+    return key;
+  }
+
+  await s3Client!.send(
     new PutObjectCommand({
       Bucket: BUCKET_NAME,
       Key: key,
@@ -83,9 +161,16 @@ export async function uploadReport(
 ): Promise<{ jsonKey: string; markdownKey: string }> {
   const jsonKey = s3Keys.report(tenantId, jobId, 'json');
   const mdKey = s3Keys.report(tenantId, jobId, 'md');
+  const markdown = generateMarkdownReport(report);
+
+  if (IS_LOCAL) {
+    await writeLocal(jsonKey, JSON.stringify(report, null, 2));
+    await writeLocal(mdKey, markdown);
+    return { jsonKey, markdownKey: mdKey };
+  }
 
   // Upload JSON report
-  await s3Client.send(
+  await s3Client!.send(
     new PutObjectCommand({
       Bucket: BUCKET_NAME,
       Key: jsonKey,
@@ -95,8 +180,7 @@ export async function uploadReport(
   );
 
   // Generate and upload Markdown report
-  const markdown = generateMarkdownReport(report);
-  await s3Client.send(
+  await s3Client!.send(
     new PutObjectCommand({
       Bucket: BUCKET_NAME,
       Key: mdKey,
@@ -115,21 +199,24 @@ export async function uploadAEOReport(
 ): Promise<{ jsonKey: string; markdownKey: string }> {
   const jsonKey = s3Keys.report(tenantId, jobId, 'json');
   const mdKey = s3Keys.report(tenantId, jobId, 'md');
+  const markdown = generateAEOMarkdownReport(report);
 
-  console.log(`[S3] Uploading AEO report for job ${jobId}`, {
-    bucket: BUCKET_NAME,
-    jsonKey,
-    mdKey,
+  console.log(`[Storage] Uploading AEO report for job ${jobId}`, {
     isLocal: IS_LOCAL,
     reportSize: JSON.stringify(report).length,
   });
 
-  // Always upload to S3, even in local mode (for development/testing)
-  // Note: Make sure S3_BUCKET is set and AWS credentials are configured
+  if (IS_LOCAL) {
+    console.log(`[LOCAL] Writing JSON report to ${jsonKey}`);
+    await writeLocal(jsonKey, JSON.stringify(report, null, 2));
+    console.log(`[LOCAL] Writing Markdown report to ${mdKey}`);
+    await writeLocal(mdKey, markdown);
+    return { jsonKey, markdownKey: mdKey };
+  }
 
   // Upload JSON report
   console.log(`[S3] Uploading JSON report to s3://${BUCKET_NAME}/${jsonKey}`);
-  await s3Client.send(
+  await s3Client!.send(
     new PutObjectCommand({
       Bucket: BUCKET_NAME,
       Key: jsonKey,
@@ -137,12 +224,11 @@ export async function uploadAEOReport(
       ContentType: 'application/json',
     })
   );
-  console.log(`[S3] JSON report uploaded successfully to s3://${BUCKET_NAME}/${jsonKey}`);
+  console.log(`[S3] JSON report uploaded successfully`);
 
   // Generate and upload Markdown report using AEO-specific generator
-  console.log(`[S3] Generating and uploading Markdown report to s3://${BUCKET_NAME}/${mdKey}`);
-  const markdown = generateAEOMarkdownReport(report);
-  await s3Client.send(
+  console.log(`[S3] Uploading Markdown report to s3://${BUCKET_NAME}/${mdKey}`);
+  await s3Client!.send(
     new PutObjectCommand({
       Bucket: BUCKET_NAME,
       Key: mdKey,
@@ -150,7 +236,7 @@ export async function uploadAEOReport(
       ContentType: 'text/markdown',
     })
   );
-  console.log(`[S3] Markdown report uploaded successfully to s3://${BUCKET_NAME}/${mdKey}`);
+  console.log(`[S3] Markdown report uploaded successfully`);
 
   return { jsonKey, markdownKey: mdKey };
 }
@@ -166,8 +252,12 @@ export async function getReport(
 ): Promise<string | null> {
   const key = s3Keys.report(tenantId, jobId, format);
 
+  if (IS_LOCAL) {
+    return readLocal(key);
+  }
+
   try {
-    const response = await s3Client.send(
+    const response = await s3Client!.send(
       new GetObjectCommand({
         Bucket: BUCKET_NAME,
         Key: key,
@@ -187,12 +277,17 @@ export async function getPresignedUrl(
   key: string,
   expiresIn: number = 3600
 ): Promise<string> {
+  if (IS_LOCAL) {
+    // Return a file:// URL for local storage
+    return `file://${getLocalPath(key)}`;
+  }
+
   const command = new GetObjectCommand({
     Bucket: BUCKET_NAME,
     Key: key,
   });
 
-  return getSignedUrl(s3Client, command, { expiresIn });
+  return getSignedUrl(s3Client!, command, { expiresIn });
 }
 
 // ===================
@@ -205,7 +300,11 @@ export async function listArtifacts(
 ): Promise<string[]> {
   const prefix = `${tenantId}/${jobId}/`;
 
-  const response = await s3Client.send(
+  if (IS_LOCAL) {
+    return listLocalFiles(prefix);
+  }
+
+  const response = await s3Client!.send(
     new ListObjectsV2Command({
       Bucket: BUCKET_NAME,
       Prefix: prefix,
@@ -226,12 +325,16 @@ export async function deleteJobArtifacts(
   const objects = await listArtifacts(tenantId, jobId);
 
   for (const key of objects) {
-    await s3Client.send(
-      new DeleteObjectCommand({
-        Bucket: BUCKET_NAME,
-        Key: key,
-      })
-    );
+    if (IS_LOCAL) {
+      await deleteLocal(key);
+    } else {
+      await s3Client!.send(
+        new DeleteObjectCommand({
+          Bucket: BUCKET_NAME,
+          Key: key,
+        })
+      );
+    }
   }
 }
 
@@ -397,7 +500,7 @@ function generateMarkdownReport(report: Report): string {
 // ===================
 
 /**
- * Store agent result in S3
+ * Store agent result in S3 or local storage
  */
 export async function storeAgentResult(
   tenantId: string,
@@ -407,7 +510,12 @@ export async function storeAgentResult(
 ): Promise<string> {
   const key = s3Keys.agentResult(tenantId, jobId, agentId);
 
-  await s3Client.send(
+  if (IS_LOCAL) {
+    await writeLocal(key, JSON.stringify(result, null, 2));
+    return key;
+  }
+
+  await s3Client!.send(
     new PutObjectCommand({
       Bucket: BUCKET_NAME,
       Key: key,
@@ -420,7 +528,7 @@ export async function storeAgentResult(
 }
 
 /**
- * Retrieve agent result from S3
+ * Retrieve agent result from S3 or local storage
  */
 export async function getAgentResult<T = unknown>(
   tenantId: string,
@@ -429,8 +537,14 @@ export async function getAgentResult<T = unknown>(
 ): Promise<T | null> {
   const key = s3Keys.agentResult(tenantId, jobId, agentId);
 
+  if (IS_LOCAL) {
+    const content = await readLocal(key);
+    if (!content) return null;
+    return JSON.parse(content) as T;
+  }
+
   try {
-    const response = await s3Client.send(
+    const response = await s3Client!.send(
       new GetObjectCommand({
         Bucket: BUCKET_NAME,
         Key: key,
@@ -450,7 +564,7 @@ export async function getAgentResult<T = unknown>(
 }
 
 /**
- * Store context snapshot in S3
+ * Store context snapshot in S3 or local storage
  */
 export async function storeContextSnapshot(
   tenantId: string,
@@ -459,7 +573,12 @@ export async function storeContextSnapshot(
 ): Promise<string> {
   const key = s3Keys.contextSnapshot(tenantId, jobId);
 
-  await s3Client.send(
+  if (IS_LOCAL) {
+    await writeLocal(key, JSON.stringify(context, null, 2));
+    return key;
+  }
+
+  await s3Client!.send(
     new PutObjectCommand({
       Bucket: BUCKET_NAME,
       Key: key,

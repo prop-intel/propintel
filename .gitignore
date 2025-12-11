@@ -54,3 +54,6 @@ next-env.d.ts
 
 # Misc
 *.pem
+
+# Local storage (API dev mode)
+.local-storage
