@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
-import { sites } from "../../../../../shared/db/schema";
+import { sites } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
 
 interface RouteParams {

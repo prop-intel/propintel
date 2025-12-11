@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
-import { sites, siteUrls, crawlerVisits } from "../../../../../shared/db/schema";
+import { sites, siteUrls, crawlerVisits } from "@/server/db/schema";
 import { eq, and } from "drizzle-orm";
 import { detectCrawler } from "@/lib/crawler-detection";
 
@@ -8,7 +8,8 @@ export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const trackingId = searchParams.get("tid");
-    const userAgent = searchParams.get("ua") ?? request.headers.get("user-agent") ?? "";
+    const userAgent =
+      searchParams.get("ua") ?? request.headers.get("user-agent") ?? "";
     const path = searchParams.get("path") ?? "/";
 
     if (!trackingId) {
@@ -34,17 +35,17 @@ export async function GET(request: NextRequest) {
 
     // Find or create URL record
     let urlRecord = await db.query.siteUrls.findFirst({
-      where: and(
-        eq(siteUrls.siteId, site.id),
-        eq(siteUrls.path, path)
-      ),
+      where: and(eq(siteUrls.siteId, site.id), eq(siteUrls.path, path)),
     });
 
     if (!urlRecord) {
-      const [newUrl] = await db.insert(siteUrls).values({
-        siteId: site.id,
-        path,
-      }).returning();
+      const [newUrl] = await db
+        .insert(siteUrls)
+        .values({
+          siteId: site.id,
+          path,
+        })
+        .returning();
       urlRecord = newUrl;
     }
 
@@ -70,7 +71,7 @@ export async function GET(request: NextRequest) {
     // Return 1x1 transparent GIF
     const pixel = Buffer.from(
       "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7",
-      "base64"
+      "base64",
     );
 
     return new NextResponse(pixel, {

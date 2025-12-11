@@ -50,3 +50,6 @@ backend/.env.backup
 
 # Memory Bank
 memory-bank/
+
+# Turborepo
+.turbo
