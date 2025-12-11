@@ -1,4 +1,6 @@
 import { analyticsRouter } from "@/server/api/routers/analytics";
+import { dashboardRouter } from "@/server/api/routers/dashboard";
+import { jobRouter } from "@/server/api/routers/job";
 import { postRouter } from "@/server/api/routers/post";
 import { robotsRouter } from "@/server/api/routers/robots";
 import { siteRouter } from "@/server/api/routers/site";
@@ -13,6 +15,8 @@ import { createCallerFactory, createTRPCRouter } from "@/server/api/trpc";
  */
 export const appRouter = createTRPCRouter({
   analytics: analyticsRouter,
+  dashboard: dashboardRouter,
+  job: jobRouter,
   post: postRouter,
   robots: robotsRouter,
   site: siteRouter,

@@ -1,14 +1,7 @@
 import { pgTableCreator } from "drizzle-orm/pg-core";
 
-/**
- * This is an example of how to use the multi-project schema feature of Drizzle ORM. Use the same
- * database instance for multiple projects.
- *
- * @see https://orm.drizzle.team/docs/goodies#multi-project-schema
- */
 export const createTable = pgTableCreator((name) => name);
 
-// Re-export auth schemas for convenience
 export {
   users,
   usersRelations,
@@ -19,7 +12,6 @@ export {
   verificationTokens,
 } from "./auth/schema";
 
-// Re-export site schemas
 export {
   sites,
   sitesRelations,
@@ -30,7 +22,17 @@ export {
   crawlerVisitsRelations,
 } from "./sites/schema";
 
-// Re-export jobs schemas
+export type {
+  Site,
+  NewSite,
+  SiteUrl,
+  NewSiteUrl,
+  Crawler,
+  NewCrawler,
+  CrawlerVisit,
+  NewCrawlerVisit,
+} from "./sites/schema";
+
 export {
   jobs,
   jobsRelations,
@@ -42,14 +44,22 @@ export {
   analysesRelations,
 } from "./jobs/schema";
 
-// Re-export job types
 export type {
   Job,
   NewJob,
+  JobStatus,
+  JobConfig,
+  JobProgress,
+  JobMetrics,
+  JobError,
+  PageData,
   CrawledPage,
   NewCrawledPage,
   Report,
   NewReport,
   Analysis,
   NewAnalysis,
+  AnalysisScores,
+  AnalysisKeyMetrics,
+  AnalysisSummary,
 } from "./jobs/schema";

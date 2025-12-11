@@ -16,6 +16,7 @@ export type JobStatus =
 // Job Interface
 export interface Job {
   id: string;
+  userId: string;
   status: JobStatus;
   targetUrl: string;
   progress: {
@@ -23,19 +24,34 @@ export interface Job {
     pagesTotal: number;
     currentPhase: string;
   };
-  config?: {
-    maxPages?: number;
-    maxDepth?: number;
+  config: {
+    maxPages: number;
+    maxDepth: number;
+    pageTimeout: number;
+    crawlDelay: number;
+    maxJobDuration: number;
+    viewport: { width: number; height: number };
+    userAgent: string;
+    followCanonical: boolean;
+    respectRobotsTxt: boolean;
+    skipExactDuplicates: boolean;
+    urlExclusions: string[];
+    maxFileSize: number;
     [key: string]: unknown;
   };
-  competitors?: string[];
+  competitors: string[];
   webhookUrl?: string;
-  llmModel?: string;
-  metrics?: {
+  authConfig?: {
+    type: 'basic' | 'cookie';
+    credentials: Record<string, string>;
+  };
+  llmModel: string;
+  metrics: {
     startedAt?: string;
     completedAt?: string;
     durationMs?: number;
-    apiCallsCount?: number;
+    apiCallsCount: number;
+    storageUsedBytes: number;
   };
   error?: {
     code: string;
@@ -53,6 +69,18 @@ export interface Scores {
   seoScore: number;
   overallScore: number;
   confidence: number;
+}
+
+// Extended Report with AEO analysis (matches backend AEOReport)
+export interface AEOReport extends Omit<Report, 'scores'> {
+  scores: Scores;
+  aeoAnalysis: AEOAnalysis;
+  aeoRecommendations: Recommendation[];
+  cursorPrompt: CursorPrompt;
+  llmeoAnalysis: LLMEOAnalysis;
+  seoAnalysis: SEOAnalysis;
+  recommendations: Recommendation[];
+  llmSummary: LLMSummary;
 }
 
 // Recommendation Interface
@@ -190,10 +218,11 @@ export interface LLMSummary {
 export interface Report {
   meta: {
     jobId: string;
-    tenantId: string;
+    userId: string;
     domain: string;
     generatedAt: string;
     pagesAnalyzed: number;
+    crawlDuration?: number;
   };
   scores: Scores;
   aeoAnalysis: AEOAnalysis;
