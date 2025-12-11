@@ -2,60 +2,87 @@ import { relations } from "drizzle-orm";
 import { index, pgTableCreator } from "drizzle-orm/pg-core";
 import { users } from "../auth/schema";
 
-/**
- * PropIntel Backend Schema - Jobs, Pages, Reports, Analyses
- *
- * These tables are used by the PropIntel backend API for crawl jobs
- * and analysis data. They reference auth_user for ownership.
- */
-
-/**
- * Table creator without prefix for app tables
- */
 const createTable = pgTableCreator((name) => name);
 
-// ===================
-// Jobs Table
-// ===================
+export type JobStatus = 'pending' | 'queued' | 'crawling' | 'analyzing' | 'completed' | 'failed' | 'blocked';
+
+export type JobConfig = {
+  maxPages: number;
+  maxDepth: number;
+  pageTimeout: number;
+  crawlDelay: number;
+  maxJobDuration: number;
+  viewport: { width: number; height: number };
+  userAgent: string;
+  followCanonical: boolean;
+  respectRobotsTxt: boolean;
+  skipExactDuplicates: boolean;
+  urlExclusions: string[];
+  maxFileSize: number;
+};
+
+export type JobProgress = {
+  pagesCrawled: number;
+  pagesTotal: number;
+  currentPhase: string;
+};
+
+export type JobMetrics = {
+  startedAt?: string;
+  completedAt?: string;
+  durationMs?: number;
+  apiCallsCount: number;
+  storageUsedBytes: number;
+};
+
+export type JobError = {
+  code: string;
+  message: string;
+  details?: string;
+};
 
 export const jobs = createTable(
   "jobs",
   (d) => ({
     id: d
-      .varchar({ length: 255 })
+      .varchar("id", { length: 255 })
       .notNull()
       .primaryKey()
       .$defaultFn(() => crypto.randomUUID()),
     userId: d
-      .varchar({ length: 255 })
+      .varchar("user_id", { length: 255 })
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    targetUrl: d.text().notNull(),
+    targetUrl: d.text("target_url").notNull(),
     status: d
-      .varchar({ length: 50 })
+      .varchar("status", { length: 50 })
+      .$type<JobStatus>()
       .notNull()
-      .default("pending"), // pending, queued, crawling, analyzing, completed, failed, blocked
-    config: d.jsonb(), // CrawlConfig object
-    competitors: d.jsonb().default([]), // string[]
-    webhookUrl: d.text(),
-    authConfig: d.jsonb(), // { type, credentials }
-    llmModel: d.varchar({ length: 100 }).default("gpt-4o-mini"),
-    progress: d.jsonb().default({
+      .default("pending"),
+    config: d.jsonb("config").$type<JobConfig>(),
+    competitors: d.jsonb("competitors").$type<string[]>().default([]),
+    webhookUrl: d.text("webhook_url"),
+    authConfig: d.jsonb("auth_config").$type<{
+      type: 'basic' | 'cookie';
+      credentials: Record<string, string>;
+    }>(),
+    llmModel: d.varchar("llm_model", { length: 100 }).default("gpt-4o-mini"),
+    progress: d.jsonb("progress").$type<JobProgress>().default({
       pagesCrawled: 0,
       pagesTotal: 0,
       currentPhase: "pending",
     }),
-    metrics: d.jsonb().default({
+    metrics: d.jsonb("metrics").$type<JobMetrics>().default({
       apiCallsCount: 0,
       storageUsedBytes: 0,
     }),
-    error: d.jsonb(), // { code, message, details }
+    error: d.jsonb("error").$type<JobError>(),
     createdAt: d
-      .timestamp({ mode: "date", withTimezone: true })
+      .timestamp("created_at", { mode: "date", withTimezone: true })
       .notNull()
       .defaultNow(),
     updatedAt: d
-      .timestamp({ mode: "date", withTimezone: true })
+      .timestamp("updated_at", { mode: "date", withTimezone: true })
       .notNull()
       .defaultNow(),
   }),
@@ -66,95 +93,143 @@ export const jobs = createTable(
   ]
 );
 
-// ===================
-// Crawled Pages Table
-// ===================
+export type PageData = {
+  schemas: Array<{
+    type: string;
+    properties: Record<string, unknown>;
+    isValid: boolean;
+    errors?: string[];
+  }>;
+  links: {
+    internal: string[];
+    external: string[];
+  };
+  images: Array<{
+    src: string;
+    alt?: string;
+    width?: number;
+    height?: number;
+    hasAlt: boolean;
+  }>;
+  headings: {
+    h1: string[];
+    h2: string[];
+    h3: string[];
+    h4: string[];
+    h5: string[];
+    h6: string[];
+  };
+  robotsMeta: {
+    noindex: boolean;
+    nofollow: boolean;
+  };
+  hreflangAlternates: Array<{
+    lang: string;
+    url: string;
+  }>;
+  warnings: string[];
+};
 
 export const crawledPages = createTable(
   "crawled_pages",
   (d) => ({
     id: d
-      .varchar({ length: 255 })
+      .varchar("id", { length: 255 })
       .notNull()
       .primaryKey()
       .$defaultFn(() => crypto.randomUUID()),
     jobId: d
-      .varchar({ length: 255 })
+      .varchar("job_id", { length: 255 })
       .notNull()
       .references(() => jobs.id, { onDelete: "cascade" }),
-    url: d.text().notNull(),
-    canonicalUrl: d.text(),
-    statusCode: d.integer(),
-    contentType: d.varchar({ length: 255 }),
-    title: d.text(),
-    metaDescription: d.text(),
-    h1: d.text(),
-    wordCount: d.integer(),
-    pageData: d.jsonb(), // Full page analysis data
-    snapshotS3Key: d.text(),
+    url: d.text("url").notNull(),
+    canonicalUrl: d.text("canonical_url"),
+    statusCode: d.integer("status_code"),
+    contentType: d.varchar("content_type", { length: 255 }),
+    title: d.text("title"),
+    metaDescription: d.text("meta_description"),
+    h1: d.text("h1"),
+    wordCount: d.integer("word_count"),
+    language: d.text("language"),
+    lastModified: d.text("last_modified"),
+    loadTimeMs: d.integer("load_time_ms"),
+    data: d.jsonb("data").$type<PageData>(),
+    snapshotS3Key: d.text("snapshot_s3_key"),
     crawledAt: d
-      .timestamp({ mode: "date", withTimezone: true })
+      .timestamp("crawled_at", { mode: "date", withTimezone: true })
       .notNull()
       .defaultNow(),
   }),
   (t) => [index("crawled_pages_job_id_idx").on(t.jobId)]
 );
 
-// ===================
-// Reports Table
-// ===================
-
 export const reports = createTable(
   "reports",
   (d) => ({
     id: d
-      .varchar({ length: 255 })
+      .varchar("id", { length: 255 })
       .notNull()
       .primaryKey()
       .$defaultFn(() => crypto.randomUUID()),
     jobId: d
-      .varchar({ length: 255 })
+      .varchar("job_id", { length: 255 })
       .notNull()
       .references(() => jobs.id, { onDelete: "cascade" })
       .unique(),
-    s3KeyJson: d.text(),
-    s3KeyMarkdown: d.text(),
+    s3KeyJson: d.text("s3_key_json"),
+    s3KeyMarkdown: d.text("s3_key_markdown"),
     createdAt: d
-      .timestamp({ mode: "date", withTimezone: true })
+      .timestamp("created_at", { mode: "date", withTimezone: true })
       .notNull()
       .defaultNow(),
   }),
   (t) => [index("reports_job_id_idx").on(t.jobId)]
 );
 
-// ===================
-// Analyses Table (Summary data for fast queries)
-// ===================
+export type AnalysisScores = {
+  aeoVisibilityScore: number;
+  llmeoScore: number;
+  seoScore: number;
+  overallScore: number;
+};
+
+export type AnalysisKeyMetrics = {
+  citationRate: number;
+  queriesAnalyzed: number;
+  citationCount: number;
+  topCompetitors: string[];
+};
+
+export type AnalysisSummary = {
+  topFindings: string[];
+  topRecommendations: string[];
+  grade: string;
+};
 
 export const analyses = createTable(
   "analyses",
   (d) => ({
     id: d
-      .varchar({ length: 255 })
+      .varchar("id", { length: 255 })
       .notNull()
       .primaryKey()
       .$defaultFn(() => crypto.randomUUID()),
-    userId: d
-      .varchar({ length: 255 })
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
     jobId: d
-      .varchar({ length: 255 })
+      .varchar("job_id", { length: 255 })
       .notNull()
       .references(() => jobs.id, { onDelete: "cascade" })
       .unique(),
-    domain: d.text().notNull(),
-    scores: d.jsonb(), // { aeoVisibilityScore, llmeoScore, seoScore, overallScore }
-    keyMetrics: d.jsonb(), // { citationRate, queriesAnalyzed, citationCount, topCompetitors }
-    summary: d.jsonb(), // { topFindings, topRecommendations, grade }
-    reportS3Key: d.text(),
+    userId: d
+      .varchar("user_id", { length: 255 })
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    domain: d.text("domain").notNull(),
+    scores: d.jsonb("scores").$type<AnalysisScores>(),
+    keyMetrics: d.jsonb("key_metrics").$type<AnalysisKeyMetrics>(),
+    summary: d.jsonb("summary").$type<AnalysisSummary>(),
+    reportS3Key: d.text("report_s3_key"),
     generatedAt: d
-      .timestamp({ mode: "date", withTimezone: true })
+      .timestamp("generated_at", { mode: "date", withTimezone: true })
       .notNull()
       .defaultNow(),
   }),
@@ -164,10 +239,6 @@ export const analyses = createTable(
     index("analyses_generated_at_idx").on(t.generatedAt),
   ]
 );
-
-// ===================
-// Relations
-// ===================
 
 export const jobsRelations = relations(jobs, ({ one, many }) => ({
   user: one(users, {
@@ -203,10 +274,6 @@ export const analysesRelations = relations(analyses, ({ one }) => ({
     references: [jobs.id],
   }),
 }));
-
-// ===================
-// Type Exports
-// ===================
 
 export type Job = typeof jobs.$inferSelect;
 export type NewJob = typeof jobs.$inferInsert;

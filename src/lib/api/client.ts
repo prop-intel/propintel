@@ -38,26 +38,17 @@ export class ApiClientError extends Error {
 }
 
 /**
- * Get the session token from cookies
- * In Next.js, we need to get this from the server side or use cookies()
- */
-async function getSessionToken(): Promise<string | null> {
-  // For client-side: cookies are sent automatically with credentials: 'include'
-  // For server-side: we need to get from request headers/cookies
-  if (typeof window === "undefined") {
-    // Server-side: session token should be passed explicitly
-    return null;
-  }
-  // Client-side: cookies are sent automatically
-  return null;
-}
-
-/**
  * Make an API request with authentication
+ * @param path API path
+ * @param options Request options
+ * @param sessionToken Optional session token for server-side calls (client-side uses cookies automatically)
+ * @param cookie Optional cookie string for server-side calls (alternative to sessionToken)
  */
 async function apiRequest<T>(
   path: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  sessionToken?: string | null,
+  cookie?: string | null
 ): Promise<T> {
   if (!API_URL) {
     throw new ApiClientError(
@@ -74,15 +65,26 @@ async function apiRequest<T>(
     headers.set("Content-Type", "application/json");
   }
 
-  // For development, allow API key authentication
-  if (process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_API_KEY) {
+  // Authentication: Prefer session token if provided (server-side), otherwise use API key or cookies
+  if (sessionToken) {
+    // Server-side: Use Bearer token
+    headers.set("Authorization", `Bearer ${sessionToken}`);
+  } else if (cookie) {
+    // Server-side: Use cookie header
+    headers.set("Cookie", cookie);
+  } else if (
+    process.env.NODE_ENV === "development" &&
+    process.env.NEXT_PUBLIC_API_KEY
+  ) {
+    // Development: Use API key if available
     headers.set("X-Api-Key", process.env.NEXT_PUBLIC_API_KEY);
   }
+  // Client-side: cookies are sent automatically with credentials: "include"
 
   const response = await fetch(url, {
     ...options,
     headers,
-    credentials: "include", // Send session cookies
+    credentials: "include", // Send session cookies (works for client-side)
   });
 
   const data = (await response.json()) as ApiResponse<T> | ApiError;
@@ -119,35 +121,45 @@ export const api = {
   jobs: {
     /**
      * Create a new analysis job
+     * @param cookie Optional cookie string for server-side calls
      */
     create: async (
-      request: CreateJobRequest
+      request: CreateJobRequest,
+      cookie?: string | null
     ): Promise<{ job: Job }> => {
-      return apiRequest<{ job: Job }>("/jobs", {
-        method: "POST",
-        body: JSON.stringify({
-          targetUrl: request.targetUrl,
-          config: request.config,
-          competitors: request.competitors,
-          webhookUrl: request.webhookUrl,
-          llmModel: request.llmModel,
-        }),
-      });
+      return apiRequest<{ job: Job }>(
+        "/jobs",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            targetUrl: request.targetUrl,
+            config: request.config,
+            competitors: request.competitors,
+            webhookUrl: request.webhookUrl,
+            llmModel: request.llmModel,
+          }),
+        },
+        null,
+        cookie
+      );
     },
 
     /**
      * Get job status by ID
+     * @param cookie Optional cookie string for server-side calls
      */
-    get: async (id: string): Promise<{ job: Job }> => {
-      return apiRequest<{ job: Job }>(`/jobs/${id}`);
+    get: async (id: string, cookie?: string | null): Promise<{ job: Job }> => {
+      return apiRequest<{ job: Job }>(`/jobs/${id}`, {}, null, cookie);
     },
 
     /**
      * List jobs with pagination
+     * @param cookie Optional cookie string for server-side calls
      */
     list: async (
       limit = 20,
-      offset = 0
+      offset = 0,
+      cookie?: string | null
     ): Promise<PaginatedResponse<Job>> => {
       const response = await apiRequest<{
         jobs: Job[];
@@ -156,7 +168,7 @@ export const api = {
           offset: number;
           hasMore: boolean;
         };
-      }>(`/jobs?limit=${limit}&offset=${offset}`);
+      }>(`/jobs?limit=${limit}&offset=${offset}`, {}, null, cookie);
 
       return {
         items: response.jobs,
@@ -168,23 +180,30 @@ export const api = {
      * Get analysis report for a completed job
      * @param id Job ID
      * @param format 'json' (default) or 'md' for markdown
+     * @param cookie Optional cookie string for server-side calls
      */
     getReport: async (
       id: string,
-      format: "json" | "md" = "json"
+      format: "json" | "md" = "json",
+      cookie?: string | null
     ): Promise<Report | string> => {
       if (format === "md") {
         // For markdown, return as text
+        const headers: HeadersInit = {};
+        if (cookie) {
+          headers.Cookie = cookie;
+        } else if (
+          process.env.NODE_ENV === "development" &&
+          process.env.NEXT_PUBLIC_API_KEY
+        ) {
+          headers["X-Api-Key"] = process.env.NEXT_PUBLIC_API_KEY;
+        }
+
         const response = await fetch(
           `${API_URL}/jobs/${id}/report?format=md`,
           {
             credentials: "include",
-            headers: {
-              ...(process.env.NODE_ENV === "development" &&
-              process.env.NEXT_PUBLIC_API_KEY
-                ? { "X-Api-Key": process.env.NEXT_PUBLIC_API_KEY }
-                : {}),
-            },
+            headers,
           }
         );
 
@@ -200,7 +219,7 @@ export const api = {
         return response.text();
       }
 
-      return apiRequest<Report>(`/jobs/${id}/report?format=json`);
+      return apiRequest<Report>(`/jobs/${id}/report?format=json`, {}, null, cookie);
     },
   },
 
@@ -210,19 +229,22 @@ export const api = {
   dashboard: {
     /**
      * Get dashboard summary with overview, recent jobs, top domains, and alerts
+     * @param cookie Optional cookie string for server-side calls
      */
-    getSummary: async (): Promise<DashboardSummary> => {
-      return apiRequest<DashboardSummary>("/dashboard/summary");
+    getSummary: async (cookie?: string | null): Promise<DashboardSummary> => {
+      return apiRequest<DashboardSummary>("/dashboard/summary", {}, null, cookie);
     },
 
     /**
      * Get score trends over time
      * @param domain Optional domain filter
      * @param days Number of days to include (default: 30)
+     * @param cookie Optional cookie string for server-side calls
      */
     getTrends: async (
       domain?: string,
-      days = 30
+      days = 30,
+      cookie?: string | null
     ): Promise<ScoreTrends> => {
       const params = new URLSearchParams({
         days: days.toString(),
@@ -230,14 +252,15 @@ export const api = {
       if (domain) {
         params.set("domain", domain);
       }
-      return apiRequest<ScoreTrends>(`/dashboard/trends?${params}`);
+      return apiRequest<ScoreTrends>(`/dashboard/trends?${params}`, {}, null, cookie);
     },
 
     /**
      * Get all alerts
+     * @param cookie Optional cookie string for server-side calls
      */
-    getAlerts: async (): Promise<{ alerts: Alert[] }> => {
-      return apiRequest<{ alerts: Alert[] }>("/alerts");
+    getAlerts: async (cookie?: string | null): Promise<{ alerts: Alert[] }> => {
+      return apiRequest<{ alerts: Alert[] }>("/alerts", {}, null, cookie);
     },
   },
 

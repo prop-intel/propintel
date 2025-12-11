@@ -2,33 +2,29 @@ import { relations } from "drizzle-orm";
 import { index, pgTableCreator } from "drizzle-orm/pg-core";
 import { users } from "../auth/schema";
 
-/**
- * Table creator without prefix for app tables
- */
 const createTable = pgTableCreator((name) => name);
 
-// Sites table - User's tracked websites
 export const sites = createTable(
   "sites",
   (d) => ({
     id: d
-      .varchar({ length: 255 })
+      .varchar("id", { length: 255 })
       .notNull()
       .primaryKey()
       .$defaultFn(() => crypto.randomUUID()),
     userId: d
-      .varchar({ length: 255 })
+      .varchar("user_id", { length: 255 })
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    domain: d.varchar({ length: 255 }).notNull(),
-    name: d.varchar({ length: 255 }),
-    trackingId: d.varchar({ length: 64 }).notNull().unique(),
+    domain: d.varchar("domain", { length: 255 }).notNull(),
+    name: d.varchar("name", { length: 255 }),
+    trackingId: d.varchar("tracking_id", { length: 64 }).notNull().unique(),
     createdAt: d
-      .timestamp({ mode: "date", withTimezone: true })
+      .timestamp("created_at", { mode: "date", withTimezone: true })
       .notNull()
       .defaultNow(),
     updatedAt: d
-      .timestamp({ mode: "date", withTimezone: true })
+      .timestamp("updated_at", { mode: "date", withTimezone: true })
       .notNull()
       .defaultNow(),
   }),
@@ -38,71 +34,68 @@ export const sites = createTable(
   ]
 );
 
-// Site URLs table - Discovered/tracked URLs per site
 export const siteUrls = createTable(
   "site_urls",
   (d) => ({
     id: d
-      .varchar({ length: 255 })
+      .varchar("id", { length: 255 })
       .notNull()
       .primaryKey()
       .$defaultFn(() => crypto.randomUUID()),
     siteId: d
-      .varchar({ length: 255 })
+      .varchar("site_id", { length: 255 })
       .notNull()
       .references(() => sites.id, { onDelete: "cascade" }),
-    path: d.text().notNull(),
-    title: d.varchar({ length: 500 }),
+    path: d.text("path").notNull(),
+    title: d.varchar("title", { length: 500 }),
     firstSeen: d
-      .timestamp({ mode: "date", withTimezone: true })
+      .timestamp("first_seen", { mode: "date", withTimezone: true })
       .notNull()
       .defaultNow(),
-    lastCrawled: d.timestamp({ mode: "date", withTimezone: true }),
-    crawlCount: d.integer().default(0),
+    lastCrawled: d.timestamp("last_crawled", { mode: "date", withTimezone: true }),
+    crawlCount: d.integer("crawl_count").default(0),
   }),
   (t) => [index("site_urls_site_id_idx").on(t.siteId)]
 );
 
-// Crawlers table - AI crawler definitions (reference/lookup)
 export const crawlers = createTable("crawlers", (d) => ({
-  id: d.varchar({ length: 50 }).notNull().primaryKey(),
-  name: d.varchar({ length: 100 }).notNull(),
-  company: d.varchar({ length: 100 }).notNull(),
-  userAgentPattern: d.text().notNull(),
-  description: d.text(),
-  category: d.varchar({ length: 50 }), // "training", "search", "browsing"
+  id: d.varchar("id", { length: 50 }).notNull().primaryKey(),
+  name: d.varchar("name", { length: 100 }).notNull(),
+  company: d.varchar("company", { length: 100 }).notNull(),
+  userAgentPattern: d.text("user_agent_pattern").notNull(),
+  description: d.text("description"),
+  category: d.varchar("category", { length: 50 }),
   createdAt: d
-    .timestamp({ mode: "date", withTimezone: true })
+    .timestamp("created_at", { mode: "date", withTimezone: true })
     .notNull()
     .defaultNow(),
 }));
 
-// Crawler visits table - AI crawler visit events
 export const crawlerVisits = createTable(
   "crawler_visits",
   (d) => ({
     id: d
-      .varchar({ length: 255 })
+      .varchar("id", { length: 255 })
       .notNull()
       .primaryKey()
       .$defaultFn(() => crypto.randomUUID()),
     siteId: d
-      .varchar({ length: 255 })
+      .varchar("site_id", { length: 255 })
       .notNull()
       .references(() => sites.id, { onDelete: "cascade" }),
     urlId: d
-      .varchar({ length: 255 })
+      .varchar("url_id", { length: 255 })
       .references(() => siteUrls.id, { onDelete: "set null" }),
-    crawlerId: d.varchar({ length: 50 }).references(() => crawlers.id),
-    userAgent: d.text().notNull(),
-    ipAddress: d.varchar({ length: 45 }),
-    path: d.text().notNull(),
+    crawlerId: d.varchar("crawler_id", { length: 50 }).references(() => crawlers.id),
+    userAgent: d.text("user_agent").notNull(),
+    ipAddress: d.varchar("ip_address", { length: 45 }),
+    path: d.text("path").notNull(),
     visitedAt: d
-      .timestamp({ mode: "date", withTimezone: true })
+      .timestamp("visited_at", { mode: "date", withTimezone: true })
       .notNull()
       .defaultNow(),
-    responseCode: d.integer(),
-    metadata: d.jsonb(),
+    responseCode: d.integer("response_code"),
+    metadata: d.jsonb("metadata"),
   }),
   (t) => [
     index("crawler_visits_site_id_idx").on(t.siteId),
@@ -111,7 +104,6 @@ export const crawlerVisits = createTable(
   ]
 );
 
-// Relations
 export const sitesRelations = relations(sites, ({ one, many }) => ({
   user: one(users, { fields: [sites.userId], references: [users.id] }),
   urls: many(siteUrls),
@@ -137,3 +129,12 @@ export const crawlerVisitsRelations = relations(crawlerVisits, ({ one }) => ({
     references: [crawlers.id],
   }),
 }));
+
+export type Site = typeof sites.$inferSelect;
+export type NewSite = typeof sites.$inferInsert;
+export type SiteUrl = typeof siteUrls.$inferSelect;
+export type NewSiteUrl = typeof siteUrls.$inferInsert;
+export type Crawler = typeof crawlers.$inferSelect;
+export type NewCrawler = typeof crawlers.$inferInsert;
+export type CrawlerVisit = typeof crawlerVisits.$inferSelect;
+export type NewCrawlerVisit = typeof crawlerVisits.$inferInsert;
