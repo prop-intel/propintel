@@ -7,8 +7,8 @@ import {
   useEffect,
   type ReactNode,
 } from "react";
-import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { api } from "@/trpc/react";
+import { useSiteStore } from "@/stores/site-store";
 
 type Site = {
   id: string;
@@ -27,35 +27,34 @@ type SiteContextType = {
 const SiteContext = createContext<SiteContextType | null>(null);
 
 export function SiteProvider({ children }: { children: ReactNode }) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const siteIdParam = searchParams.get("site");
-
+  const { activeSiteId, setActiveSiteId } = useSiteStore();
   const { data: sites = [], isLoading } = api.site.list.useQuery();
   const [activeSite, setActiveSiteState] = useState<Site | null>(null);
 
-  // Sync active site with URL param or default to first site
+  // Resolve active site from stored ID or default to first site
   useEffect(() => {
     if (sites.length === 0) {
       setActiveSiteState(null);
       return;
     }
 
-    const site = siteIdParam
-      ? sites.find((s) => s.id === siteIdParam)
+    const site = activeSiteId
+      ? sites.find((s) => s.id === activeSiteId)
       : sites[0];
 
-    setActiveSiteState(site ?? sites[0] ?? null);
-  }, [sites, siteIdParam]);
+    // If stored ID doesn't match any site, default to first
+    const resolvedSite = site ?? sites[0] ?? null;
+    setActiveSiteState(resolvedSite);
+
+    // Update store if we defaulted to first site
+    if (!site && resolvedSite) {
+      setActiveSiteId(resolvedSite.id);
+    }
+  }, [sites, activeSiteId, setActiveSiteId]);
 
   const setActiveSite = (site: Site | null) => {
     setActiveSiteState(site);
-    if (site) {
-      const params = new URLSearchParams(searchParams.toString());
-      params.set("site", site.id);
-      router.push(`${pathname}?${params.toString()}`);
-    }
+    setActiveSiteId(site?.id ?? null);
   };
 
   return (
