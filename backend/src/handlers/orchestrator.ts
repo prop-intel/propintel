@@ -285,29 +285,51 @@ async function runAEOPipelineWithOrchestrator(
   
   // Generate citations if not already stored
   let citations = await contextManager.getAgentResult<QueryCitation[]>('citations');
-  if (!citations && searchResults) {
+  if (!citations && searchResults && searchResults.length > 0) {
     citations = analyzeCitations(searchResults, domain);
     await contextManager.storeAgentResult('citations', citations, llmModel);
   }
   
   const competitors = await contextManager.getAgentResult<CompetitorVisibility[]>('competitor-discovery');
-  const citationAnalysis = await contextManager.getAgentResult<CitationAnalysisResult>('citation-analysis');
+  let citationAnalysis = await contextManager.getAgentResult<CitationAnalysisResult>('citation-analysis');
   const contentComparison = await contextManager.getAgentResult('content-comparison');
   const visibilityScoreResult = await contextManager.getAgentResult<{ score: number }>('visibility-scoring');
   const aeoRecommendations = await contextManager.getAgentResult<AEORecommendation[]>('recommendations');
   const cursorPrompt = await contextManager.getAgentResult<CursorPrompt>('cursor-prompt');
 
-  if (!pageAnalysis || !targetQueries || !searchResults || !citationAnalysis) {
-    throw new Error('Required analysis results not available');
+  if (!pageAnalysis || !targetQueries) {
+    throw new Error('Required analysis results not available: pageAnalysis and targetQueries are required');
+  }
+
+  const safeSearchResults = searchResults || [];
+  const safeCitations = citations || [];
+  const safeCompetitors = competitors || [];
+  
+  if (!citationAnalysis) {
+    console.log(`[${jobId}] No citation analysis available, using defaults`);
+    citationAnalysis = {
+      totalQueries: targetQueries.length,
+      citedQueries: 0,
+      mentionedQueries: 0,
+      absentQueries: targetQueries.length,
+      citationRate: 0,
+      averageRank: 0,
+      top3Count: 0,
+      top3Rate: 0,
+      queryTypesWinning: new Map(),
+      queryTypesLosing: new Map(),
+      gaps: [],
+      findings: [],
+    };
   }
 
   // Build AEO Analysis
   const aeoAnalysis = buildAEOAnalysis(
     pageAnalysis,
     targetQueries,
-    searchResults,
-    citations || [],
-    competitors || [],
+    safeSearchResults,
+    safeCitations,
+    safeCompetitors,
     citationAnalysis.gaps || [],
     visibilityScoreResult?.score || 0,
     citationAnalysis

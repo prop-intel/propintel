@@ -163,20 +163,32 @@ async function runAgent(
     }
 
     case 'citation-analysis': {
-      // Need search results and domain to analyze citations
       const searchResults = await context.getAgentResult<TavilySearchResult[]>('tavily-research');
-      if (!searchResults || !Array.isArray(searchResults)) {
-        throw new Error('Search results not available. Run tavily-research first.');
+      const safeSearchResults = Array.isArray(searchResults) ? searchResults : [];
+      
+      if (safeSearchResults.length === 0) {
+        // Return empty citation analysis when no search results
+        const emptyCitationAnalysis: CitationAnalysisResult = {
+          totalQueries: 0,
+          citedQueries: 0,
+          mentionedQueries: 0,
+          absentQueries: 0,
+          citationRate: 0,
+          averageRank: 0,
+          top3Count: 0,
+          top3Rate: 0,
+          queryTypesWinning: new Map(),
+          queryTypesLosing: new Map(),
+          gaps: [],
+          findings: [],
+        };
+        await context.storeAgentResult('citations', [], model);
+        return emptyCitationAnalysis;
       }
       
-      // Analyze citations from search results
-      const citations = analyzeCitations(searchResults, ctx.domain);
-      
-      // Store citations in context for later use
+      const citations = analyzeCitations(safeSearchResults, ctx.domain);
       await context.storeAgentResult('citations', citations, model);
-      
-      // Now run citation pattern analysis
-      return await analyzeCitationPatterns(citations, searchResults, ctx.domain, tenantId, jobId);
+      return await analyzeCitationPatterns(citations, safeSearchResults, ctx.domain, tenantId, jobId);
     }
 
     case 'content-comparison': {
@@ -186,12 +198,10 @@ async function runAgent(
       if (!pageAnalysis) {
         throw new Error('Page analysis not available. Run page-analysis first.');
       }
-      if (!competitors || !Array.isArray(competitors)) {
-        throw new Error('Competitors not available. Run competitor-discovery first.');
-      }
+      const safeCompetitors = Array.isArray(competitors) ? competitors : [];
       return await compareContent(
         pageAnalysis,
-        competitors,
+        safeCompetitors,
         searchResults || [],
         tenantId,
         jobId,
@@ -200,21 +210,33 @@ async function runAgent(
     }
 
     case 'visibility-scoring': {
-      const citationAnalysis = await context.getAgentResult<CitationAnalysisResult>('citation-analysis');
+      let citationAnalysis = await context.getAgentResult<CitationAnalysisResult>('citation-analysis');
       const competitors = await context.getAgentResult<CompetitorVisibility[]>('competitor-discovery');
       const contentComparison = await context.getAgentResult<ContentComparisonResult>('content-comparison');
+      
       if (!citationAnalysis) {
-        throw new Error('Citation analysis not available. Run citation-analysis first.');
+        citationAnalysis = {
+          totalQueries: 0,
+          citedQueries: 0,
+          mentionedQueries: 0,
+          absentQueries: 0,
+          citationRate: 0,
+          averageRank: 0,
+          top3Count: 0,
+          top3Rate: 0,
+          queryTypesWinning: new Map(),
+          queryTypesLosing: new Map(),
+          gaps: [],
+          findings: [],
+        };
       }
-      if (!competitors || !Array.isArray(competitors)) {
-        throw new Error('Competitors not available. Run competitor-discovery first.');
-      }
+      const safeCompetitors = Array.isArray(competitors) ? competitors : [];
       if (!contentComparison) {
         throw new Error('Content comparison not available. Run content-comparison first.');
       }
       return await calculateVisibilityScore(
         citationAnalysis,
-        competitors,
+        safeCompetitors,
         contentComparison,
         tenantId,
         jobId

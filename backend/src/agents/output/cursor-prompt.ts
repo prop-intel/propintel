@@ -29,14 +29,29 @@ const langfuse = new Langfuse({
 // Schema Definition
 // ===================
 
+const SectionSchema = z.object({
+  name: z.string(),
+  action: z.string().describe('Action to take (add, modify, remove)'),
+  content: z.string(),
+});
+
 const CursorPromptSchema = z.object({
   prompt: z.string().describe('The complete prompt to paste into Cursor'),
-  sections: z.array(z.object({
-    name: z.string(),
-    action: z.enum(['add', 'modify', 'remove']),
-    content: z.string(),
-  })).describe('Specific sections to add/modify'),
+  sections: z.array(SectionSchema).optional()
+    .describe('Specific sections to add/modify'),
 });
+
+// Normalize cursor prompt data
+function normalizeCursorPrompt(data: z.infer<typeof CursorPromptSchema>) {
+  return {
+    prompt: data.prompt,
+    sections: (data.sections ?? []).map(s => ({
+      name: s.name,
+      action: (s.action?.toLowerCase() || 'modify') as 'add' | 'modify' | 'remove',
+      content: s.content,
+    })),
+  };
+}
 
 // ===================
 // Main Function
@@ -125,9 +140,10 @@ Create a prompt that will help improve visibility for these target queries.`;
 
     await langfuse.flushAsync();
 
+    const normalized = normalizeCursorPrompt(result.object);
     return {
-      prompt: result.object.prompt,
-      sections: result.object.sections,
+      prompt: normalized.prompt,
+      sections: normalized.sections,
       version: 'v1.0',
       generatedAt: new Date().toISOString(),
     };

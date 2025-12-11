@@ -34,13 +34,25 @@ const RecommendationSchema = z.object({
   title: z.string().describe('Clear, actionable title'),
   description: z.string().describe('Detailed description of what to do'),
   impact: z.string().describe('Expected impact on visibility'),
-  effort: z.enum(['low', 'medium', 'high']).describe('Implementation effort'),
-  category: z.enum(['visibility', 'content', 'structure', 'authority'])
-    .describe('Category of improvement'),
-  priority: z.enum(['high', 'medium', 'low']).describe('Priority level'),
-  targetQueries: z.array(z.string())
+  effort: z.string().describe('Implementation effort (low, medium, high)'),
+  category: z.string().describe('Category of improvement (visibility, content, structure, authority)'),
+  priority: z.string().describe('Priority level (high, medium, low)'),
+  targetQueries: z.array(z.string()).optional()
     .describe('Specific queries this will help win'),
 });
+
+// Normalize recommendation data
+function normalizeRecommendation(data: z.infer<typeof RecommendationSchema>) {
+  return {
+    title: data.title,
+    description: data.description,
+    impact: data.impact,
+    effort: (data.effort?.toLowerCase() || 'medium') as 'low' | 'medium' | 'high',
+    category: (data.category?.toLowerCase() || 'content') as 'visibility' | 'content' | 'structure' | 'authority',
+    priority: (data.priority?.toLowerCase() || 'medium') as 'high' | 'medium' | 'low',
+    targetQueries: data.targetQueries ?? [],
+  };
+}
 
 const RecommendationsSchema = z.object({
   recommendations: z.array(RecommendationSchema),
@@ -129,12 +141,15 @@ Generate 5-8 specific, prioritized recommendations.`;
 
     await langfuse.flushAsync();
 
-    // Add IDs and competitor examples
-    const recommendations: AEORecommendation[] = result.object.recommendations.map((rec, index) => ({
-      ...rec,
-      id: `aeo-rec-${index + 1}`,
-      competitorExample: findCompetitorExample(rec, aeoAnalysis.competitors, aeoAnalysis.gaps),
-    }));
+    // Add IDs and competitor examples, normalize enum values
+    const recommendations: AEORecommendation[] = result.object.recommendations.map((rec, index) => {
+      const normalized = normalizeRecommendation(rec);
+      return {
+        ...normalized,
+        id: `aeo-rec-${index + 1}`,
+        competitorExample: findCompetitorExample(normalized, aeoAnalysis.competitors, aeoAnalysis.gaps),
+      };
+    });
 
     // Sort by priority
     recommendations.sort((a, b) => {

@@ -54,21 +54,39 @@ export interface ContentGap {
 // Schema Definitions
 // ===================
 
+const GapSchema = z.object({
+  topic: z.string(),
+  description: z.string(),
+  priority: z.string().describe('Priority level (high, medium, low)'),
+});
+
 const ComparisonSchema = z.object({
-  competitorStrengths: z.array(z.string())
+  competitorStrengths: z.array(z.string()).optional()
     .describe('What the competitor content does well'),
-  contentPatterns: z.array(z.string())
+  contentPatterns: z.array(z.string()).optional()
     .describe('Common patterns in winning content'),
-  gapsIdentified: z.array(z.object({
-    topic: z.string(),
-    description: z.string(),
-    priority: z.enum(['high', 'medium', 'low']),
-  })).describe('Content gaps to address'),
-  structuralDifferences: z.array(z.string())
+  gapsIdentified: z.array(GapSchema).optional()
+    .describe('Content gaps to address'),
+  structuralDifferences: z.array(z.string()).optional()
     .describe('Structural differences between your content and competitors'),
-  recommendations: z.array(z.string())
+  recommendations: z.array(z.string()).optional()
     .describe('Specific recommendations to improve'),
 });
+
+// Normalize comparison result
+function normalizeComparisonResult(data: z.infer<typeof ComparisonSchema>) {
+  return {
+    competitorStrengths: data.competitorStrengths ?? [],
+    contentPatterns: data.contentPatterns ?? [],
+    gapsIdentified: (data.gapsIdentified ?? []).map(g => ({
+      topic: g.topic,
+      description: g.description,
+      priority: (g.priority?.toLowerCase() || 'medium') as 'high' | 'medium' | 'low',
+    })),
+    structuralDifferences: data.structuralDifferences ?? [],
+    recommendations: data.recommendations ?? [],
+  };
+}
 
 // ===================
 // Main Function
@@ -134,8 +152,10 @@ Analyze what competitors are doing better and what content gaps exist.`;
       temperature: 0,
     });
 
+    const normalized = normalizeComparisonResult(result.object);
+
     generation.end({
-      output: result.object,
+      output: normalized,
       usage: {
         promptTokens: result.usage?.promptTokens,
         completionTokens: result.usage?.completionTokens,
@@ -148,16 +168,16 @@ Analyze what competitors are doing better and what content gaps exist.`;
     const comparisonResult: ContentComparisonResult = {
       competitorInsights: competitors.slice(0, 5).map(c => ({
         domain: c.domain,
-        strengths: result.object.competitorStrengths,
-        contentPatterns: result.object.contentPatterns,
+        strengths: normalized.competitorStrengths,
+        contentPatterns: normalized.contentPatterns,
         uniqueElements: c.strengths,
       })),
-      contentGaps: result.object.gapsIdentified.map(g => ({
+      contentGaps: normalized.gapsIdentified.map(g => ({
         ...g,
         competitorsCovering: competitors.slice(0, 3).map(c => c.domain),
       })),
-      structuralDifferences: result.object.structuralDifferences,
-      recommendations: result.object.recommendations,
+      structuralDifferences: normalized.structuralDifferences,
+      recommendations: normalized.recommendations,
     };
 
     return comparisonResult;

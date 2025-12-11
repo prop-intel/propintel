@@ -31,11 +31,28 @@ const langfuse = new Langfuse({
 
 const AgentSummarySchema = z.object({
   summary: z.string().describe('A concise 2-3 sentence summary of the agent result'),
-  keyFindings: z.array(z.string()).describe('Top 3-5 key findings or insights'),
-  metrics: z.record(z.number()).describe('Key numeric metrics extracted from the result'),
-  status: z.enum(['completed', 'partial', 'failed']).describe('Overall status of the agent execution'),
+  keyFindings: z.array(z.string()).optional().describe('Top 3-5 key findings or insights'),
+  metrics: z.record(z.number()).optional().describe('Key numeric metrics extracted from the result'),
+  status: z.enum(['completed', 'partial', 'failed']).optional().describe('Overall status of the agent execution'),
   nextSteps: z.array(z.string()).optional().describe('Suggested next steps based on this result'),
 });
+
+// Post-process to ensure required fields have defaults
+function normalizeAgentSummary(data: z.infer<typeof AgentSummarySchema>): {
+  summary: string;
+  keyFindings: string[];
+  metrics: Record<string, number>;
+  status: 'completed' | 'partial' | 'failed';
+  nextSteps?: string[];
+} {
+  return {
+    summary: data.summary,
+    keyFindings: data.keyFindings ?? [],
+    metrics: data.metrics ?? {},
+    status: data.status ?? 'completed',
+    nextSteps: data.nextSteps,
+  };
+}
 
 // ===================
 // Main Function
@@ -101,8 +118,10 @@ Generate a structured summary with key findings, metrics, and status.`;
       temperature: 0,
     });
 
+    const normalized = normalizeAgentSummary(result.object);
+
     generation.end({
-      output: result.object,
+      output: normalized,
       usage: {
         promptTokens: result.usage?.promptTokens,
         completionTokens: result.usage?.completionTokens,
@@ -111,7 +130,7 @@ Generate a structured summary with key findings, metrics, and status.`;
 
     await langfuse.flushAsync();
 
-    return result.object;
+    return normalized;
   } catch (error) {
     generation.end({
       output: null,

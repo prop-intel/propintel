@@ -35,17 +35,27 @@ const langfuse = new Langfuse({
 
 const PageAnalysisSchema = z.object({
   topic: z.string().describe('The main topic or subject of the page'),
-  intent: z.enum(['informational', 'transactional', 'navigational', 'commercial'])
-    .describe('The primary user intent this page serves'),
-  entities: z.array(z.string())
+  intent: z.string().describe('The primary user intent (informational, transactional, navigational, commercial)'),
+  entities: z.array(z.string()).optional()
     .describe('Key entities, concepts, products, or technologies mentioned'),
-  contentType: z.enum(['article', 'product', 'landing', 'documentation', 'blog', 'other'])
-    .describe('The type of content on the page'),
+  contentType: z.string().describe('The type of content (article, product, landing, documentation, blog, other)'),
   summary: z.string()
     .describe('A 2-3 sentence summary of what the page is about'),
-  keyPoints: z.array(z.string())
+  keyPoints: z.array(z.string()).optional()
     .describe('The main points or takeaways from the page (3-5 items)'),
 });
+
+// Normalize page analysis result
+function normalizePageAnalysis(data: z.infer<typeof PageAnalysisSchema>) {
+  return {
+    topic: data.topic,
+    intent: (data.intent?.toLowerCase() || 'informational') as 'informational' | 'transactional' | 'navigational' | 'commercial',
+    entities: data.entities ?? [],
+    contentType: (data.contentType?.toLowerCase() || 'other') as 'article' | 'product' | 'landing' | 'documentation' | 'blog' | 'other',
+    summary: data.summary,
+    keyPoints: data.keyPoints ?? [],
+  };
+}
 
 // ===================
 // Main Function
@@ -106,8 +116,10 @@ Extract the topic, intent, entities, content type, summary, and key points.`;
       temperature: 0,
     });
 
+    const normalized = normalizePageAnalysis(result.object);
+
     generation.end({
-      output: result.object,
+      output: normalized,
       usage: {
         promptTokens: result.usage?.promptTokens,
         completionTokens: result.usage?.completionTokens,
@@ -116,7 +128,7 @@ Extract the topic, intent, entities, content type, summary, and key points.`;
 
     await langfuse.flushAsync();
 
-    return result.object as PageAnalysis;
+    return normalized as PageAnalysis;
   } catch (error) {
     generation.end({
       output: null,

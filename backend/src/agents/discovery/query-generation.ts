@@ -38,16 +38,26 @@ const langfuse = new Langfuse({
 
 const QuerySchema = z.object({
   query: z.string().describe('The natural language query a user might ask'),
-  type: z.enum(['how-to', 'what-is', 'comparison', 'best', 'why', 'other'])
-    .describe('The type of query'),
+  type: z.string().describe('The type of query (how-to, what-is, comparison, best, why, other)'),
   relevanceScore: z.number().min(0).max(100)
     .describe('How relevant this query is to the page content (0-100)'),
 });
 
 const QueriesSchema = z.object({
-  queries: z.array(QuerySchema)
+  queries: z.array(QuerySchema).optional()
     .describe('List of target queries'),
 });
+
+// Normalize queries result
+function normalizeQueries(data: z.infer<typeof QueriesSchema>) {
+  return {
+    queries: (data.queries ?? []).map(q => ({
+      query: q.query,
+      type: (q.type?.toLowerCase() || 'other') as 'how-to' | 'what-is' | 'comparison' | 'best' | 'why' | 'other',
+      relevanceScore: q.relevanceScore,
+    })),
+  };
+}
 
 // ===================
 // Main Function
@@ -120,8 +130,10 @@ Assign relevance scores based on how well the page content answers each query.`;
       temperature: 0.3, // Slight variation for query diversity
     });
 
+    const normalized = normalizeQueries(result.object);
+
     generation.end({
-      output: result.object,
+      output: normalized,
       usage: {
         promptTokens: result.usage?.promptTokens,
         completionTokens: result.usage?.completionTokens,
@@ -131,7 +143,7 @@ Assign relevance scores based on how well the page content answers each query.`;
     await langfuse.flushAsync();
 
     // Sort by relevance score descending
-    const queries = result.object.queries as TargetQuery[];
+    const queries = normalized.queries as TargetQuery[];
     queries.sort((a, b) => b.relevanceScore - a.relevanceScore);
 
     return queries;
@@ -210,8 +222,10 @@ These queries should be answerable by the page content.`;
       temperature: 0.4,
     });
 
+    const normalized = normalizeQueries(result.object);
+
     generation.end({
-      output: result.object,
+      output: normalized,
       usage: {
         promptTokens: result.usage?.promptTokens,
         completionTokens: result.usage?.completionTokens,
@@ -220,7 +234,7 @@ These queries should be answerable by the page content.`;
 
     await langfuse.flushAsync();
 
-    return result.object.queries as TargetQuery[];
+    return normalized.queries as TargetQuery[];
   } catch (error) {
     generation.end({
       output: null,
