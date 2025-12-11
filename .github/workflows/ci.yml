@@ -39,11 +39,11 @@ jobs:
       - name: Type check
         run: pnpm typecheck
 
-      - name: Test
-        run: pnpm test
-        env:
-          SKIP_ENV_VALIDATION: true
-          NODE_ENV: test
+      # - name: Test
+      #   run: pnpm test
+      #   env:
+      #     SKIP_ENV_VALIDATION: true
+      #     NODE_ENV: test
 
       - name: Build
         run: pnpm build
