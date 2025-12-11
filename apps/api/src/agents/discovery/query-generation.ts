@@ -9,8 +9,8 @@
 import { createOpenAI } from '@ai-sdk/openai';
 import { generateObject } from 'ai';
 import { z } from 'zod';
-import { Langfuse } from 'langfuse';
 import { PageAnalysis, TargetQuery } from '../../types';
+import { createTrace, flushLangfuse } from '../../lib/langfuse';
 
 // ===================
 // Configuration
@@ -24,12 +24,6 @@ const DEFAULT_QUERY_COUNT = 10;
 
 const openai = createOpenAI({
   apiKey: process.env.OPENAI_API_KEY || '',
-});
-
-const langfuse = new Langfuse({
-  publicKey: process.env.LANGFUSE_PUBLIC_KEY || '',
-  secretKey: process.env.LANGFUSE_SECRET_KEY || '',
-  baseUrl: process.env.LANGFUSE_BASE_URL || 'https://us.cloud.langfuse.com',
 });
 
 // ===================
@@ -78,7 +72,7 @@ export async function generateTargetQueries(
 ): Promise<TargetQuery[]> {
   const { queryCount = DEFAULT_QUERY_COUNT, model = 'gpt-4o-mini' } = options;
 
-  const trace = langfuse.trace({
+  const trace = createTrace({
     name: 'aeo-query-generation',
     userId: tenantId,
     metadata: { jobId, domain, topic: pageAnalysis.topic },
@@ -140,7 +134,7 @@ Assign relevance scores based on how well the page content answers each query.`;
       },
     });
 
-    await langfuse.flushAsync();
+    await flushLangfuse();
 
     // Sort by relevance score descending
     const queries = normalized.queries as TargetQuery[];
@@ -153,7 +147,7 @@ Assign relevance scores based on how well the page content answers each query.`;
       level: 'ERROR',
       statusMessage: (error as Error).message,
     });
-    await langfuse.flushAsync();
+    await flushLangfuse();
     throw error;
   }
 }
@@ -174,7 +168,7 @@ export async function generateFocusedQueries(
 ): Promise<TargetQuery[]> {
   const { queryCount = 5, model = 'gpt-4o-mini' } = options;
 
-  const trace = langfuse.trace({
+  const trace = createTrace({
     name: 'aeo-focused-query-generation',
     userId: tenantId,
     metadata: { jobId, domain, focusArea },
@@ -232,7 +226,7 @@ These queries should be answerable by the page content.`;
       },
     });
 
-    await langfuse.flushAsync();
+    await flushLangfuse();
 
     return normalized.queries as TargetQuery[];
   } catch (error) {
@@ -241,7 +235,7 @@ These queries should be answerable by the page content.`;
       level: 'ERROR',
       statusMessage: (error as Error).message,
     });
-    await langfuse.flushAsync();
+    await flushLangfuse();
     throw error;
   }
 }

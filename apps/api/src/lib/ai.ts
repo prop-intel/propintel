@@ -12,11 +12,33 @@ const openai = createOpenAI({
   apiKey: process.env.OPENAI_API_KEY || '',
 });
 
-const langfuse = new Langfuse({
-  publicKey: process.env.LANGFUSE_PUBLIC_KEY || '',
-  secretKey: process.env.LANGFUSE_SECRET_KEY || '',
-  baseUrl: process.env.LANGFUSE_BASE_URL || 'https://us.cloud.langfuse.com',
-});
+// Only initialize Langfuse if credentials are configured
+const langfuse = process.env.LANGFUSE_PUBLIC_KEY && process.env.LANGFUSE_SECRET_KEY
+  ? new Langfuse({
+      publicKey: process.env.LANGFUSE_PUBLIC_KEY,
+      secretKey: process.env.LANGFUSE_SECRET_KEY,
+      baseUrl: process.env.LANGFUSE_BASE_URL || 'https://us.cloud.langfuse.com',
+    })
+  : null;
+
+// Helper to create a no-op trace when Langfuse is not configured
+const createTrace = (config: { name: string; userId: string; metadata?: Record<string, unknown> }) => {
+  if (langfuse) {
+    return langfuse.trace(config);
+  }
+  // Return a no-op trace object
+  return {
+    generation: () => ({
+      end: () => {},
+    }),
+  };
+};
+
+const flushLangfuse = async () => {
+  if (langfuse) {
+    await langfuse.flushAsync();
+  }
+};
 
 // ===================
 // Schema Definitions
@@ -68,7 +90,7 @@ export async function generateSummary(
   opportunities: string[];
   nextSteps: string[];
 }> {
-  const trace = langfuse.trace({
+  const trace = createTrace({
     name: 'generate-summary',
     userId: tenantId,
     metadata: { jobId },
@@ -131,7 +153,7 @@ Generate a comprehensive summary with specific, actionable insights.`;
       },
     });
 
-    await langfuse.flushAsync();
+    await flushLangfuse();
 
     return result.object;
   } catch (error) {
@@ -140,7 +162,7 @@ Generate a comprehensive summary with specific, actionable insights.`;
       level: 'ERROR',
       statusMessage: (error as Error).message,
     });
-    await langfuse.flushAsync();
+    await flushLangfuse();
     throw error;
   }
 }
@@ -153,7 +175,7 @@ export async function generateRecommendations(
   jobId: string,
   model: string = 'gpt-4o-mini'
 ): Promise<Recommendation[]> {
-  const trace = langfuse.trace({
+  const trace = createTrace({
     name: 'generate-recommendations',
     userId: tenantId,
     metadata: { jobId },
@@ -209,7 +231,7 @@ Generate 5-10 prioritized recommendations with code snippets where applicable.`;
       },
     });
 
-    await langfuse.flushAsync();
+    await flushLangfuse();
 
     // Add IDs and affected pages, normalize enum values to lowercase
     return result.object.recommendations.map((rec, index) => ({
@@ -226,7 +248,7 @@ Generate 5-10 prioritized recommendations with code snippets where applicable.`;
       level: 'ERROR',
       statusMessage: (error as Error).message,
     });
-    await langfuse.flushAsync();
+    await flushLangfuse();
     throw error;
   }
 }
@@ -243,7 +265,7 @@ export async function generateCopyReadyPrompt(
   jobId: string,
   model: string = 'gpt-4o-mini'
 ): Promise<string> {
-  const trace = langfuse.trace({
+  const trace = createTrace({
     name: 'generate-copy-prompt',
     userId: tenantId,
     metadata: { jobId },
@@ -288,7 +310,7 @@ Generate a comprehensive prompt that the content team can use to improve their s
       },
     });
 
-    await langfuse.flushAsync();
+    await flushLangfuse();
 
     return result.object.prompt;
   } catch (error) {
@@ -297,7 +319,7 @@ Generate a comprehensive prompt that the content team can use to improve their s
       level: 'ERROR',
       statusMessage: (error as Error).message,
     });
-    await langfuse.flushAsync();
+    await flushLangfuse();
     throw error;
   }
 }

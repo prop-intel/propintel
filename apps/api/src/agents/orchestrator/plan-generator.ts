@@ -8,9 +8,9 @@
 import { createOpenAI } from '@ai-sdk/openai';
 import { generateObject } from 'ai';
 import { z } from 'zod';
-import { Langfuse } from 'langfuse';
 import { ExecutionPlan, ExecutionPhase } from '../../types';
 import { AgentContext } from '../context';
+import { createTrace, flushLangfuse } from '../../lib/langfuse';
 
 // ===================
 // Client Initialization
@@ -18,12 +18,6 @@ import { AgentContext } from '../context';
 
 const openai = createOpenAI({
   apiKey: process.env.OPENAI_API_KEY || '',
-});
-
-const langfuse = new Langfuse({
-  publicKey: process.env.LANGFUSE_PUBLIC_KEY || '',
-  secretKey: process.env.LANGFUSE_SECRET_KEY || '',
-  baseUrl: process.env.LANGFUSE_BASE_URL || 'https://us.cloud.langfuse.com',
 });
 
 // ===================
@@ -69,7 +63,7 @@ export async function createExecutionPlan(
   jobId: string,
   model: string = 'gpt-4o-mini'
 ): Promise<ExecutionPlan> {
-  const trace = langfuse.trace({
+  const trace = createTrace({
     name: 'execution-plan-generation',
     userId: tenantId,
     metadata: { jobId, domain, url: targetUrl },
@@ -140,7 +134,7 @@ Generate a plan that:
       },
     });
 
-    await langfuse.flushAsync();
+    await flushLangfuse();
 
     return result.object;
   } catch (error) {
@@ -149,7 +143,7 @@ Generate a plan that:
       level: 'ERROR',
       statusMessage: (error as Error).message,
     });
-    await langfuse.flushAsync();
+    await flushLangfuse();
     throw error;
   }
 }

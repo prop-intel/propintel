@@ -12,8 +12,8 @@
 import { createOpenAI } from '@ai-sdk/openai';
 import { generateObject } from 'ai';
 import { z } from 'zod';
-import { Langfuse } from 'langfuse';
 import { CrawledPage, PageAnalysis } from '../../types';
+import { createTrace, flushLangfuse } from '../../lib/langfuse';
 
 // ===================
 // Client Initialization
@@ -21,12 +21,6 @@ import { CrawledPage, PageAnalysis } from '../../types';
 
 const openai = createOpenAI({
   apiKey: process.env.OPENAI_API_KEY || '',
-});
-
-const langfuse = new Langfuse({
-  publicKey: process.env.LANGFUSE_PUBLIC_KEY || '',
-  secretKey: process.env.LANGFUSE_SECRET_KEY || '',
-  baseUrl: process.env.LANGFUSE_BASE_URL || 'https://us.cloud.langfuse.com',
 });
 
 // ===================
@@ -70,7 +64,7 @@ export async function analyzePageContent(
   jobId: string,
   model: string = 'gpt-4o-mini'
 ): Promise<PageAnalysis> {
-  const trace = langfuse.trace({
+  const trace = createTrace({
     name: 'aeo-page-analysis',
     userId: tenantId,
     metadata: { jobId, url: page.url },
@@ -126,7 +120,7 @@ Extract the topic, intent, entities, content type, summary, and key points.`;
       },
     });
 
-    await langfuse.flushAsync();
+    await flushLangfuse();
 
     return normalized as PageAnalysis;
   } catch (error) {
@@ -135,7 +129,7 @@ Extract the topic, intent, entities, content type, summary, and key points.`;
       level: 'ERROR',
       statusMessage: (error as Error).message,
     });
-    await langfuse.flushAsync();
+    await flushLangfuse();
     throw error;
   }
 }
