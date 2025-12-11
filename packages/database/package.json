@@ -1,0 +1,63 @@
+{
+  "name": "@propintel/database",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts"
+    },
+    "./schema": {
+      "types": "./src/schema/index.ts",
+      "import": "./src/schema/index.ts"
+    },
+    "./client": {
+      "types": "./src/client/index.ts",
+      "import": "./src/client/index.ts"
+    },
+    "./client/postgres": {
+      "types": "./src/client/postgres.ts",
+      "import": "./src/client/postgres.ts"
+    },
+    "./client/pg": {
+      "types": "./src/client/pg.ts",
+      "import": "./src/client/pg.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio"
+  },
+  "dependencies": {
+    "@propintel/types": "workspace:*",
+    "drizzle-orm": "^0.41.0"
+  },
+  "devDependencies": {
+    "@propintel/eslint-config": "workspace:*",
+    "@propintel/typescript-config": "workspace:*",
+    "@types/pg": "^8.16.0",
+    "dotenv": "^17.2.3",
+    "drizzle-kit": "^0.30.5",
+    "eslint": "^9.23.0",
+    "pg": "^8.16.3",
+    "postgres": "^3.4.4",
+    "typescript": "^5.8.2"
+  },
+  "peerDependencies": {
+    "pg": "^8.0.0",
+    "postgres": "^3.0.0"
+  },
+  "peerDependenciesMeta": {
+    "pg": {
+      "optional": true
+    },
+    "postgres": {
+      "optional": true
+    }
+  }
+}
