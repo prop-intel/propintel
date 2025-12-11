@@ -21,6 +21,13 @@ export {
   authVerificationToken,
 } from "./auth";
 
+export type {
+  AuthUser,
+  NewAuthUser,
+  AuthSession,
+  AuthAccount,
+} from "./auth";
+
 // Site schemas
 export {
   sites,

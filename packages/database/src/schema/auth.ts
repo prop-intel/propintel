@@ -89,3 +89,9 @@ export const authVerificationToken = verificationTokens;
 export const authUserRelations = usersRelations;
 export const authAccountRelations = accountsRelations;
 export const authSessionRelations = sessionsRelations;
+
+// Type exports for API compatibility
+export type AuthUser = typeof users.$inferSelect;
+export type NewAuthUser = typeof users.$inferInsert;
+export type AuthSession = typeof sessions.$inferSelect;
+export type AuthAccount = typeof accounts.$inferSelect;
