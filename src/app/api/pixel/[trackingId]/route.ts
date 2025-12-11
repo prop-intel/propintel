@@ -115,6 +115,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         // Prevent caching to ensure every request is tracked
         "Pragma": "no-cache",
         "Expires": "0",
+        // Debug header to indicate if tracking occurred (for testing)
+        "X-Crawler-Detected": crawlerId ?? "none",
       },
     });
   } catch (error) {
