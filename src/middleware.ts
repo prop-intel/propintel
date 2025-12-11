@@ -11,8 +11,12 @@ export async function middleware(request: NextRequest) {
     request.cookies.get("__Secure-authjs.session-token")?.value ??
     request.cookies.get("next-auth.session-token")?.value;
 
+  // Allow forced login with ?force=true query parameter
+  const forceLogin = request.nextUrl.searchParams.get("force") === "true";
+
   // If user has session token and tries to access login page, redirect to dashboard
-  if (pathname === "/login" && sessionToken) {
+  // UNLESS force=true is set
+  if (pathname === "/login" && sessionToken && !forceLogin) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 

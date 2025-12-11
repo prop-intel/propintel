@@ -8,7 +8,7 @@ import {
   sessions,
   users,
   verificationTokens,
-} from "@/server/db/auth/schema";
+} from "../../../shared/db/auth/schema";
 import { env } from "@/env";
 
 /**

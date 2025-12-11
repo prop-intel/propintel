@@ -1,0 +1,39 @@
+{
+  "family": "propintel-api-render",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "1024",
+  "memory": "2048",
+  "executionRoleArn": "${ECS_TASK_EXECUTION_ROLE_ARN}",
+  "taskRoleArn": "${ECS_TASK_ROLE_ARN}",
+  "containerDefinitions": [
+    {
+      "name": "renderer",
+      "image": "${ECR_IMAGE_URI}",
+      "essential": true,
+      "environment": [
+        { "name": "STAGE", "value": "${STAGE}" },
+        { "name": "AWS_REGION", "value": "${AWS_REGION}" },
+        { "name": "DYNAMODB_TABLE", "value": "${DYNAMODB_TABLE}" },
+        { "name": "S3_BUCKET", "value": "${S3_BUCKET}" }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/propintel-api-${STAGE}",
+          "awslogs-region": "${AWS_REGION}",
+          "awslogs-stream-prefix": "renderer",
+          "awslogs-create-group": "true"
+        }
+      },
+      "healthCheck": {
+        "command": ["CMD-SHELL", "node -e \"console.log('healthy')\" || exit 1"],
+        "interval": 30,
+        "timeout": 10,
+        "retries": 3,
+        "startPeriod": 60
+      }
+    }
+  ]
+}
+

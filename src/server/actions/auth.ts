@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/server/db";
-import { users, sessions, accounts } from "@/server/db/auth/schema";
+import { users, sessions, accounts } from "../../../shared/db/auth/schema";
 import { eq } from "drizzle-orm";
 import * as bcrypt from "bcryptjs";
 import { redirect } from "next/navigation";

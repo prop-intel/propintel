@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
-import { crawlerVisits, siteUrls, sites } from "@/server/db/schema";
+import { crawlerVisits, siteUrls, sites } from "../../../../shared/db/schema";
 import { eq, and, gte, desc, count, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 

@@ -1,6 +1,7 @@
 import { analyticsRouter } from "@/server/api/routers/analytics";
 import { dashboardRouter } from "@/server/api/routers/dashboard";
 import { jobRouter } from "@/server/api/routers/job";
+import { orchestratorRouter } from "@/server/api/routers/orchestrator";
 import { postRouter } from "@/server/api/routers/post";
 import { robotsRouter } from "@/server/api/routers/robots";
 import { siteRouter } from "@/server/api/routers/site";
@@ -17,6 +18,7 @@ export const appRouter = createTRPCRouter({
   analytics: analyticsRouter,
   dashboard: dashboardRouter,
   job: jobRouter,
+  orchestrator: orchestratorRouter,
   post: postRouter,
   robots: robotsRouter,
   site: siteRouter,

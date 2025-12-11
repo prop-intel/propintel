@@ -69,14 +69,13 @@ async function apiRequest<T>(
   if (sessionToken) {
     // Server-side: Use Bearer token
     headers.set("Authorization", `Bearer ${sessionToken}`);
-  } else if (cookie) {
-    // Server-side: Use cookie header
+  } else if (cookie && cookie.trim().length > 0) {
+    // Server-side: Use cookie header (only if cookie is not empty)
     headers.set("Cookie", cookie);
-  } else if (
-    process.env.NODE_ENV === "development" &&
-    process.env.NEXT_PUBLIC_API_KEY
-  ) {
-    // Development: Use API key if available
+  }
+  
+  // Always include API key as fallback if available (for server-side calls)
+  if (process.env.NEXT_PUBLIC_API_KEY) {
     headers.set("X-Api-Key", process.env.NEXT_PUBLIC_API_KEY);
   }
   // Client-side: cookies are sent automatically with credentials: "include"
@@ -87,24 +86,38 @@ async function apiRequest<T>(
     credentials: "include", // Send session cookies (works for client-side)
   });
 
+  // Handle HTTP errors first
+  if (!response.ok) {
+    let errorMessage = `Request failed with status ${response.status}`;
+    let errorCode = `HTTP_${response.status}`;
+    let errorDetails: string | undefined;
+
+    try {
+      const errorData = (await response.json()) as ApiError | { error?: { message?: string; code?: string } };
+      if (errorData && typeof errorData === 'object') {
+        if ('error' in errorData && errorData.error) {
+          errorCode = errorData.error.code || errorCode;
+          errorMessage = errorData.error.message || errorMessage;
+        } else if ('message' in errorData) {
+          errorMessage = String(errorData.message);
+        }
+      }
+    } catch {
+      // If we can't parse the error, use the default
+    }
+
+    throw new ApiClientError(errorCode, errorMessage, errorDetails);
+  }
+
   const data = (await response.json()) as ApiResponse<T> | ApiError;
 
   // Handle error responses
   if (!data.success) {
     const error = data as ApiError;
     throw new ApiClientError(
-      error.error.code,
-      error.error.message,
-      error.error.details
-    );
-  }
-
-  // Handle HTTP errors
-  if (!response.ok) {
-    throw new ApiClientError(
-      `HTTP_${response.status}`,
-      `Request failed with status ${response.status}`,
-      response.statusText
+      error.error?.code || 'UNKNOWN_ERROR',
+      error.error?.message || 'An unknown error occurred',
+      error.error?.details
     );
   }
 
