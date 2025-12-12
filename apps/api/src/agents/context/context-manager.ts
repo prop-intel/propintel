@@ -119,7 +119,7 @@ export class ContextManager {
       this.context.metadata.lastUpdated = new Date().toISOString();
       this.updateTokenEstimate();
       
-      console.log(`[Context] Agent ${agentId} marked as COMPLETED. Current summaries: ${Object.keys(this.context.summaries).map(k => `${k}:${this.context.summaries[k].status}`).join(', ')}`);
+      console.log(`[Context] Agent ${agentId} marked as COMPLETED. Current summaries: ${Object.keys(this.context.summaries).map(k => `${k}:${this.context.summaries[k]?.status}`).join(', ')}`);
     } catch (error) {
       console.error(`[Context] Failed to store result for ${agentId}:`, error);
       throw error;  // Ensure errors propagate

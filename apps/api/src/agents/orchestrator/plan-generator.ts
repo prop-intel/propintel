@@ -131,7 +131,7 @@ function fixPlan(plan: ExecutionPlan): ExecutionPlan {
       // Check for internal dependencies
       const needsSplitting = phase.agents.some(agentId => {
         const metadata = getAgentMetadata(agentId);
-        return metadata && metadata.inputs.some(dep => phase.agents.includes(dep));
+        return metadata?.inputs.some(dep => phase.agents.includes(dep));
       });
       
       if (needsSplitting) {
@@ -143,7 +143,7 @@ function fixPlan(plan: ExecutionPlan): ExecutionPlan {
         
         for (const agentId of phase.agents) {
           const metadata = getAgentMetadata(agentId);
-          const hasDep = metadata && metadata.inputs.some(dep => phase.agents.includes(dep));
+          const hasDep = metadata?.inputs.some(dep => phase.agents.includes(dep));
           if (hasDep) {
             hasInternalDeps.push(agentId);
           } else {

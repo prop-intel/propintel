@@ -60,6 +60,8 @@ export class OrchestratorAgent {
     const totalPhases = this.plan.phases.length;
     for (let i = 0; i < totalPhases; i++) {
       const phase = this.plan.phases[i];
+      if (!phase) continue;
+      
       console.log(`[Orchestrator] Executing phase ${i + 1}/${totalPhases}: ${phase.name}`);
       console.log(`[Orchestrator] Phase agents: ${phase.agents.join(', ')}, parallel: ${phase.runInParallel}`);
 

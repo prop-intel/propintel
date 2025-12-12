@@ -94,7 +94,7 @@ export async function executeAgents(
     
     for (const agentId of sortedAgentIds) {
       const metadata = getAgentMetadata(agentId);
-      if (metadata && metadata.inputs.every(dep => initialCompleted.has(dep))) {
+      if (metadata?.inputs.every(dep => initialCompleted.has(dep))) {
         canRunNow.push(agentId);
       } else {
         mustWait.push(agentId);
