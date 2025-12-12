@@ -24,6 +24,8 @@ export const trackingRouter = createTRPCRouter({
 
       return {
         trackingId: site.trackingId,
+        pixelSnippet: `<img src="${baseUrl}/api/pixel/${site.trackingId}" alt="" style="position:absolute;width:0;height:0;border:0" />`,
+        // Keep for backwards compatibility
         inlineScript: `<script>
 (function(){
   var ua=navigator.userAgent;
@@ -41,7 +43,7 @@ export const trackingRouter = createTRPCRouter({
       };
     }),
 
-  // Test script installation
+  // Test pixel installation
   testInstallation: protectedProcedure
     .input(z.object({ siteId: z.string() }))
     .mutation(async ({ ctx, input }) => {
@@ -64,11 +66,11 @@ export const trackingRouter = createTRPCRouter({
         }
 
         const html = await response.text();
-        const hasScript = html.includes(site.trackingId);
+        const hasPixel = html.includes(site.trackingId);
 
         return {
-          installed: hasScript,
-          error: hasScript ? null : "Tracking script not found on page",
+          installed: hasPixel,
+          error: hasPixel ? null : "Tracking pixel not found on page",
         };
       } catch (error) {
         console.error(`Failed to test installation for ${site.domain}:`, error);
