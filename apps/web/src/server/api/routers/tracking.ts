@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
-import { sites } from "@propintel/database";
-import { eq, and } from "drizzle-orm";
+import { sites, crawlerVisits } from "@propintel/database";
+import { eq, and, gte, count } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { TRPCError } from "@trpc/server";
 import { fetchExternal } from "@/lib/fetch-external";
@@ -168,5 +168,58 @@ export async function middleware(request: NextRequest) {
       if (!site) throw new TRPCError({ code: "NOT_FOUND" });
 
       return { trackingId: newTrackingId };
+    }),
+
+  // Get tracking status based on actual visits
+  getTrackingStatus: protectedProcedure
+    .input(z.object({ siteId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      // Verify site ownership
+      const site = await ctx.db.query.sites.findFirst({
+        where: and(
+          eq(sites.id, input.siteId),
+          eq(sites.userId, ctx.session.user.id)
+        ),
+      });
+
+      if (!site) throw new TRPCError({ code: "NOT_FOUND" });
+
+      // Check for visits in the last 30 days
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+      // Query for pixel visits
+      const pixelResult = await ctx.db
+        .select({ count: count() })
+        .from(crawlerVisits)
+        .where(
+          and(
+            eq(crawlerVisits.siteId, input.siteId),
+            eq(crawlerVisits.source, "pixel"),
+            gte(crawlerVisits.visitedAt, thirtyDaysAgo)
+          )
+        );
+
+      // Query for middleware visits
+      const middlewareResult = await ctx.db
+        .select({ count: count() })
+        .from(crawlerVisits)
+        .where(
+          and(
+            eq(crawlerVisits.siteId, input.siteId),
+            eq(crawlerVisits.source, "middleware"),
+            gte(crawlerVisits.visitedAt, thirtyDaysAgo)
+          )
+        );
+
+      const pixelCount = pixelResult[0]?.count ?? 0;
+      const middlewareCount = middlewareResult[0]?.count ?? 0;
+
+      return {
+        hasPixel: pixelCount > 0,
+        hasMiddleware: middlewareCount > 0,
+        pixelCount,
+        middlewareCount,
+      };
     }),
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useState } from "react";
 import { useSite } from "@/contexts/site-context";
 import { useDashboardFilters } from "@/hooks/use-dashboard-filters";
 import { api } from "@/trpc/react";
@@ -9,15 +9,26 @@ import { CrawlerChart } from "@/components/dashboard/crawler-chart";
 import { TimelineChart } from "@/components/dashboard/timeline-chart";
 import { TopPagesTable } from "@/components/dashboard/top-pages-table";
 import { DashboardFilters } from "@/components/dashboard/dashboard-filters";
+import {
+  TrackingStatusBadge,
+  TrackingSetupDialog,
+  TrackingEmptyState,
+} from "@/components/dashboard/tracking-status";
 
 function DashboardContent() {
   const { activeSite, isLoading: siteLoading } = useSite();
   const { apiParams, timeFrameLabel } = useDashboardFilters();
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   const queryParams = {
     siteId: activeSite?.id ?? "",
     ...apiParams,
   };
+
+  const { data: trackingStatus } = api.tracking.getTrackingStatus.useQuery(
+    { siteId: activeSite?.id ?? "" },
+    { enabled: !!activeSite?.id }
+  );
 
   const { data: summary, isLoading: summaryLoading } =
     api.analytics.getSummary.useQuery(queryParams, {
@@ -39,6 +50,8 @@ function DashboardContent() {
       { ...queryParams, limit: 10 },
       { enabled: !!activeSite?.id }
     );
+
+  const hasTracking = trackingStatus?.hasPixel || trackingStatus?.hasMiddleware;
 
   if (siteLoading) {
     return (
@@ -64,23 +77,41 @@ function DashboardContent() {
   return (
     <div className="p-6 space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">
-            {activeSite.name ?? activeSite.domain}
-          </h1>
-          <p className="text-muted-foreground">AI Crawler Analytics Dashboard</p>
+        <div className="flex items-center gap-3">
+          <div>
+            <h1 className="text-2xl font-bold">
+              {activeSite.name ?? activeSite.domain}
+            </h1>
+            <p className="text-muted-foreground">AI Crawler Analytics Dashboard</p>
+          </div>
+          <TrackingStatusBadge
+            siteId={activeSite.id}
+            onClick={() => setDialogOpen(true)}
+          />
         </div>
         <DashboardFilters siteId={activeSite.id} />
       </div>
 
-      <SummaryCards data={summary} isLoading={summaryLoading} />
+      {hasTracking ? (
+        <>
+          <SummaryCards data={summary} isLoading={summaryLoading} />
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <CrawlerChart data={crawlerStats} isLoading={crawlerLoading} />
-        <TimelineChart data={timeline} isLoading={timelineLoading} timeFrameLabel={timeFrameLabel} />
-      </div>
+          <div className="grid gap-6 md:grid-cols-2">
+            <CrawlerChart data={crawlerStats} isLoading={crawlerLoading} />
+            <TimelineChart data={timeline} isLoading={timelineLoading} timeFrameLabel={timeFrameLabel} />
+          </div>
 
-      <TopPagesTable data={topPages} isLoading={topPagesLoading} />
+          <TopPagesTable data={topPages} isLoading={topPagesLoading} />
+        </>
+      ) : (
+        <TrackingEmptyState onSetupClick={() => setDialogOpen(true)} />
+      )}
+
+      <TrackingSetupDialog
+        siteId={activeSite.id}
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+      />
     </div>
   );
 }

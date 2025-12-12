@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Brain, Code, FileText, LayoutDashboard } from "lucide-react";
+import { Brain, FileText, LayoutDashboard } from "lucide-react";
 
 import { NavMain } from "@/components/layout/nav-main";
 import { NavUrls } from "@/components/layout/nav-urls";
@@ -21,11 +21,6 @@ const navItems = [
     url: "/dashboard",
     icon: LayoutDashboard,
     isActive: true,
-  },
-  {
-    title: "Tracking Script",
-    url: "/dashboard/tracking",
-    icon: Code,
   },
   {
     title: "Robots Analysis",
