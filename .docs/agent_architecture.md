@@ -1,86 +1,103 @@
 # AI Agent Architecture
 
-This document details the multi-agent system powering PropIntel's AEO (Answer Engine Optimization) analysis. Each agent simulates a specific aspect of how AI Answer Engines (like Perplexity, SearchGPT, or Google Overviews) understand and rank content.
+This document details the multi-agent system powering PropIntel's AEO (Answer Engine Optimization) analysis.
+
+## Overview
+
+When a job is created via `POST /jobs` with a `targetUrl`, the system:
+1. **Crawls** the site (up to 50 pages, 3 levels deep) starting from the target URL
+2. **Analyzes** each page through a pipeline of 12 specialized agents
+3. **Generates** a comprehensive AEO report with actionable recommendations
 
 ```mermaid
 flowchart TD
-    subgraph Orchestrator[Orchestrator Agent]
-        O[Manages Job Lifecycle]
+    subgraph Crawling[Phase 0: Crawling]
+        C[crawler-simple]
     end
 
-    subgraph Discovery[Discovery Agent]
-        D1[Extract Page DNA]
-        D2[Identify Key Entities]
-        D3[Generate Target Queries]
+    subgraph Discovery[Phase 1: Discovery - Sequential]
+        D1[page-analysis] --> D2[query-generation] --> D3[competitor-discovery]
     end
 
-    subgraph Research[Research Agent]
-        R1[Live Web Searches]
-        R2[Community Signals]
-        R3[Citation Tracking]
+    subgraph Research[Phase 2: Research - Parallel]
+        R1[tavily-research]
+        R2[google-aio]
+        R3[perplexity]
+        R4[community-signals]
     end
 
-    subgraph Analysis[Analysis Agent]
-        A1[Visibility Score]
-        A2[Competitor Insights]
-        A3[Content Gap Analysis]
+    subgraph Analysis[Phase 3: Analysis]
+        A1[citation-analysis]
+        A2[content-comparison]
+        A3[visibility-scoring]
+        A1 --> A3
+        A2 --> A3
     end
 
-    subgraph Output[Output Agent]
-        OUT1[Prioritized Recommendations]
-        OUT2[Cursor Prompt Generation]
+    subgraph Output[Phase 4: Output - Sequential]
+        O1[recommendations] --> O2[cursor-prompt] --> O3[report-generator]
     end
 
-    O -->|Coordinates| Discovery
-    Discovery -->|Page Analysis & Queries| Research
-    Research -->|Search Results & Citations| Analysis
-    Analysis -->|Scores & Gaps| Output
-    Output -->|Final Report| O
+    Crawling --> Discovery
+    Discovery --> Research
+    Research --> Analysis
+    Analysis --> Output
 ```
 
-## 1. Orchestrator Agent
-**Intent**: The conductor of the symphony. It manages the lifecycle of a job, ensuring data flows correctly between agents and handling error states.
-**Logic**: Uses a sequential execution plan but evaluates "reasoning" steps after each phase to decide if it should pivot (e.g., if a page is 404, stop; if a page is thin, maybe double-check).
+## Phase 0: Crawling
 
-## 2. Discovery Agent
-**Intent**: "Understand the Content's DNA."
-This agent acts like the indexing crawler of a search engine. It doesn't care about the outside world yet; it only cares about what the page *says* it is.
+Breadth-first crawl starting from `targetUrl`. Discovers internal links and crawls up to 50 pages (configurable, max 100) at depth 3. Respects robots.txt and URL exclusions.
 
-### Type & Amount of Information Gathered
--   **Page DNA**: Topic, User Intent (Informational vs. Transactional), Content Type (Blog/Landing Page).
--   **Key Entities**: Extracting 10-20 key entities (people, places, concepts) mentioned.
--   **Predicted Queries**: Generates **10-15 Target Queries** that the page *should* be ranking for.
-    -   *Types*: "How-to", "What Is", "Best X vs Y".
-    -   *Logic*: "If I were a user looking for this exact page, what would I ask an AI?"
+## Phase 1: Discovery (Sequential)
 
-## 3. Research Agent
-**Intent**: "Simulate the User & Validator."
-This agent goes out into the real world (Tavily Search API) to validate the assumptions made by the Discovery agent.
+| Agent | Purpose |
+|-------|---------|
+| `page-analysis` | Extracts topic, user intent, content type, and 10-20 key entities |
+| `query-generation` | Generates 10-15 target queries the page should rank for |
+| `competitor-discovery` | Identifies competing domains from search results |
 
-### Type & Amount of Information Gathered
--   **Search Results**: Performs **10+ Live Web Searches** (one for each target query) to see what *actually* ranks.
--   **Community Signals**: Scans **Reddit, HackerNews, GitHub, and X/Twitter** for brand mentions.
-    -   *Data*: Comment counts, sentiment analysis (Positive/Negative), and "Training Data Likely" indicators (e.g., massive Reddit threads).
--   **Citation Data**: Specifically tracks if the client's URL appears in the top results vs. just being "mentioned" casually.
+## Phase 2: Research (Parallel)
 
-## 4. Analysis Agent (The "Brain")
-**Intent**: "Compare and Score."
-This agent takes the internal representation (Discovery) and the external reality (Research) and finds the discrepancies.
+| Agent | Purpose |
+|-------|---------|
+| `tavily-research` | Performs live web searches for each target query |
+| `google-aio` | Scrapes Google AI Overviews for citation data |
+| `perplexity` | Queries Perplexity for AI-generated citations |
+| `community-signals` | Scans Reddit, HackerNews, GitHub for brand mentions |
 
-### Type & Amount of Information Gathered
--   **Visibility Score (0-100)**: A composite metric calculated from Citation Rate (35%), Rank Quality (25%), Competitive Position (20%), and Query Breadth (10%).
--   **Competitor Insights**: Analyzes the **Top 3 Competitors** across all queries.
-    -   *Data*: Their citation rate, their top winning queries, and *why* they are winning.
--   **Content Gaps**: Identifies specific queries where competitors appear but the client does not.
-    -   *Logic*: "Competitor A ranks for 'How to maximize ROI' because they have a table of data. You do not."
--   **Structural Analysis**: Compares formatting (Lists vs. Paragraphs, Tables, Schemas).
+## Phase 3: Analysis
 
-## 5. Output Agent
-**Intent**: "Turn Insight into Action."
-This agent translates the raw analysis into human-readable and machine-executable advice.
+| Agent | Purpose | Execution |
+|-------|---------|-----------|
+| `citation-analysis` | Analyzes citation patterns and frequency | Parallel |
+| `content-comparison` | Compares content against competitors | Parallel |
+| `visibility-scoring` | Calculates AEO visibility score (0-100) | After above complete |
 
-### Type & Amount of Information Gathered
--   **Recommendations**: Generates **5-8 Prioritized Actions** (High/Medium/Low Impact).
-    -   *Format*: Title, Description, and *Competitor Reference* ("Do what Domain X does here").
--   **Cursor Prompt**: A **Copy-Paste Optimization Prompt**.
-    -   *Intent*: The user can paste this directly into Cursor/VS Code. It contains the exact context, the missing queries, and the specific instructions for an AI coder to "fix" the page content automatically.
+**Visibility Score** = Citation Rate (35%) + Rank Quality (25%) + Competitive Position (20%) + Query Breadth (10%) + other factors (10%)
+
+## Phase 4: Output (Sequential)
+
+| Agent | Purpose |
+|-------|---------|
+| `recommendations` | Generates 5-8 prioritized actions (High/Medium/Low impact) |
+| `cursor-prompt` | Creates copy-paste prompt for AI-assisted content fixes |
+| `report-generator` | Compiles final AEO report |
+
+## Orchestration
+
+The `OrchestratorAgent` coordinates execution:
+- Generates an execution plan with dependency rules
+- Runs agents in parallel where possible
+- Evaluates results after each phase ("reasoning" step)
+- Can pivot based on results (e.g., stop if page is 404)
+- Manages context compression to stay within token limits
+
+## Key Files
+
+| Component | Path |
+|-----------|------|
+| Job handler | `apps/api/src/handlers/job.ts` |
+| Orchestrator handler | `apps/api/src/handlers/orchestrator.ts` |
+| Crawler | `apps/api/src/lib/crawler-simple.ts` |
+| Orchestrator agent | `apps/api/src/agents/orchestrator/orchestrator-agent.ts` |
+| Agent registry | `apps/api/src/agents/registry.ts` |
