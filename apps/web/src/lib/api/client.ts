@@ -15,11 +15,11 @@ import type {
   PaginatedResponse,
 } from "./types";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const API_URL = process.env.API_URL;
 
 if (!API_URL) {
   console.warn(
-    "NEXT_PUBLIC_API_URL is not set. Backend API calls will fail."
+    "API_URL is not set. Backend API calls will fail."
   );
 }
 
@@ -53,7 +53,7 @@ async function apiRequest<T>(
   if (!API_URL) {
     throw new ApiClientError(
       "MISSING_CONFIG",
-      "NEXT_PUBLIC_API_URL is not configured"
+      "API_URL is not configured"
     );
   }
 
@@ -75,8 +75,8 @@ async function apiRequest<T>(
   }
   
   // Always include API key as fallback if available (for server-side calls)
-  if (process.env.NEXT_PUBLIC_API_KEY) {
-    headers.set("X-Api-Key", process.env.NEXT_PUBLIC_API_KEY);
+  if (process.env.API_KEY) {
+    headers.set("X-Api-Key", process.env.API_KEY);
   }
   // Client-side: cookies are sent automatically with credentials: "include"
 
@@ -208,9 +208,9 @@ export const api = {
           headers.Cookie = cookie;
         } else if (
           process.env.NODE_ENV === "development" &&
-          process.env.NEXT_PUBLIC_API_KEY
+          process.env.API_KEY
         ) {
-          headers["X-Api-Key"] = process.env.NEXT_PUBLIC_API_KEY;
+          headers["X-Api-Key"] = process.env.API_KEY;
         }
 
         const response = await fetch(

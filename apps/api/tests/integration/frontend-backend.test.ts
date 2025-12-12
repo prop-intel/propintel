@@ -122,7 +122,7 @@ describe("Frontend-Backend Integration", () => {
 
     it("should have correct API URL configuration", () => {
       expect(
-        process.env.NEXT_PUBLIC_API_URL || process.env.TEST_API_URL
+        process.env.API_URL || process.env.TEST_API_URL
       ).toBeDefined();
     });
   });

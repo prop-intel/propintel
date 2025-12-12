@@ -7,7 +7,7 @@ import { api } from "./client";
 
 export async function testApiConnection() {
   console.log("Testing PropIntel Backend API connection...");
-  console.log("API URL:", process.env.NEXT_PUBLIC_API_URL);
+  console.log("API URL:", process.env.API_URL);
 
   try {
     // Test health endpoint (no auth required)

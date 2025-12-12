@@ -342,8 +342,8 @@ AUTH_URL="http://localhost:3000"
 AUTH_GOOGLE_ID=""
 AUTH_GOOGLE_SECRET=""
 
-# API
-NEXT_PUBLIC_API_URL="http://localhost:3001"
+# API (server-side only)
+API_URL="http://localhost:3001"
 ```
 
 ### 5.11 Install dependencies

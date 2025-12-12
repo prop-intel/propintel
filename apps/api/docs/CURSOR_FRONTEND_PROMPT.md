@@ -496,7 +496,8 @@ All scores are 0-100.
 
 ```typescript
 // lib/api.ts
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+// Note: API_URL is server-side only - calls go through Next.js tRPC routes
+const API_URL = process.env.API_URL;
 
 async function apiRequest<T>(
   path: string,
@@ -746,8 +747,8 @@ interface Alert {
 Frontend needs:
 
 ```env
-# API URL (deployed backend)
-NEXT_PUBLIC_API_URL=https://xxx.execute-api.us-west-2.amazonaws.com
+# API URL (deployed backend, server-side only)
+API_URL=https://xxx.execute-api.us-west-2.amazonaws.com
 
 # Shared database connection (same as backend)
 DATABASE_URL=postgresql://user:pass@host:5432/propintel

@@ -24,7 +24,8 @@ Here is a typed wrapper using `axios` that you can copy into your project.
 import axios from 'axios';
 
 // Use your backend proxy URL in production, or direct URL for local dev
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api/propintel';
+// Note: API_URL is server-side only - calls go through Next.js tRPC routes
+const API_BASE_URL = process.env.API_URL || '/api/propintel';
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,

@@ -112,11 +112,11 @@ try {
 Add these to your `.env` file:
 
 ```env
-# Backend API URL (required)
-NEXT_PUBLIC_API_URL=https://xxx.execute-api.us-west-2.amazonaws.com
+# Backend API URL (required, server-side only)
+API_URL=https://xxx.execute-api.us-west-2.amazonaws.com
 
-# API Key for development (optional)
-NEXT_PUBLIC_API_KEY=propintel-dev-key-2024
+# API Key for development (optional, server-side only)
+API_KEY=propintel-dev-key-2024
 ```
 
 ## Authentication
@@ -124,7 +124,9 @@ NEXT_PUBLIC_API_KEY=propintel-dev-key-2024
 The API client automatically handles authentication:
 
 1. **Session Token** (Production): Uses NextAuth session cookies sent with `credentials: 'include'`
-2. **API Key** (Development): Uses `X-Api-Key` header if `NEXT_PUBLIC_API_KEY` is set
+2. **API Key** (Development): Uses `X-Api-Key` header if `API_KEY` is set
+
+Note: These environment variables are server-side only. All API calls go through Next.js tRPC routes, never directly from the browser.
 
 ## Type Safety
 

@@ -2,13 +2,13 @@
 
 import { useState, useEffect, useRef } from "react";
 import { api } from "@/trpc/react";
+import { useSite } from "@/contexts/site-context";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Play, RefreshCw, CheckCircle2, XCircle, Clock, Loader2, Globe } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { Play, RefreshCw, CheckCircle2, XCircle, Clock, Loader2, Globe, AlertCircle } from "lucide-react";
 import { Label } from "@/components/ui/label";
 
 interface AgentSummary {
@@ -183,10 +183,13 @@ interface StatusUpdate {
 }
 
 export default function AgentAnalysisPage() {
-  const [targetUrl, setTargetUrl] = useState<string>("");
+  const { activeSite, isLoading: siteLoading } = useSite();
   const [jobId, setJobId] = useState<string | null>(null);
   const [statusHistory, setStatusHistory] = useState<StatusUpdate[]>([]);
   const previousStatusRef = useRef<string | null>(null);
+
+  // Compute the target URL from the active site
+  const targetUrl = activeSite ? `https://${activeSite.domain}` : "";
 
   const createJobMutation = api.job.create.useMutation({
     onSuccess: (job) => {
@@ -266,20 +269,12 @@ export default function AgentAnalysisPage() {
   }, [status]);
 
   const handleStartAnalysis = () => {
-    if (!targetUrl.trim()) {
-      return;
-    }
-
-    // Validate URL format
-    try {
-      new URL(targetUrl);
-    } catch {
-      alert("Please enter a valid URL (e.g., https://example.com)");
+    if (!activeSite) {
       return;
     }
 
     createJobMutation.mutate({
-      targetUrl: targetUrl.trim(),
+      targetUrl: `https://${activeSite.domain}`,
     });
   };
 
@@ -309,61 +304,63 @@ export default function AgentAnalysisPage() {
       <div>
         <h1 className="text-2xl font-bold">Agent Analysis</h1>
         <p className="text-muted-foreground">
-          Analyze any URL with the orchestrator agent pipeline
+          Analyze how AI agents see your site and get recommendations to improve visibility
         </p>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle>Start Analysis</CardTitle>
-          <CardDescription>Enter a URL to analyze with the orchestrator agent</CardDescription>
+          <CardDescription>Analyze your site with the orchestrator agent</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="targetUrl">Target URL</Label>
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="targetUrl"
-                  type="url"
-                  placeholder="https://example.com"
-                  value={targetUrl}
-                  onChange={(e) => setTargetUrl(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && targetUrl.trim()) {
-                      handleStartAnalysis();
-                    }
-                  }}
-                  className="pl-9"
-                  disabled={createJobMutation.isPending || !!jobId}
-                />
-              </div>
-              <Button
-                onClick={handleStartAnalysis}
-                disabled={!targetUrl.trim() || createJobMutation.isPending || !!jobId}
-              >
-                {createJobMutation.isPending ? (
-                  <>
-                    <Spinner className="mr-2 h-4 w-4" />
-                    Creating...
-                  </>
-                ) : (
-                  <>
-                    <Play className="mr-2 h-4 w-4" />
-                    Start Analysis
-                  </>
-                )}
-              </Button>
+          {siteLoading ? (
+            <div className="flex items-center justify-center py-4">
+              <Spinner />
             </div>
-            {createJobMutation.error && (
-              <Alert variant="destructive">
-                <AlertDescription>
-                  {createJobMutation.error.message || "Failed to create analysis job"}
-                </AlertDescription>
-              </Alert>
-            )}
-          </div>
+          ) : !activeSite ? (
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                No site selected. Please add or select a site from the sidebar to analyze.
+              </AlertDescription>
+            </Alert>
+          ) : (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Target URL</Label>
+                <div className="flex items-center gap-2 p-3 rounded-md border bg-muted/50">
+                  <Globe className="h-4 w-4 text-muted-foreground" />
+                  <span className="font-mono text-sm">{targetUrl}</span>
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <Button
+                  onClick={handleStartAnalysis}
+                  disabled={createJobMutation.isPending || !!jobId}
+                >
+                  {createJobMutation.isPending ? (
+                    <>
+                      <Spinner className="mr-2 h-4 w-4" />
+                      Creating...
+                    </>
+                  ) : (
+                    <>
+                      <Play className="mr-2 h-4 w-4" />
+                      Start Analysis
+                    </>
+                  )}
+                </Button>
+              </div>
+              {createJobMutation.error && (
+                <Alert variant="destructive">
+                  <AlertDescription>
+                    {createJobMutation.error.message || "Failed to create analysis job"}
+                  </AlertDescription>
+                </Alert>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -596,10 +593,10 @@ export default function AgentAnalysisPage() {
         </>
       )}
 
-      {!jobId && !createJobMutation.isPending && (
+      {!jobId && !createJobMutation.isPending && activeSite && (
         <Card>
           <CardContent className="py-8 text-center text-muted-foreground">
-            Enter a URL above to start agent analysis
+            Click &quot;Start Analysis&quot; to analyze your site
           </CardContent>
         </Card>
       )}
