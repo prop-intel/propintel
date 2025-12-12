@@ -2,6 +2,42 @@
 
 This document details the multi-agent system powering PropIntel's AEO (Answer Engine Optimization) analysis. Each agent simulates a specific aspect of how AI Answer Engines (like Perplexity, SearchGPT, or Google Overviews) understand and rank content.
 
+```mermaid
+flowchart TD
+    subgraph Orchestrator[Orchestrator Agent]
+        O[Manages Job Lifecycle]
+    end
+
+    subgraph Discovery[Discovery Agent]
+        D1[Extract Page DNA]
+        D2[Identify Key Entities]
+        D3[Generate Target Queries]
+    end
+
+    subgraph Research[Research Agent]
+        R1[Live Web Searches]
+        R2[Community Signals]
+        R3[Citation Tracking]
+    end
+
+    subgraph Analysis[Analysis Agent]
+        A1[Visibility Score]
+        A2[Competitor Insights]
+        A3[Content Gap Analysis]
+    end
+
+    subgraph Output[Output Agent]
+        OUT1[Prioritized Recommendations]
+        OUT2[Cursor Prompt Generation]
+    end
+
+    O -->|Coordinates| Discovery
+    Discovery -->|Page Analysis & Queries| Research
+    Research -->|Search Results & Citations| Analysis
+    Analysis -->|Scores & Gaps| Output
+    Output -->|Final Report| O
+```
+
 ## 1. Orchestrator Agent
 **Intent**: The conductor of the symphony. It manages the lifecycle of a job, ensuring data flows correctly between agents and handling error states.
 **Logic**: Uses a sequential execution plan but evaluates "reasoning" steps after each phase to decide if it should pivot (e.g., if a page is 404, stop; if a page is thin, maybe double-check).

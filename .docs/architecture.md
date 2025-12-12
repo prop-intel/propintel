@@ -9,20 +9,20 @@ PropIntel is a monorepo application designed to crawl websites and perform Answe
 ```mermaid
 graph TD
     User[User] -->|Interacts| Frontend[Next.js Web App]
-    Frontend -->|API Calls (tRPC/REST)| API[Serverless API (Lambda)]
-    
-    subgraph "AWS Infrastructure"
+    Frontend -->|API Calls| API[Serverless API - Lambda]
+
+    subgraph AWS[AWS Infrastructure]
         API -->|Enqueue Job| SQS[AWS SQS]
         SQS -->|Trigger| Orchestrator[Orchestrator Lambda]
         Orchestrator -->|Render SPA| ECS[AWS ECS Fargate]
         Orchestrator -->|Store Report| S3[AWS S3]
         Orchestrator -->|Read/Write| DB[(Postgres Database)]
-        
+
         ECS -->|Return HTML| Orchestrator
     end
-    
-    subgraph "External Services"
-        Orchestrator -->|LLM Inference| OpenAI[OpenAI / AI SDK]
+
+    subgraph External[External Services]
+        Orchestrator -->|LLM Inference| OpenAI[OpenAI - AI SDK]
         Orchestrator -->|Search & Research| Tavily[Tavily Search API]
     end
 ```
