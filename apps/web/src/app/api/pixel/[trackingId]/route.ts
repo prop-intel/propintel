@@ -103,6 +103,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         userAgent,
         path,
         ipAddress,
+        source: "pixel",
       });
     }
 

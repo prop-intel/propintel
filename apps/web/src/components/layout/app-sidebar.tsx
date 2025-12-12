@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Brain, Code, FileText, LayoutDashboard, Settings } from "lucide-react";
+import { Brain, Code, FileText, LayoutDashboard } from "lucide-react";
 
 import { NavMain } from "@/components/layout/nav-main";
 import { NavUrls } from "@/components/layout/nav-urls";
@@ -36,11 +36,6 @@ const navItems = [
     title: "Agent Analysis",
     url: "/dashboard/agent-analysis",
     icon: Brain,
-  },
-  {
-    title: "Settings",
-    url: "/dashboard/settings",
-    icon: Settings,
   },
 ];
 
