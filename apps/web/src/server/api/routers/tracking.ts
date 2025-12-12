@@ -26,15 +26,14 @@ export const trackingRouter = createTRPCRouter({
         trackingId: site.trackingId,
         pixelSnippet: `<img src="${baseUrl}/api/pixel/${site.trackingId}" alt="" style="position:absolute;width:0;height:0;border:0" />`,
         middlewareSnippet: `// Next.js middleware.ts
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 
-export async function middleware(request) {
-  const ua = request.headers.get('user-agent') || '';
-  const ip = request.ip
-    || request.headers.get('cf-connecting-ip')
-    || request.headers.get('x-real-ip')
-    || request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
-    || '';
+export async function middleware(request: NextRequest) {
+  const ua = request.headers.get('user-agent') ?? '';
+  const ip = request.headers.get('cf-connecting-ip')
+    ?? request.headers.get('x-real-ip')
+    ?? request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+    ?? '';
 
   // Fire-and-forget tracking call
   fetch('${baseUrl}/api/middleware-track', {
