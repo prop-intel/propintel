@@ -25,6 +25,25 @@ export const trackingRouter = createTRPCRouter({
       return {
         trackingId: site.trackingId,
         pixelSnippet: `<img src="${baseUrl}/api/pixel/${site.trackingId}" alt="" style="position:absolute;width:0;height:0;border:0" />`,
+        middlewareSnippet: `// Next.js middleware.ts
+import { NextResponse } from 'next/server';
+
+export async function middleware(request) {
+  const ua = request.headers.get('user-agent') || '';
+
+  // Fire-and-forget tracking call
+  fetch('${baseUrl}/api/middleware-track', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      trackingId: '${site.trackingId}',
+      userAgent: ua,
+      path: request.nextUrl.pathname,
+    }),
+  }).catch(() => {});
+
+  return NextResponse.next();
+}`,
         // Keep for backwards compatibility
         inlineScript: `<script>
 (function(){
@@ -78,6 +97,50 @@ export const trackingRouter = createTRPCRouter({
         return {
           installed: false,
           error: `Failed to fetch site: ${errorMessage}`,
+        };
+      }
+    }),
+
+  // Test middleware endpoint
+  testMiddleware: protectedProcedure
+    .input(z.object({ siteId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const site = await ctx.db.query.sites.findFirst({
+        where: and(
+          eq(sites.id, input.siteId),
+          eq(sites.userId, ctx.session.user.id)
+        ),
+      });
+
+      if (!site) throw new TRPCError({ code: "NOT_FOUND" });
+
+      try {
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+        const response = await fetch(`${baseUrl}/api/middleware-track`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            trackingId: site.trackingId,
+            userAgent: "PropIntel-Test/1.0",
+            path: "/test",
+          }),
+        });
+
+        if (!response.ok) {
+          return { working: false, error: `Endpoint returned ${response.status}` };
+        }
+
+        const data = await response.json() as { tracked: boolean; error?: string };
+        return {
+          working: true,
+          tracked: data.tracked,
+        };
+      } catch (error) {
+        console.error("Failed to test middleware endpoint:", error);
+        const errorMessage = error instanceof Error ? error.message : "Failed to reach endpoint";
+        return {
+          working: false,
+          error: `Failed to reach endpoint: ${errorMessage}`,
         };
       }
     }),

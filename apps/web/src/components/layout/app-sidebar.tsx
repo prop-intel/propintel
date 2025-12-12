@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Brain, Code, FileText, LayoutDashboard, Settings } from "lucide-react";
+import { Brain, Code, FileText, LayoutDashboard } from "lucide-react";
 
 import { NavMain } from "@/components/layout/nav-main";
 import { NavUrls } from "@/components/layout/nav-urls";

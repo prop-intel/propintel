@@ -90,6 +90,7 @@ export const crawlerVisits = createTable(
     userAgent: d.text("user_agent").notNull(),
     ipAddress: d.varchar("ip_address", { length: 45 }),
     path: d.text("path").notNull(),
+    source: d.varchar("source", { length: 20 }).notNull().default("pixel"),
     visitedAt: d
       .timestamp("visited_at", { mode: "date", withTimezone: true })
       .notNull()

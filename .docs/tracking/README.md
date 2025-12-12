@@ -1,22 +1,37 @@
 # Tracking System
 
-## How It Works
+## Tracking Methods
 
-Users add an invisible pixel to their site. When AI crawlers visit, we detect them server-side and record the visit.
+### 1. Pixel Tracking (Simple)
+
+Users add an invisible pixel to their HTML. When crawlers load the page and request the image, we detect them.
 
 ```html
-<img src="https://propintel.io/api/pixel/TRACKING_ID" alt="" style="position:absolute;width:0;height:0;border:0" />
+<img src="https://propintel.io/api/pixel/TRACKING_ID" ... />
 ```
 
-**Why pixel instead of JavaScript?** AI agents (ChatGPT, Claude, etc.) don't execute JavaScript. They make server-side HTTP requests, so we detect crawlers from the User-Agent header when they request the pixel image.
+**Limitation:** Only works if the crawler loads images. Some AI agents fetch text-only.
+
+### 2. Middleware Tracking (Advanced)
+
+Users add middleware to their server that reports all requests to our API. Catches AI agents that don't load images.
+
+```typescript
+// In their middleware
+fetch('https://propintel.io/api/middleware-track', {
+  method: 'POST',
+  body: JSON.stringify({ trackingId, userAgent, path }),
+});
+```
 
 ## Key Files
 
 | File | Purpose |
 |------|---------|
-| `app/api/pixel/[trackingId]/route.ts` | Returns 1x1 GIF, detects crawlers, records visits |
+| `app/api/pixel/[trackingId]/route.ts` | Pixel tracking endpoint |
+| `app/api/middleware-track/route.ts` | Middleware tracking endpoint |
 | `lib/crawler-detection.ts` | User-Agent pattern matching (21+ crawlers) |
-| `server/api/routers/tracking.ts` | Generates pixel snippet, tests installation |
+| `server/api/routers/tracking.ts` | Generates snippets for both methods |
 | `app/dashboard/tracking/page.tsx` | Installation UI |
 
 ## Data Captured
@@ -26,6 +41,7 @@ Users add an invisible pixel to their site. When AI crawlers visit, we detect th
 - Page path (from referer header)
 - IP address
 - Timestamp
+- Source (`pixel` or `middleware`)
 
 ## Supported Crawlers
 

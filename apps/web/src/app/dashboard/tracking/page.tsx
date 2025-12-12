@@ -21,6 +21,7 @@ export default function TrackingPage() {
   );
 
   const testMutation = api.tracking.testInstallation.useMutation();
+  const testMiddlewareMutation = api.tracking.testMiddleware.useMutation();
 
   const copyToClipboard = async (text: string, type: string) => {
     await navigator.clipboard.writeText(text);
@@ -51,45 +52,63 @@ export default function TrackingPage() {
   return (
     <div className="p-6 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Tracking Pixel</h1>
+        <h1 className="text-2xl font-bold">Tracking</h1>
         <p className="text-muted-foreground">
-          Add the tracking pixel to your site to start monitoring AI crawler visits.
+          Track AI crawler visits to your site using pixel or middleware integration.
         </p>
       </div>
 
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <div>
+            <div className="flex items-center gap-2">
               <CardTitle>Installation</CardTitle>
-              <CardDescription>
-                Add this to your website&apos;s HTML body.
-              </CardDescription>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-5 w-5">
+                    <HelpCircle className="h-4 w-4 text-muted-foreground" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right" className="max-w-xs">
+                  <p className="font-medium mb-2">How it works:</p>
+                  <ol className="list-decimal list-inside space-y-1 text-xs">
+                    <li>Add pixel to pages you want to track</li>
+                    <li>AI crawlers request the pixel image</li>
+                    <li>We detect crawlers from request headers</li>
+                    <li>No JavaScript required</li>
+                  </ol>
+                </TooltipContent>
+              </Tooltip>
             </div>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                  <HelpCircle className="h-4 w-4 text-muted-foreground" />
+                <Button
+                  size="icon"
+                  variant="outline"
+                  className="h-8 w-8"
+                  onClick={() => testMutation.mutate({ siteId: activeSite.id })}
+                  disabled={testMutation.isPending}
+                >
+                  {testMutation.isPending ? (
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <TestTube className="h-4 w-4" />
+                  )}
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="left" className="max-w-xs">
-                <p className="font-medium mb-2">How it works:</p>
-                <ol className="list-decimal list-inside space-y-1 text-xs">
-                  <li>Add pixel to pages you want to track</li>
-                  <li>AI crawlers request the pixel image</li>
-                  <li>We detect crawlers from request headers</li>
-                  <li>No JavaScript required</li>
-                </ol>
-              </TooltipContent>
+              <TooltipContent>Test installation</TooltipContent>
             </Tooltip>
           </div>
+          <CardDescription>
+            Add this to your website&apos;s HTML body.
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="relative">
-            <pre className="bg-muted p-4 pr-24 rounded-lg overflow-x-auto text-sm">
+            <pre className="bg-muted p-4 pr-16 rounded-lg overflow-x-auto text-sm">
               <code>{scriptData?.pixelSnippet}</code>
             </pre>
-            <div className="absolute top-2 right-2 flex gap-1">
+            <div className="absolute top-2 right-2">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -103,24 +122,6 @@ export default function TrackingPage() {
                 </TooltipTrigger>
                 <TooltipContent>Copy to clipboard</TooltipContent>
               </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    size="icon"
-                    variant="outline"
-                    className="h-8 w-8"
-                    onClick={() => testMutation.mutate({ siteId: activeSite.id })}
-                    disabled={testMutation.isPending}
-                  >
-                    {testMutation.isPending ? (
-                      <RefreshCw className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <TestTube className="h-4 w-4" />
-                    )}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Test installation</TooltipContent>
-              </Tooltip>
             </div>
           </div>
 
@@ -133,6 +134,88 @@ export default function TrackingPage() {
                 {testMutation.data.installed
                   ? "The tracking pixel is properly installed on your site."
                   : testMutation.data.error}
+              </AlertDescription>
+            </Alert>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <CardTitle>Middleware Tracking</CardTitle>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-5 w-5">
+                    <HelpCircle className="h-4 w-4 text-muted-foreground" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right" className="max-w-xs">
+                  <p className="font-medium mb-2">How it works:</p>
+                  <ol className="list-decimal list-inside space-y-1 text-xs">
+                    <li>Add middleware to your server</li>
+                    <li>Middleware sends User-Agent to our API</li>
+                    <li>Catches AI agents that don&apos;t load images</li>
+                    <li>Works with Next.js, Express, etc.</li>
+                  </ol>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon"
+                  variant="outline"
+                  className="h-8 w-8"
+                  onClick={() => testMiddlewareMutation.mutate({ siteId: activeSite.id })}
+                  disabled={testMiddlewareMutation.isPending}
+                >
+                  {testMiddlewareMutation.isPending ? (
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <TestTube className="h-4 w-4" />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Test endpoint</TooltipContent>
+            </Tooltip>
+          </div>
+          <CardDescription>
+            For advanced tracking of text-only AI visits.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="relative">
+            <pre className="bg-muted p-4 pr-16 rounded-lg overflow-x-auto text-sm max-h-64">
+              <code>{scriptData?.middlewareSnippet}</code>
+            </pre>
+            <div className="absolute top-2 right-2">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="icon"
+                    variant="outline"
+                    className="h-8 w-8"
+                    onClick={() => copyToClipboard(scriptData?.middlewareSnippet ?? "", "middleware")}
+                  >
+                    {copied === "middleware" ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Copy to clipboard</TooltipContent>
+              </Tooltip>
+            </div>
+          </div>
+
+          {testMiddlewareMutation.data && (
+            <Alert variant={testMiddlewareMutation.data.working ? "default" : "destructive"}>
+              <AlertTitle>
+                {testMiddlewareMutation.data.working ? "Endpoint Working" : "Endpoint Error"}
+              </AlertTitle>
+              <AlertDescription>
+                {testMiddlewareMutation.data.working
+                  ? "The middleware endpoint is reachable and responding correctly."
+                  : testMiddlewareMutation.data.error}
               </AlertDescription>
             </Alert>
           )}
