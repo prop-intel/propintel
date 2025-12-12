@@ -30,6 +30,7 @@ import { NextResponse } from 'next/server';
 
 export async function middleware(request) {
   const ua = request.headers.get('user-agent') || '';
+  const ip = request.ip || request.headers.get('x-forwarded-for')?.split(',')[0] || '';
 
   // Fire-and-forget tracking call
   fetch('${baseUrl}/api/middleware-track', {
@@ -39,6 +40,7 @@ export async function middleware(request) {
       trackingId: '${site.trackingId}',
       userAgent: ua,
       path: request.nextUrl.pathname,
+      ip: ip,
     }),
   }).catch(() => {});
 

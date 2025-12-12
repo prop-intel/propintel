@@ -18,9 +18,11 @@ Users add middleware to their server that reports all requests to our API. Catch
 
 ```typescript
 // In their middleware
+const ip = request.ip || request.headers.get('x-forwarded-for')?.split(',')[0] || '';
+
 fetch('https://propintel.io/api/middleware-track', {
   method: 'POST',
-  body: JSON.stringify({ trackingId, userAgent, path }),
+  body: JSON.stringify({ trackingId, userAgent, path, ip }),
 });
 ```
 
