@@ -37,11 +37,6 @@ const navItems = [
     url: "/dashboard/agent-analysis",
     icon: Brain,
   },
-  {
-    title: "Settings",
-    url: "/dashboard/settings",
-    icon: Settings,
-  },
 ];
 
 export function AppSidebar({
