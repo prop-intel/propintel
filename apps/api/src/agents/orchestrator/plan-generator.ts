@@ -11,6 +11,7 @@ import { z } from 'zod';
 import { type ExecutionPlan, type ExecutionPhase } from '../../types';
 import { type AgentContext } from '../context';
 import { createTrace, flushLangfuse } from '../../lib/langfuse';
+import { getAgentMetadata } from '../registry';
 
 // ===================
 // Client Initialization
@@ -47,6 +48,140 @@ const AVAILABLE_AGENTS = {
   analysis: ['citation-analysis', 'content-comparison', 'visibility-scoring'],
   output: ['recommendations', 'cursor-prompt', 'report-generator'],
 };
+
+// ===================
+// Static Fallback Plan
+// ===================
+
+/**
+ * Deterministic fallback plan with guaranteed correct dependency ordering.
+ * Used when LLM-generated plan fails validation.
+ */
+const STATIC_EXECUTION_PLAN: ExecutionPlan = {
+  phases: [
+    { name: 'Discovery-1', agents: ['page-analysis'], runInParallel: false },
+    { name: 'Discovery-2', agents: ['query-generation'], runInParallel: false },
+    { name: 'Discovery-3', agents: ['competitor-discovery'], runInParallel: false },
+    { name: 'Research', agents: ['tavily-research', 'google-aio', 'perplexity', 'community-signals'], runInParallel: true },
+    { name: 'Analysis-1', agents: ['citation-analysis', 'content-comparison'], runInParallel: true },
+    { name: 'Analysis-2', agents: ['visibility-scoring'], runInParallel: false },
+    { name: 'Output-1', agents: ['recommendations'], runInParallel: false },
+    { name: 'Output-2', agents: ['cursor-prompt'], runInParallel: false },
+  ],
+  estimatedDuration: 180,
+  reasoning: 'Static fallback plan with guaranteed dependency ordering',
+};
+
+// ===================
+// Plan Validation
+// ===================
+
+/**
+ * Validate that an execution plan respects all agent dependencies.
+ * Returns the plan if valid, or throws an error describing violations.
+ */
+function validatePlan(plan: ExecutionPlan): { valid: boolean; errors: string[] } {
+  const errors: string[] = [];
+  const willBeExecuted = new Set<string>();
+  
+  for (const phase of plan.phases) {
+    // Check each agent in this phase
+    for (const agentId of phase.agents) {
+      const metadata = getAgentMetadata(agentId);
+      if (!metadata) {
+        errors.push(`Unknown agent: ${agentId}`);
+        continue;
+      }
+      
+      // Check that all dependencies are either already executed OR in the same phase (if sequential)
+      for (const dep of metadata.inputs) {
+        const depInPreviousPhase = willBeExecuted.has(dep);
+        const depInSamePhase = phase.agents.includes(dep);
+        
+        if (!depInPreviousPhase && !depInSamePhase) {
+          errors.push(`Agent ${agentId} depends on ${dep} which hasn't been scheduled yet`);
+        }
+        
+        // If dep is in the same phase AND running in parallel, that's a problem
+        if (depInSamePhase && phase.runInParallel) {
+          errors.push(`Agent ${agentId} depends on ${dep} but both are in parallel phase ${phase.name}`);
+        }
+      }
+    }
+    
+    // After this phase, all its agents will be executed
+    phase.agents.forEach(a => willBeExecuted.add(a));
+  }
+  
+  return { valid: errors.length === 0, errors };
+}
+
+/**
+ * Fix common plan issues by restructuring phases
+ */
+function fixPlan(plan: ExecutionPlan): ExecutionPlan {
+  console.log('[Plan] Attempting to fix invalid plan...');
+  
+  // The most common issue is visibility-scoring in parallel with its dependencies
+  // Split any phase that has dependency violations
+  const fixedPhases: ExecutionPhase[] = [];
+  
+  for (const phase of plan.phases) {
+    if (phase.runInParallel && phase.agents.length > 1) {
+      // Check for internal dependencies
+      const needsSplitting = phase.agents.some(agentId => {
+        const metadata = getAgentMetadata(agentId);
+        return metadata && metadata.inputs.some(dep => phase.agents.includes(dep));
+      });
+      
+      if (needsSplitting) {
+        console.log(`[Plan] Splitting phase ${phase.name} due to internal dependencies`);
+        
+        // Find agents with dependencies on other agents in this phase
+        const hasInternalDeps: string[] = [];
+        const noInternalDeps: string[] = [];
+        
+        for (const agentId of phase.agents) {
+          const metadata = getAgentMetadata(agentId);
+          const hasDep = metadata && metadata.inputs.some(dep => phase.agents.includes(dep));
+          if (hasDep) {
+            hasInternalDeps.push(agentId);
+          } else {
+            noInternalDeps.push(agentId);
+          }
+        }
+        
+        // Add phase for agents without internal deps (can run in parallel)
+        if (noInternalDeps.length > 0) {
+          fixedPhases.push({
+            name: `${phase.name}-parallel`,
+            agents: noInternalDeps,
+            runInParallel: noInternalDeps.length > 1,
+          });
+        }
+        
+        // Add separate phase for agents with internal deps (must run after)
+        for (const agentId of hasInternalDeps) {
+          fixedPhases.push({
+            name: `${phase.name}-${agentId}`,
+            agents: [agentId],
+            runInParallel: false,
+          });
+        }
+      } else {
+        fixedPhases.push(phase);
+      }
+    } else {
+      fixedPhases.push(phase);
+    }
+  }
+  
+  return {
+    ...plan,
+    phases: fixedPhases,
+    reasoning: `${plan.reasoning} (fixed for dependency ordering)`,
+  };
+}
 
 // ===================
 // Main Function
@@ -126,8 +261,35 @@ Generate a plan that:
       temperature: 0.3, // Slight creativity for plan optimization
     });
 
+    let finalPlan = result.object;
+    
+    // Validate the LLM-generated plan
+    console.log(`[Plan] Validating LLM-generated plan with ${finalPlan.phases.length} phases`);
+    const validation = validatePlan(finalPlan);
+    
+    if (!validation.valid) {
+      console.warn(`[Plan] LLM plan has dependency issues: ${validation.errors.join('; ')}`);
+      
+      // Try to fix the plan
+      const fixedPlan = fixPlan(finalPlan);
+      const fixValidation = validatePlan(fixedPlan);
+      
+      if (fixValidation.valid) {
+        console.log(`[Plan] Fixed plan is valid, using fixed version`);
+        finalPlan = fixedPlan;
+      } else {
+        console.warn(`[Plan] Could not fix plan, falling back to static plan. Remaining errors: ${fixValidation.errors.join('; ')}`);
+        finalPlan = STATIC_EXECUTION_PLAN;
+      }
+    } else {
+      console.log(`[Plan] LLM-generated plan is valid`);
+    }
+    
+    // Log the final plan
+    console.log(`[Plan] Final execution plan: ${JSON.stringify(finalPlan.phases.map(p => ({ name: p.name, agents: p.agents, parallel: p.runInParallel })))}`);
+
     generation.end({
-      output: result.object,
+      output: finalPlan,
       usage: {
         promptTokens: result.usage?.promptTokens,
         completionTokens: result.usage?.completionTokens,
@@ -136,7 +298,7 @@ Generate a plan that:
 
     await flushLangfuse();
 
-    return result.object;
+    return finalPlan;
   } catch (error) {
     generation.end({
       output: null,

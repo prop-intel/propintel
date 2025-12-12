@@ -71,27 +71,76 @@ export async function executeAgents(
   jobId: string,
   model = 'gpt-4o-mini'
 ): Promise<void> {
-  // Get already completed agents
-  const completedAgents = new Set(
+  // Get already completed agents at phase start
+  const initialCompleted = new Set(
     Object.values(context.getAllSummaries())
       .filter(s => s.status === 'completed')
       .map(s => s.agentId)
   );
   
+  console.log(`[Executor] Starting phase with agents: ${agentIds.join(', ')}`);
+  console.log(`[Executor] Run in parallel: ${runInParallel}`);
+  console.log(`[Executor] Already completed at phase start: ${Array.from(initialCompleted).join(', ') || 'none'}`);
+  
   // Sort agents by dependencies and add any missing required dependencies
-  const sortedAgentIds = sortAgentsByDependencies(agentIds, completedAgents);
+  const sortedAgentIds = sortAgentsByDependencies(agentIds, initialCompleted);
+  console.log(`[Executor] Sorted agent order: ${sortedAgentIds.join(', ')}`);
   
   if (runInParallel) {
-    // Execute all agents in parallel
-    await Promise.all(
-      sortedAgentIds.map(agentId => executeAgent(agentId, context, tenantId, jobId, model))
-    );
+    // For parallel execution, we need to be careful about dependencies
+    // Only run agents whose dependencies are already satisfied
+    const canRunNow: string[] = [];
+    const mustWait: string[] = [];
+    
+    for (const agentId of sortedAgentIds) {
+      const metadata = getAgentMetadata(agentId);
+      if (metadata && metadata.inputs.every(dep => initialCompleted.has(dep))) {
+        canRunNow.push(agentId);
+      } else {
+        mustWait.push(agentId);
+      }
+    }
+    
+    console.log(`[Executor] Parallel execution - can run now: ${canRunNow.join(', ') || 'none'}`);
+    console.log(`[Executor] Parallel execution - must wait: ${mustWait.join(', ') || 'none'}`);
+    
+    // Run the agents that can run in parallel
+    if (canRunNow.length > 0) {
+      await Promise.all(
+        canRunNow.map(agentId => executeAgent(agentId, context, tenantId, jobId, model))
+      );
+    }
+    
+    // If there are agents that must wait, run them sequentially
+    // (their dependencies should now be satisfied from the parallel batch)
+    for (const agentId of mustWait) {
+      console.log(`[Executor] Running deferred agent sequentially: ${agentId}`);
+      await executeAgent(agentId, context, tenantId, jobId, model);
+    }
   } else {
     // Execute agents sequentially in dependency order
     for (const agentId of sortedAgentIds) {
+      // Log current state before each agent
+      const currentCompleted = new Set(
+        Object.values(context.getAllSummaries())
+          .filter(s => s.status === 'completed')
+          .map(s => s.agentId)
+      );
+      console.log(`[Executor] Before ${agentId}, currently completed: ${Array.from(currentCompleted).join(', ') || 'none'}`);
+      
       await executeAgent(agentId, context, tenantId, jobId, model);
+      
+      console.log(`[Executor] Agent ${agentId} execution complete`);
     }
   }
+  
+  // Log final state
+  const finalCompleted = new Set(
+    Object.values(context.getAllSummaries())
+      .filter(s => s.status === 'completed')
+      .map(s => s.agentId)
+  );
+  console.log(`[Executor] Phase complete. Now completed: ${Array.from(finalCompleted).join(', ')}`);
 }
 
 /**
@@ -110,14 +159,23 @@ async function executeAgent(
   }
 
   // Check dependencies
+  const allSummaries = context.getAllSummaries();
   const completedAgents = new Set(
-    Object.values(context.getAllSummaries())
+    Object.values(allSummaries)
       .filter(s => s.status === 'completed')
       .map(s => s.agentId)
   );
 
+  // Log diagnostic info for dependency checking
+  console.log(`[Executor] Checking dependencies for agent: ${agentId}`);
+  console.log(`[Executor] Required inputs: ${agentMetadata.inputs.join(', ') || 'none'}`);
+  console.log(`[Executor] Completed agents: ${Array.from(completedAgents).join(', ') || 'none'}`);
+  console.log(`[Executor] All summaries status: ${JSON.stringify(Object.entries(allSummaries).map(([k, v]) => `${k}:${v.status}`))}`);
+
   if (!areDependenciesSatisfied(agentId, completedAgents)) {
-    throw new Error(`Dependencies not satisfied for agent: ${agentId}`);
+    const missingDeps = agentMetadata.inputs.filter(dep => !completedAgents.has(dep));
+    console.error(`[Executor] Missing dependencies for ${agentId}: ${missingDeps.join(', ')}`);
+    throw new Error(`Dependencies not satisfied for agent: ${agentId}. Missing: ${missingDeps.join(', ')}. Completed: ${Array.from(completedAgents).join(', ')}`);
   }
 
   try {

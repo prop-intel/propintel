@@ -57,8 +57,11 @@ export class OrchestratorAgent {
     const registry = getAgentRegistry();
 
     // Execute each phase
-    for (const phase of this.plan.phases) {
-      console.log(`[Orchestrator] Executing phase: ${phase.name}`);
+    const totalPhases = this.plan.phases.length;
+    for (let i = 0; i < totalPhases; i++) {
+      const phase = this.plan.phases[i];
+      console.log(`[Orchestrator] Executing phase ${i + 1}/${totalPhases}: ${phase.name}`);
+      console.log(`[Orchestrator] Phase agents: ${phase.agents.join(', ')}, parallel: ${phase.runInParallel}`);
 
       // Mark agents as running
       for (const agentId of phase.agents) {
