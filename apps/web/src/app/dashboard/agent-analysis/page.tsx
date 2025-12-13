@@ -15,17 +15,22 @@ import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Play,
-  RefreshCw,
   CheckCircle2,
   XCircle,
   Clock,
   Loader2,
-  Globe,
   AlertCircle,
 } from "lucide-react";
-import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { format } from "date-fns";
 
 // Import analysis components
 import {
@@ -39,146 +44,58 @@ import {
   KeyFindings,
 } from "@/components/analysis";
 import type { AgentStatus, PipelinePhase } from "@/components/analysis";
-
-interface AgentSummary {
-  status?: string;
-  summary?: string;
-  keyFindings?: string[];
-}
-
-interface SummaryScores {
-  aeoVisibilityScore?: number;
-  llmeoScore?: number;
-  seoScore?: number;
-  overallScore?: number;
-}
-
-interface AEOAnalysis {
-  visibilityScore?: number;
-  queriesAnalyzed?: number;
-  citationCount?: number;
-  citationRate?: number;
-  pageAnalysis?: {
-    topic?: string;
-    intent?: string;
-    entities?: string[];
-    contentType?: string;
-    summary?: string;
-    keyPoints?: string[];
-  };
-  targetQueries?: Array<{
-    query: string;
-    type: string;
-    relevanceScore: number;
-  }>;
-  citations?: Array<{
-    query: string;
-    yourPosition: "cited" | "mentioned" | "absent";
-    yourRank?: number;
-    topResults?: Array<{
-      domain: string;
-      url: string;
-      rank: number;
-    }>;
-    winningDomain?: string;
-    winningReason?: string;
-  }>;
-  competitors?: Array<{
-    domain: string;
-    citationCount: number;
-    citationRate: number;
-    averageRank: number;
-    topQueries?: string[];
-    strengths?: string[];
-  }>;
-  gaps?: Array<{
-    query: string;
-    yourPosition: string;
-    winningDomain: string;
-    winningUrl: string;
-    winningReason?: string;
-    suggestedAction?: string;
-  }>;
-  keyFindings?: string[];
-  topPerformingQueries?: string[];
-  missedOpportunities?: string[];
-}
-
-interface FullSummary {
-  scores?: SummaryScores;
-  strengths?: string[];
-  weaknesses?: string[];
-  opportunities?: string[];
-  nextSteps?: string[];
-  recommendations?: Recommendation[];
-  fullReport?: {
-    aeoAnalysis?: AEOAnalysis;
-    meta?: {
-      domain?: string;
-    };
-    scores?: {
-      confidence?: number;
-    };
-    [key: string]: unknown;
-  };
-}
-
-// Type guard to check if summary is a FullSummary object
-function isFullSummary(summary: unknown): summary is FullSummary {
-  return typeof summary === "object" && summary !== null;
-}
-
-interface Recommendation {
-  title?: string;
-  priority?: "high" | "medium" | "low";
-  description?: string;
-}
-
-interface ExecutionPhase {
-  name?: string;
-  runInParallel?: boolean;
-  agents?: string[];
-}
-
-interface ExecutionPlan {
-  phases?: ExecutionPhase[];
-}
-
-interface StatusUpdate {
-  phase: string;
-  status: string;
-  timestamp: Date;
-  summary?: unknown;
-  agentSummaries?: Record<string, unknown>;
-}
+import type { AgentSummary, StatusUpdate } from "@/types/agent-analysis";
+import { isFullSummary } from "@/types/agent-analysis";
 
 export default function AgentAnalysisPage() {
   const { activeSite, isLoading: siteLoading } = useSite();
-  const [jobId, setJobId] = useState<string | null>(null);
+  const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [statusHistory, setStatusHistory] = useState<StatusUpdate[]>([]);
   const previousStatusRef = useRef<string | null>(null);
   const [activeTab, setActiveTab] = useState("pipeline");
+  const utils = api.useUtils();
 
-  // Compute the target URL from the active site
-  const targetUrl = activeSite ? `https://${activeSite.domain}` : "";
+  // Fetch jobs for the active site using tRPC (shares cache with mutations)
+  const {
+    data: jobsData,
+    isLoading: jobsLoading,
+  } = api.job.list.useQuery(
+    { limit: 50, offset: 0, siteId: activeSite?.id },
+    { enabled: !!activeSite?.id }
+  );
+
+  const jobs = jobsData?.items ?? [];
+
+  // Auto-select most recent job on load
+  useEffect(() => {
+    if (jobs.length > 0 && !selectedJobId) {
+      setSelectedJobId(jobs[0]!.id);
+    }
+  }, [jobs, selectedJobId]);
+
+  // Reset selection when site changes
+  useEffect(() => {
+    setSelectedJobId(null);
+    setStatusHistory([]);
+    previousStatusRef.current = null;
+  }, [activeSite?.id]);
 
   const createJobMutation = api.job.create.useMutation({
     onSuccess: (job) => {
-      setJobId(job.id);
-      // Reset history when starting a new job
+      setSelectedJobId(job.id);
       setStatusHistory([]);
       previousStatusRef.current = null;
+      void utils.job.list.invalidate();
     },
   });
 
   const {
     data: status,
     isLoading: statusLoading,
-    refetch: refetchStatus,
   } = api.orchestrator.getStatus.useQuery(
-    { jobId: jobId ?? "" },
+    { jobId: selectedJobId ?? "" },
     {
-      enabled: !!jobId,
+      enabled: !!selectedJobId,
       refetchInterval: (query) => {
         // Poll every 2 seconds if job is running or completed but no summary yet
         const data = query.state.data;
@@ -425,6 +342,36 @@ export default function AgentAnalysisPage() {
     );
   };
 
+  // Helper to get status icon for dropdown
+  const getStatusIcon = (jobStatus: string) => {
+    switch (jobStatus) {
+      case "completed":
+        return <CheckCircle2 className="h-4 w-4 text-green-500" />;
+      case "failed":
+      case "blocked":
+        return <XCircle className="h-4 w-4 text-red-500" />;
+      case "crawling":
+      case "analyzing":
+        return <Loader2 className="h-4 w-4 animate-spin" />;
+      default:
+        return <Clock className="h-4 w-4 text-muted-foreground" />;
+    }
+  };
+
+  const getStatusVariant = (
+    jobStatus: string
+  ): "default" | "secondary" | "destructive" => {
+    switch (jobStatus) {
+      case "completed":
+        return "default";
+      case "failed":
+      case "blocked":
+        return "destructive";
+      default:
+        return "secondary";
+    }
+  };
+
   // Extract report data
   const fullReport = isFullSummary(status?.summary)
     ? status?.summary.fullReport
@@ -443,67 +390,100 @@ export default function AgentAnalysisPage() {
         </p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Start Analysis</CardTitle>
-          <CardDescription>
-            Analyze your site with the orchestrator agent
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {siteLoading ? (
-            <div className="flex items-center justify-center py-4">
-              <Spinner />
+      {siteLoading ? (
+        <div className="flex items-center justify-center py-4">
+          <Spinner />
+        </div>
+      ) : !activeSite ? (
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            No site selected. Please add or select a site from the sidebar to
+            analyze.
+          </AlertDescription>
+        </Alert>
+      ) : (
+        <div className="space-y-4">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-1 items-center gap-3">
+              <span className="text-muted-foreground whitespace-nowrap text-sm">
+                Analysis:
+              </span>
+              <Select
+                value={selectedJobId ?? undefined}
+                onValueChange={(value) => {
+                  setSelectedJobId(value);
+                  setStatusHistory([]);
+                  previousStatusRef.current = null;
+                }}
+              >
+                <SelectTrigger className="w-full max-w-[320px]">
+                  <SelectValue
+                    placeholder={
+                      jobsLoading ? "Loading..." : "Select an analysis"
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {jobs.map((job) => (
+                    <SelectItem key={job.id} value={job.id}>
+                      <div className="flex items-center gap-2">
+                        {getStatusIcon(job.status)}
+                        <span>
+                          {format(new Date(job.createdAt), "MMM d, yyyy h:mm a")}
+                        </span>
+                        <Badge
+                          variant={getStatusVariant(job.status)}
+                          className="ml-1 text-xs"
+                        >
+                          {job.status}
+                        </Badge>
+                      </div>
+                    </SelectItem>
+                  ))}
+                  {jobs.length === 0 && !jobsLoading && (
+                    <div className="text-muted-foreground px-2 py-1.5 text-sm">
+                      No analyses yet
+                    </div>
+                  )}
+                </SelectContent>
+              </Select>
             </div>
-          ) : !activeSite ? (
-            <Alert>
-              <AlertCircle className="h-4 w-4" />
+
+            <Button
+              onClick={handleStartAnalysis}
+              disabled={
+                createJobMutation.isPending ||
+                status?.status === "crawling" ||
+                status?.status === "analyzing"
+              }
+            >
+              {createJobMutation.isPending ? (
+                <>
+                  <Spinner className="mr-2 h-4 w-4" />
+                  Starting...
+                </>
+              ) : (
+                <>
+                  <Play className="mr-2 h-4 w-4" />
+                  Start New Analysis
+                </>
+              )}
+            </Button>
+          </div>
+
+          {createJobMutation.error && (
+            <Alert variant="destructive">
               <AlertDescription>
-                No site selected. Please add or select a site from the sidebar
-                to analyze.
+                {createJobMutation.error.message ||
+                  "Failed to create analysis job"}
               </AlertDescription>
             </Alert>
-          ) : (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>Target URL</Label>
-                <div className="bg-muted/50 flex items-center gap-2 rounded-md border p-3">
-                  <Globe className="text-muted-foreground h-4 w-4" />
-                  <span className="font-mono text-sm">{targetUrl}</span>
-                </div>
-              </div>
-              <div className="flex justify-end">
-                <Button
-                  onClick={handleStartAnalysis}
-                  disabled={createJobMutation.isPending || !!jobId}
-                >
-                  {createJobMutation.isPending ? (
-                    <>
-                      <Spinner className="mr-2 h-4 w-4" />
-                      Creating...
-                    </>
-                  ) : (
-                    <>
-                      <Play className="mr-2 h-4 w-4" />
-                      Start Analysis
-                    </>
-                  )}
-                </Button>
-              </div>
-              {createJobMutation.error && (
-                <Alert variant="destructive">
-                  <AlertDescription>
-                    {createJobMutation.error.message ||
-                      "Failed to create analysis job"}
-                  </AlertDescription>
-                </Alert>
-              )}
-            </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      )}
 
-      {jobId && (
+      {selectedJobId && (
         <Tabs
           value={activeTab}
           onValueChange={setActiveTab}
@@ -525,19 +505,7 @@ export default function AgentAnalysisPage() {
                 Details
               </TabsTrigger>
             </TabsList>
-            <div className="flex items-center gap-2">
-              {status && getStatusBadge(status.status)}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => refetchStatus()}
-                disabled={statusLoading}
-              >
-                <RefreshCw
-                  className={`h-4 w-4 ${statusLoading ? "animate-spin" : ""}`}
-                />
-              </Button>
-            </div>
+            {status && getStatusBadge(status.status)}
           </div>
 
           {/* Pipeline Tab - Shows during analysis */}
@@ -550,7 +518,7 @@ export default function AgentAnalysisPage() {
                     <CardDescription>
                       Analyzing:{" "}
                       <span className="font-mono text-sm">
-                        {targetUrl || "N/A"}
+                        {activeSite?.domain ?? "N/A"}
                       </span>
                     </CardDescription>
                   </div>
@@ -683,13 +651,6 @@ export default function AgentAnalysisPage() {
         </Tabs>
       )}
 
-      {!jobId && !createJobMutation.isPending && activeSite && (
-        <Card>
-          <CardContent className="text-muted-foreground py-8 text-center">
-            Click &quot;Start Analysis&quot; to analyze your site
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }

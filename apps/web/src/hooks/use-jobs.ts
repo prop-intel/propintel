@@ -52,6 +52,22 @@ export function useJobsQuery(limit = 20, offset = 0) {
 }
 
 /**
+ * Hook to list jobs for a specific site with pagination
+ */
+export function useJobsBySiteQuery(siteId: string | null, limit = 20, offset = 0) {
+  return useQuery({
+    queryKey: ["jobs", "site", siteId, limit, offset],
+    queryFn: async (): Promise<PaginatedResponse<Job>> => {
+      if (!siteId) {
+        return { items: [], pagination: { limit, offset, hasMore: false } };
+      }
+      return api.jobs.list(limit, offset, null, siteId);
+    },
+    enabled: !!siteId,
+  });
+}
+
+/**
  * Hook to create a new job
  */
 export function useCreateJob() {

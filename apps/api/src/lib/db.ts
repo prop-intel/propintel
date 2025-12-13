@@ -169,6 +169,27 @@ export async function listJobs(
   return { jobs: result, hasMore };
 }
 
+export async function listJobsBySite(
+  userId: string,
+  siteId: string,
+  limit = 20,
+  offset = 0
+): Promise<{ jobs: Job[]; hasMore: boolean }> {
+  const result = await db.query.jobs.findMany({
+    where: and(eq(jobs.userId, userId), eq(jobs.siteId, siteId)),
+    orderBy: [desc(jobs.createdAt)],
+    limit: limit + 1,
+    offset,
+  });
+
+  const hasMore = result.length > limit;
+  if (hasMore) {
+    result.pop();
+  }
+
+  return { jobs: result, hasMore };
+}
+
 export async function listJobsForUser(
   userId: string,
   limit = 20

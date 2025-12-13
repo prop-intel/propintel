@@ -9,6 +9,7 @@ import {
   createJob as createJobInDb,
   getJob,
   listJobs,
+  listJobsBySite,
   getActiveJobCount,
   getDailyJobCount,
   updateJob,
@@ -64,7 +65,6 @@ export const create: APIGatewayProxyHandlerV2 = async (event): Promise<APIGatewa
 
   // Determine final userId - use body userId if API key auth, otherwise auth context
   let userId = authResult.context.userId;
-  let siteId: string | undefined;
 
   if (authResult.context.isApiKeyAuth) {
     if (!request.userId) {
@@ -74,8 +74,10 @@ export const create: APIGatewayProxyHandlerV2 = async (event): Promise<APIGatewa
       });
     }
     userId = request.userId;
-    siteId = request.siteId;
   }
+
+  // siteId comes from request body for both auth methods
+  const siteId = request.siteId;
 
   console.log(`[Job] Auth: isApiKeyAuth=${authResult.context.isApiKeyAuth}, body.userId=${request.userId}, final userId=${userId}, siteId=${siteId}`);
 
@@ -232,8 +234,11 @@ export const list: APIGatewayProxyHandlerV2 = async (event): Promise<APIGatewayP
     100
   );
   const offset = parseInt(event.queryStringParameters?.offset || '0', 10);
+  const siteId = event.queryStringParameters?.siteId;
 
-  const result = await listJobs(userId, limit, offset);
+  const result = siteId
+    ? await listJobsBySite(userId, siteId, limit, offset)
+    : await listJobs(userId, limit, offset);
 
   return jsonResponse(200, {
     jobs: result.jobs,

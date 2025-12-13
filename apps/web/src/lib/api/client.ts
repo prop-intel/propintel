@@ -172,13 +172,23 @@ export const api = {
 
     /**
      * List jobs with pagination
+     * @param siteId Optional site ID to filter jobs by
      * @param cookie Optional cookie string for server-side calls
      */
     list: async (
       limit = 20,
       offset = 0,
-      cookie?: string | null
+      cookie?: string | null,
+      siteId?: string
     ): Promise<PaginatedResponse<Job>> => {
+      const params = new URLSearchParams({
+        limit: limit.toString(),
+        offset: offset.toString(),
+      });
+      if (siteId) {
+        params.set("siteId", siteId);
+      }
+
       const response = await apiRequest<{
         jobs: Job[];
         pagination: {
@@ -186,7 +196,7 @@ export const api = {
           offset: number;
           hasMore: boolean;
         };
-      }>(`/jobs?limit=${limit}&offset=${offset}`, {}, null, cookie);
+      }>(`/jobs?${params.toString()}`, {}, null, cookie);
 
       return {
         items: response.jobs,

@@ -2,6 +2,8 @@ import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { api } from "@/lib/api/client";
 import { TRPCError } from "@trpc/server";
+import { sites } from "@propintel/database";
+import { and, eq } from "drizzle-orm";
 
 // Helper to extract cookie header from tRPC context
 function getCookieFromHeaders(headers: Headers): string | null {
@@ -91,20 +93,35 @@ export const jobRouter = createTRPCRouter({
       }
     }),
 
-  // List jobs with pagination
+  // List jobs with pagination, optionally filtered by site
   list: protectedProcedure
     .input(
       z.object({
         limit: z.number().min(1).max(100).default(20),
         offset: z.number().min(0).default(0),
+        siteId: z.string().optional(),
       })
     )
     .query(async ({ input, ctx }) => {
       try {
+        // Validate site ownership if siteId provided
+        if (input.siteId) {
+          const site = await ctx.db.query.sites.findFirst({
+            where: and(
+              eq(sites.id, input.siteId),
+              eq(sites.userId, ctx.session.user.id)
+            ),
+          });
+          if (!site) {
+            throw new TRPCError({ code: "NOT_FOUND", message: "Site not found" });
+          }
+        }
+
         const cookie = getCookieFromHeaders(ctx.headers);
-        const result = await api.jobs.list(input.limit, input.offset, cookie);
+        const result = await api.jobs.list(input.limit, input.offset, cookie, input.siteId);
         return result;
       } catch (error) {
+        if (error instanceof TRPCError) throw error;
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message:
