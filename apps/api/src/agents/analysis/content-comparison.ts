@@ -9,6 +9,13 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { generateObject } from 'ai';
 import { z } from 'zod';
 import { Langfuse } from 'langfuse';
+
+// ===================
+// Timeout Configuration
+// ===================
+
+// 60 second timeout for LLM API calls to prevent indefinite hangs
+const LLM_TIMEOUT_MS = 60_000;
 import { type TavilySearchResult, type PageAnalysis, type CompetitorVisibility } from '../../types';
 
 // ===================
@@ -118,6 +125,28 @@ export async function compareContent(
     // Extract competitor content snippets from search results
     const competitorContent = extractCompetitorContent(competitors, searchResults);
 
+    // Early return if no meaningful data to compare
+    // This prevents the LLM from receiving an empty prompt and hanging
+    if (competitorContent.length === 0 || competitorContent.every(c => c.contentSnippets.length === 0)) {
+      console.log(`[ContentComparison] No competitor content to compare - returning default result`);
+      generation.end({
+        output: { skipped: true, reason: 'No competitor content available for comparison' },
+      });
+      await langfuse.flushAsync();
+      
+      return {
+        competitorInsights: [],
+        contentGaps: [{
+          topic: 'Competitor Analysis',
+          description: 'No competitor content was found in search results. Consider researching competitors manually.',
+          competitorsCovering: [],
+          priority: 'medium',
+        }],
+        structuralDifferences: [],
+        recommendations: ['Insufficient competitor data for detailed comparison. Run analysis again with more queries.'],
+      };
+    }
+
     const systemPrompt = `You are an expert content strategist analyzing why competitor content ranks better in AI search results.
 
 Compare the user's page content against competitor snippets and identify:
@@ -150,6 +179,7 @@ Analyze what competitors are doing better and what content gaps exist.`;
       system: systemPrompt,
       prompt: userPrompt,
       temperature: 0,
+      abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
     });
 
     const normalized = normalizeComparisonResult(result.object);

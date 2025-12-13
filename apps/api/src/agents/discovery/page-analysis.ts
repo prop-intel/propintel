@@ -16,6 +16,13 @@ import { type CrawledPage, type PageAnalysis } from '../../types';
 import { createTrace, flushLangfuse } from '../../lib/langfuse';
 
 // ===================
+// Timeout Configuration
+// ===================
+
+// 60 second timeout for LLM API calls to prevent indefinite hangs
+const LLM_TIMEOUT_MS = 60_000;
+
+// ===================
 // Client Initialization
 // ===================
 
@@ -37,6 +44,16 @@ const PageAnalysisSchema = z.object({
     .describe('A 2-3 sentence summary of what the page is about'),
   keyPoints: z.array(z.string()).optional()
     .describe('The main points or takeaways from the page (3-5 items)'),
+  
+  // Business understanding fields
+  companyName: z.string()
+    .describe('The company or product name (e.g., "GauntletAI", "Stripe", "Notion")'),
+  businessCategory: z.string()
+    .describe('The business category: saas, ecommerce, education, agency, marketplace, media, fintech, healthcare, b2b-services, consumer-app, developer-tools, ai-ml, or other'),
+  businessModel: z.string()
+    .describe('How this business operates and acquires customers (e.g., "Intensive bootcamp program where engineers apply and enroll for AI training", "Subscription-based project management software", "E-commerce platform selling directly to consumers")'),
+  competitorProfile: z.string()
+    .describe('What a real business competitor would look like - another company where a customer could choose to go INSTEAD (e.g., "Other AI/ML bootcamps or training programs where engineers could apply", "Other project management SaaS tools", "Other online retailers in the same product category")'),
 });
 
 // Normalize page analysis result
@@ -48,6 +65,11 @@ function normalizePageAnalysis(data: z.infer<typeof PageAnalysisSchema>) {
     contentType: (data.contentType?.toLowerCase() || 'other') as 'article' | 'product' | 'landing' | 'documentation' | 'blog' | 'other',
     summary: data.summary,
     keyPoints: data.keyPoints ?? [],
+    // Business understanding
+    companyName: data.companyName || '',
+    businessCategory: (data.businessCategory?.toLowerCase() || 'other') as 'saas' | 'ecommerce' | 'education' | 'agency' | 'marketplace' | 'media' | 'fintech' | 'healthcare' | 'b2b-services' | 'consumer-app' | 'developer-tools' | 'ai-ml' | 'other',
+    businessModel: data.businessModel || '',
+    competitorProfile: data.competitorProfile || '',
   };
 }
 
@@ -80,10 +102,24 @@ export async function analyzePageContent(
     // Build content context from crawled page
     const contentContext = buildContentContext(page);
 
-    const systemPrompt = `You are an expert content analyst specializing in SEO and AI answer optimization.
-Analyze the provided web page content and extract structured information about its topic, intent, and key elements.
+    const systemPrompt = `You are an expert business and content analyst specializing in competitive intelligence and AI answer optimization.
 
-Be specific and accurate. Focus on what would help AI systems understand and cite this content.`;
+Your task is to analyze a web page and understand TWO things:
+1. CONTENT: What the page is about (topic, intent, key points)
+2. BUSINESS: What type of company this is and who their REAL competitors would be
+
+For business analysis, think like a customer:
+- If someone is considering this company, what OTHER companies would they also be evaluating?
+- A competitor is NOT just anyone who ranks for similar keywords
+- A competitor IS another business where a customer could choose to spend their money/time INSTEAD
+
+Examples of CORRECT competitor identification:
+- GauntletAI (AI bootcamp) → Other AI bootcamps/training programs (NOT YouTube tutorials)
+- Stripe (payment SaaS) → Other payment processors like Square, PayPal (NOT banking blogs)
+- Airbnb (vacation rentals) → VRBO, Hotels.com (NOT travel blogs)
+- Notion (productivity SaaS) → Coda, Confluence, Asana (NOT productivity YouTube channels)
+
+Be specific and accurate. This analysis will be used to find ACTUAL business competitors.`;
 
     const userPrompt = `Analyze this web page:
 
@@ -100,7 +136,13 @@ ${contentContext.slice(0, 2000)}
 Word Count: ${page.wordCount}
 Schema Types Found: ${page.schemas.map(s => s.type).join(', ') || 'None'}
 
-Extract the topic, intent, entities, content type, summary, and key points.`;
+Extract:
+1. CONTENT ANALYSIS: topic, intent, entities, content type, summary, key points
+2. BUSINESS ANALYSIS:
+   - companyName: The actual company/product name
+   - businessCategory: What type of business (saas, ecommerce, education, agency, marketplace, media, fintech, healthcare, b2b-services, consumer-app, developer-tools, ai-ml, other)
+   - businessModel: How they operate and acquire customers (be specific)
+   - competitorProfile: Describe what a REAL business competitor looks like - another company a customer would evaluate alongside this one (NOT content platforms like YouTube/Medium, NOT general information sites)`;
 
     const result = await generateObject({
       model: openai(model),
@@ -108,6 +150,7 @@ Extract the topic, intent, entities, content type, summary, and key points.`;
       system: systemPrompt,
       prompt: userPrompt,
       temperature: 0,
+      abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
     });
 
     const normalized = normalizePageAnalysis(result.object);

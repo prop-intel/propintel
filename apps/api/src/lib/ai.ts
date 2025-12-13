@@ -5,6 +5,13 @@ import { Langfuse } from 'langfuse';
 import { type CrawledPage, type LLMEOAnalysis, type SEOAnalysis, type Recommendation } from '../types';
 
 // ===================
+// Timeout Configuration
+// ===================
+
+// 60 second timeout for LLM API calls to prevent indefinite hangs
+const LLM_TIMEOUT_MS = 60_000;
+
+// ===================
 // Client Initialization
 // ===================
 
@@ -143,6 +150,7 @@ Generate a comprehensive summary with specific, actionable insights.`;
       system: systemPrompt,
       prompt: userPrompt,
       temperature: 0,
+      abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
     });
 
     generation.end({
@@ -221,6 +229,7 @@ Generate 5-10 prioritized recommendations with code snippets where applicable.`;
       system: systemPrompt,
       prompt: userPrompt,
       temperature: 0,
+      abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
     });
 
     generation.end({
@@ -300,6 +309,7 @@ Generate a comprehensive prompt that the content team can use to improve their s
       system: systemPrompt,
       prompt: userPrompt,
       temperature: 0,
+      abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
     });
 
     generation.end({
@@ -339,6 +349,7 @@ export async function detectLanguage(
 ${text.slice(0, 1000)}`,
     temperature: 0,
     maxTokens: 10,
+    abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
   });
 
   return result.text.trim().toLowerCase().slice(0, 2);

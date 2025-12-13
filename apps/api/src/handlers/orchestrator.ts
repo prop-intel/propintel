@@ -339,8 +339,8 @@ async function runAEOPipelineWithOrchestrator(
       averageRank: 0,
       top3Count: 0,
       top3Rate: 0,
-      queryTypesWinning: new Map(),
-      queryTypesLosing: new Map(),
+      queryTypesWinning: {} as unknown as Map<string, number>, // Use plain object (Maps serialize to objects)
+      queryTypesLosing: {} as unknown as Map<string, number>,
       gaps: [],
       findings: [],
     };

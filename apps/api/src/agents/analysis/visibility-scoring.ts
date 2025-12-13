@@ -36,6 +36,16 @@ const WEIGHTS_WITH_GEO = {
 // Default to legacy weights (GEO is optional)
 const WEIGHTS = WEIGHTS_LEGACY;
 
+/**
+ * Helper to ensure numbers are valid (returns 0 for NaN/undefined/null)
+ */
+function safeNumber(value: number | undefined | null): number {
+  if (value === undefined || value === null || isNaN(value)) {
+    return 0;
+  }
+  return value;
+}
+
 // ===================
 // Client Initialization
 // ===================
@@ -83,12 +93,12 @@ export async function calculateVisibilityScore(
     // Choose weights based on whether GEO score is available
     const weights = geoScore !== undefined ? WEIGHTS_WITH_GEO : WEIGHTS_LEGACY;
     
-    // Calculate component scores
-    const citationScore = calculateCitationScore(citationAnalysis);
-    const rankScore = calculateRankScore(citationAnalysis);
-    const competitiveScore = calculateCompetitiveScore(citationAnalysis, competitors);
-    const breadthScore = calculateBreadthScore(citationAnalysis);
-    const gapPenalty = calculateGapPenalty(citationAnalysis.gaps, citationAnalysis.totalQueries);
+    // Calculate component scores (with NaN protection)
+    const citationScore = safeNumber(calculateCitationScore(citationAnalysis));
+    const rankScore = safeNumber(calculateRankScore(citationAnalysis));
+    const competitiveScore = safeNumber(calculateCompetitiveScore(citationAnalysis, competitors));
+    const breadthScore = safeNumber(calculateBreadthScore(citationAnalysis));
+    const gapPenalty = safeNumber(calculateGapPenalty(citationAnalysis.gaps, citationAnalysis.totalQueries));
 
     // Calculate weighted total
     let totalScore = Math.round(
@@ -100,12 +110,12 @@ export async function calculateVisibilityScore(
     );
     
     // Add GEO score contribution if available
-    if (geoScore !== undefined && 'geoScore' in weights) {
-      totalScore += Math.round(geoScore * weights.geoScore);
+    if (geoScore !== undefined && weights === WEIGHTS_WITH_GEO) {
+      totalScore += Math.round(geoScore * WEIGHTS_WITH_GEO.geoScore);
     }
 
-    // Clamp to 0-100
-    const finalScore = Math.max(0, Math.min(100, totalScore));
+    // Clamp to 0-100 and ensure no NaN
+    const finalScore = safeNumber(Math.max(0, Math.min(100, totalScore)));
 
     const breakdown: ScoreBreakdown = {
       citationRate: {
@@ -136,11 +146,11 @@ export async function calculateVisibilityScore(
     };
     
     // Add GEO breakdown if available
-    if (geoScore !== undefined && 'geoScore' in weights) {
+    if (geoScore !== undefined && weights === WEIGHTS_WITH_GEO) {
       breakdown.geoScore = {
         score: geoScore,
-        weight: weights.geoScore,
-        contribution: Math.round(geoScore * weights.geoScore),
+        weight: WEIGHTS_WITH_GEO.geoScore,
+        contribution: Math.round(geoScore * WEIGHTS_WITH_GEO.geoScore),
       };
     }
 
@@ -272,7 +282,17 @@ function calculateCompetitiveScore(
  * Score based on query type breadth
  */
 function calculateBreadthScore(analysis: CitationAnalysisResult): number {
-  const winningTypes = analysis.queryTypesWinning.size;
+  // Handle both Map objects and plain objects (after JSON serialization)
+  let winningTypes: number;
+  if (analysis.queryTypesWinning instanceof Map) {
+    winningTypes = analysis.queryTypesWinning.size;
+  } else if (analysis.queryTypesWinning && typeof analysis.queryTypesWinning === 'object') {
+    // After JSON serialization, Map becomes a plain object
+    winningTypes = Object.keys(analysis.queryTypesWinning).length;
+  } else {
+    winningTypes = 0;
+  }
+  
   const totalTypes = 6; // how-to, what-is, comparison, best, why, other
   
   // Score based on coverage across query types

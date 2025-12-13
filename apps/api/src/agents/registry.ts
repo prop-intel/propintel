@@ -78,18 +78,6 @@ const AGENT_REGISTRY: Record<string, AgentMetadata> = {
     retryable: true,
     errorHandling: 'retry',
   },
-  'google-aio': {
-    id: 'google-aio',
-    name: 'Google AI Overviews',
-    description: 'Scrapes Google AI Overview results',
-    category: 'research',
-    inputs: ['query-generation'],
-    outputs: 'GoogleAIOResult[]',
-    canRunInParallel: true,
-    estimatedDuration: 60,
-    retryable: true,
-    errorHandling: 'skip',
-  },
   'perplexity': {
     id: 'perplexity',
     name: 'Perplexity Research',
@@ -114,6 +102,18 @@ const AGENT_REGISTRY: Record<string, AgentMetadata> = {
     retryable: true,
     errorHandling: 'skip',
   },
+  'llm-brand-probe': {
+    id: 'llm-brand-probe',
+    name: 'LLM Brand Probe',
+    description: 'Probes LLMs directly to measure brand visibility in AI responses (GEO)',
+    category: 'research',
+    inputs: ['page-analysis', 'query-generation', 'competitor-discovery'],
+    outputs: 'GeoBrandProbeResult',
+    canRunInParallel: true,
+    estimatedDuration: 90,
+    retryable: true,
+    errorHandling: 'skip',
+  },
 
   // Analysis Agents
   'citation-analysis': {
@@ -133,7 +133,7 @@ const AGENT_REGISTRY: Record<string, AgentMetadata> = {
     name: 'Content Comparison',
     description: 'Compares content against competitors',
     category: 'analysis',
-    inputs: ['page-analysis', 'competitor-discovery'],
+    inputs: ['page-analysis', 'competitor-discovery', 'tavily-research'], // tavily-research needed for content snippets
     outputs: 'ContentComparisonResult',
     canRunInParallel: true,
     estimatedDuration: 20,

@@ -14,6 +14,13 @@ import { createTrace, flushLangfuse } from '../../lib/langfuse';
 import { getAgentMetadata } from '../registry';
 
 // ===================
+// Timeout Configuration
+// ===================
+
+// 60 second timeout for LLM API calls to prevent indefinite hangs
+const LLM_TIMEOUT_MS = 60_000;
+
+// ===================
 // Client Initialization
 // ===================
 
@@ -42,7 +49,8 @@ const ExecutionPlanSchema = z.object({
 // Available Agents
 // ===================
 
-// NOTE: google-aio, perplexity, community-signals are disabled (not yet implemented)
+// NOTE: perplexity, community-signals, google-aio are disabled
+// google-aio requires Browserbase which is not yet configured
 const AVAILABLE_AGENTS = {
   discovery: ['page-analysis', 'query-generation', 'competitor-discovery'],
   research: ['tavily-research'], // Disabled: 'google-aio', 'perplexity', 'community-signals'
@@ -51,7 +59,7 @@ const AVAILABLE_AGENTS = {
 };
 
 // Agents that are stubs and should be skipped
-export const DISABLED_AGENTS = new Set(['google-aio', 'perplexity', 'community-signals']);
+export const DISABLED_AGENTS = new Set(['perplexity', 'community-signals', 'google-aio', 'content-comparison']);
 
 // ===================
 // Static Fallback Plan (Optimized)
@@ -67,7 +75,7 @@ const STATIC_EXECUTION_PLAN: ExecutionPlan = {
   phases: [
     // Phase 1: Discovery (sequential - dependencies require ordering)
     { name: 'Discovery', agents: ['page-analysis', 'query-generation', 'competitor-discovery'], runInParallel: false },
-    // Phase 2: Research (only tavily-research - others are stubs)
+    // Phase 2: Research (tavily only - google-aio disabled)
     { name: 'Research', agents: ['tavily-research'], runInParallel: false },
     // Phase 3: Analysis Part 1 (can run in parallel)
     { name: 'Analysis', agents: ['citation-analysis', 'content-comparison'], runInParallel: true },
@@ -76,8 +84,8 @@ const STATIC_EXECUTION_PLAN: ExecutionPlan = {
     // Phase 5: Output (sequential)
     { name: 'Output', agents: ['recommendations', 'cursor-prompt'], runInParallel: false },
   ],
-  estimatedDuration: 90, // Much faster without stub agents
-  reasoning: 'Optimized static plan with disabled stub agents removed',
+  estimatedDuration: 90,
+  reasoning: 'Optimized static plan with Tavily research (Google AIO disabled)',
 };
 
 // ===================
@@ -265,7 +273,7 @@ CRITICAL DEPENDENCY RULES (MUST FOLLOW):
 3. competitor-discovery depends on query-generation
 4. tavily-research depends on query-generation
 5. citation-analysis depends on tavily-research
-6. content-comparison depends on page-analysis AND competitor-discovery
+6. content-comparison depends on page-analysis, competitor-discovery, AND tavily-research (needs search results for content snippets)
 7. visibility-scoring depends on citation-analysis AND content-comparison
 8. recommendations depends on visibility-scoring
 9. cursor-prompt depends on recommendations
@@ -296,6 +304,7 @@ Generate a plan that:
       system: systemPrompt,
       prompt: userPrompt,
       temperature: 0.3, // Slight creativity for plan optimization
+      abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
     });
 
     let finalPlan = result.object;

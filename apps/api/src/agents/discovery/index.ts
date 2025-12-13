@@ -7,5 +7,5 @@
 
 export { analyzePageContent, analyzePages } from './page-analysis';
 export { generateTargetQueries, generateFocusedQueries } from './query-generation';
-export { discoverCompetitors, getTopCompetitors, extractDomain } from './competitor-discovery';
+export { discoverCompetitors, getTopCompetitors, extractDomain, type BusinessContext } from './competitor-discovery';
 

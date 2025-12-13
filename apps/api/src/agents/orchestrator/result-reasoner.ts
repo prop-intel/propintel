@@ -12,6 +12,13 @@ import { Langfuse } from 'langfuse';
 import { type AgentContext } from '../context';
 
 // ===================
+// Timeout Configuration
+// ===================
+
+// 60 second timeout for LLM API calls to prevent indefinite hangs
+const LLM_TIMEOUT_MS = 60_000;
+
+// ===================
 // Client Initialization
 // ===================
 
@@ -103,6 +110,7 @@ Provide reasoning about:
       system: systemPrompt,
       prompt: userPrompt,
       temperature: 0.2,
+      abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
     });
 
     generation.end({

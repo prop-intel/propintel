@@ -13,6 +13,13 @@ import { type AEOAnalysis, type AEORecommendation, type QueryGap, type Competito
 import { type ContentComparisonResult } from '../analysis/content-comparison';
 
 // ===================
+// Timeout Configuration
+// ===================
+
+// 60 second timeout for LLM API calls to prevent indefinite hangs
+const LLM_TIMEOUT_MS = 60_000;
+
+// ===================
 // Client Initialization
 // ===================
 
@@ -129,6 +136,7 @@ Generate 5-8 specific, prioritized recommendations.`;
       system: systemPrompt,
       prompt: userPrompt,
       temperature: 0,
+      abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
     });
 
     generation.end({

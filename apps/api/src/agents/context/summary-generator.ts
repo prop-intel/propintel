@@ -12,6 +12,13 @@ import { z } from 'zod';
 import { Langfuse } from 'langfuse';
 
 // ===================
+// Timeout Configuration
+// ===================
+
+// 60 second timeout for LLM API calls to prevent indefinite hangs
+const LLM_TIMEOUT_MS = 60_000;
+
+// ===================
 // Client Initialization
 // ===================
 
@@ -116,6 +123,7 @@ Generate a structured summary with key findings, metrics, and status.`;
       system: systemPrompt,
       prompt: userPrompt,
       temperature: 0,
+      abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
     });
 
     const normalized = normalizeAgentSummary(result.object);
@@ -179,6 +187,7 @@ export async function generateBriefSummary(
       system: systemPrompt,
       prompt: userPrompt,
       temperature: 0,
+      abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
     });
 
     generation.end({

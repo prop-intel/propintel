@@ -13,6 +13,13 @@ import { type PageAnalysis, type TargetQuery } from '../../types';
 import { createTrace, flushLangfuse } from '../../lib/langfuse';
 
 // ===================
+// Timeout Configuration
+// ===================
+
+// 60 second timeout for LLM API calls to prevent indefinite hangs
+const LLM_TIMEOUT_MS = 60_000;
+
+// ===================
 // Configuration
 // ===================
 
@@ -122,6 +129,7 @@ Assign relevance scores based on how well the page content answers each query.`;
       system: systemPrompt,
       prompt: userPrompt,
       temperature: 0.3, // Slight variation for query diversity
+      abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
     });
 
     const normalized = normalizeQueries(result.object);
@@ -214,6 +222,7 @@ These queries should be answerable by the page content.`;
       system: systemPrompt,
       prompt: userPrompt,
       temperature: 0.4,
+      abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
     });
 
     const normalized = normalizeQueries(result.object);

@@ -93,31 +93,40 @@ export class OrchestratorAgent {
           model
         );
 
-        // Reason over results after each phase
-        const reasoning = await reasonOverResults(
-          this.context.getContext(),
-          context.tenantId,
-          context.jobId,
-          model
-        );
-
-        console.log(`[Orchestrator] Phase ${phase.name} completed. Insights:`, reasoning.insights);
-
-        // Call progress callback if provided
+        // Always push progress to the job as soon as a phase finishes,
+        // so a failure in reasoning won't lose the completion update.
         if (onPhaseComplete) {
-          await onPhaseComplete(phase.name, this.getAllAgentSummaries());
+          try {
+            await onPhaseComplete(phase.name, this.getAllAgentSummaries());
+          } catch (callbackError) {
+            console.error(`[Orchestrator] Failed to run onPhaseComplete for ${phase.name}:`, callbackError);
+          }
+        }
+
+        // Reason over results after each phase (best-effort; don't block progress)
+        let reasoning: Awaited<ReturnType<typeof reasonOverResults>> | null = null;
+        try {
+          reasoning = await reasonOverResults(
+            this.context.getContext(),
+            context.tenantId,
+            context.jobId,
+            model
+          );
+          console.log(`[Orchestrator] Phase ${phase.name} completed. Insights:`, reasoning.insights);
+        } catch (reasonError) {
+          console.error(`[Orchestrator] Phase ${phase.name} reasoning failed (continuing):`, reasonError);
         }
 
         // Apply adjustments if suggested
-        if (reasoning.adjustments && reasoning.adjustments.length > 0) {
+        if (reasoning && reasoning.adjustments && reasoning.adjustments.length > 0) {
           console.log(`[Orchestrator] Adjustments suggested:`, reasoning.adjustments);
           // Could modify plan here if needed
         }
 
-        // Check if we should continue
-        if (!reasoning.shouldContinue) {
-          console.log(`[Orchestrator] Reasoning suggests stopping. Next steps:`, reasoning.nextSteps);
-          break;
+        // Log reasoning suggestion but don't stop early - complete all planned phases
+        if (reasoning && !reasoning.shouldContinue) {
+          console.log(`[Orchestrator] Reasoning suggests stopping, but continuing with remaining phases. Next steps:`, reasoning.nextSteps);
+          // Don't break - always complete all planned phases
         }
 
         // Compress context if approaching limit

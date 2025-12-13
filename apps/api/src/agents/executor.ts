@@ -266,15 +266,6 @@ async function runAgent(
       return await researchQueries(targetQueries, tenantId, jobId);
     }
 
-    case 'google-aio': {
-      const targetQueries = await context.getAgentResult<TargetQuery[]>('query-generation');
-      if (!targetQueries) {
-        throw new Error('Target queries not available. Run query-generation first.');
-      }
-      const { searchGoogleAIO } = await import('./research');
-      return await searchGoogleAIO(targetQueries, ctx.domain, tenantId, jobId);
-    }
-
     case 'perplexity': {
       const targetQueries = await context.getAgentResult<TargetQuery[]>('query-generation');
       if (!targetQueries) {
@@ -308,8 +299,8 @@ async function runAgent(
           averageRank: 0,
           top3Count: 0,
           top3Rate: 0,
-          queryTypesWinning: new Map(),
-          queryTypesLosing: new Map(),
+          queryTypesWinning: {} as unknown as Map<string, number>, // Use plain object (Maps serialize to objects)
+          queryTypesLosing: {} as unknown as Map<string, number>,
           gaps: [],
           findings: [],
         };
@@ -343,7 +334,7 @@ async function runAgent(
     case 'visibility-scoring': {
       let citationAnalysis = await context.getAgentResult<CitationAnalysisResult>('citation-analysis');
       const competitors = await context.getAgentResult<CompetitorVisibility[]>('competitor-discovery');
-      const contentComparison = await context.getAgentResult<ContentComparisonResult>('content-comparison');
+      const contentComparisonRaw = await context.getAgentResult<ContentComparisonResult | { skipped: boolean }>('content-comparison');
       
       if (!citationAnalysis) {
         citationAnalysis = {
@@ -355,16 +346,28 @@ async function runAgent(
           averageRank: 0,
           top3Count: 0,
           top3Rate: 0,
-          queryTypesWinning: new Map(),
-          queryTypesLosing: new Map(),
+          queryTypesWinning: {} as unknown as Map<string, number>, // Use plain object (Maps serialize to objects)
+          queryTypesLosing: {} as unknown as Map<string, number>,
           gaps: [],
           findings: [],
         };
       }
       const safeCompetitors = Array.isArray(competitors) ? competitors : [];
-      if (!contentComparison) {
-        throw new Error('Content comparison not available. Run content-comparison first.');
+      
+      // Handle skipped or missing content-comparison gracefully
+      let contentComparison: ContentComparisonResult;
+      if (!contentComparisonRaw || ('skipped' in contentComparisonRaw && contentComparisonRaw.skipped)) {
+        console.log('[Executor] content-comparison skipped or missing, using default');
+        contentComparison = {
+          competitorInsights: [],
+          contentGaps: [],
+          structuralDifferences: [],
+          recommendations: ['Content comparison was skipped - run full analysis for detailed recommendations'],
+        };
+      } else {
+        contentComparison = contentComparisonRaw as ContentComparisonResult;
       }
+      
       return await calculateVisibilityScore(
         citationAnalysis,
         safeCompetitors,
@@ -377,13 +380,25 @@ async function runAgent(
     case 'recommendations': {
       // Need to build AEO analysis from various sources
       const aeoAnalysis = await buildAEOAnalysisFromContext(context);
-      const contentComparison = await context.getAgentResult<ContentComparisonResult>('content-comparison');
+      const contentComparisonRaw = await context.getAgentResult<ContentComparisonResult | { skipped: boolean }>('content-comparison');
       if (!aeoAnalysis) {
         throw new Error('AEO analysis not available. Ensure all analysis agents have completed.');
       }
-      if (!contentComparison) {
-        throw new Error('Content comparison not available. Run content-comparison first.');
+      
+      // Handle skipped or missing content-comparison gracefully
+      let contentComparison: ContentComparisonResult;
+      if (!contentComparisonRaw || ('skipped' in contentComparisonRaw && contentComparisonRaw.skipped)) {
+        console.log('[Executor] content-comparison skipped or missing for recommendations, using default');
+        contentComparison = {
+          competitorInsights: [],
+          contentGaps: [],
+          structuralDifferences: [],
+          recommendations: [],
+        };
+      } else {
+        contentComparison = contentComparisonRaw as ContentComparisonResult;
       }
+      
       return await generateAEORecommendations(aeoAnalysis, contentComparison, tenantId, jobId, model);
     }
 

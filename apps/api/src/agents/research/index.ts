@@ -15,7 +15,6 @@ export {
   type CommunitySignalsResult,
 } from './tavily-research';
 
-export { searchGoogleAIO } from './google-aio-agent';
 export { searchPerplexity } from './perplexity-agent';
 export {
   searchCommunitySignals as searchCommunitySignalsNew,
