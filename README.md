@@ -88,7 +88,7 @@ PropIntel's core differentiator is its **multi-agent pipeline** that breaks down
 | Phase | Agents | Purpose |
 |-------|--------|---------|
 | **Discovery** | `page-analysis`, `query-generation`, `competitor-discovery` | Understand what your page is about and what queries it should answer |
-| **Research** | `tavily-research`, `google-aio`, `perplexity`, `community-signals` | Search the web to see where you currently appear (or don't) |
+| **Research** | `tavily-research`, `google-aio`, `perplexity`, `community-signals` | Search the web to see where you currently appear (or don't), plus find engagement opportunities on Reddit, X, and Hacker News |
 | **Analysis** | `citation-analysis`, `content-comparison`, `visibility-scoring` | Calculate your AEO score and identify gaps vs. competitors |
 | **Output** | `recommendations`, `cursor-prompt`, `report-generator` | Generate actionable fixes and ready-to-use prompts |
 
@@ -98,8 +98,9 @@ PropIntel's core differentiator is its **multi-agent pipeline** that breaks down
 2. **Analyze** — Extracts topic, intent, entities, and key information from your content
 3. **Generate Queries** — Creates 10-15 natural language queries your page should rank for
 4. **Research** — Searches each query via Tavily API to see who's being cited
-5. **Score** — Calculates visibility based on citation rate, rank quality, and competitive position
-6. **Recommend** — Generates prioritized fixes with Cursor IDE-ready prompts
+5. **Find Opportunities** — Searches Reddit, X, and Hacker News for discussions where you could engage
+6. **Score** — Calculates visibility based on citation rate, rank quality, and competitive position
+7. **Recommend** — Generates prioritized fixes with Cursor IDE-ready prompts
 
 ### Visibility Score Formula
 
@@ -120,6 +121,7 @@ AEO Visibility Score =
 - **Target Query Generation** — AI-generated queries your content should answer
 - **Competitor Analysis** — See who's winning the queries you should own
 - **Content Gap Detection** — Identify what's missing vs. top performers
+- **Engagement Opportunities** — Discover discussions on Reddit, X, and Hacker News where you can add value
 - **Cursor Prompts** — Copy-paste prompts to fix issues with AI assistance
 - **LLMEO & SEO Scores** — Traditional optimization metrics included
 - **Webhook Notifications** — Get notified when analysis completes

@@ -345,7 +345,31 @@ export interface PageAnalysis {
   contentType: 'article' | 'product' | 'landing' | 'documentation' | 'blog' | 'other';
   summary: string;
   keyPoints: string[];
+  
+  // Business understanding for competitive analysis
+  businessCategory: BusinessCategory;
+  businessModel: string;
+  competitorProfile: string;
+  companyName: string;
 }
+
+/**
+ * Business category classification for accurate competitor discovery
+ */
+export type BusinessCategory = 
+  | 'saas'              // Software as a Service
+  | 'ecommerce'         // Online retail / marketplace
+  | 'education'         // Bootcamps, courses, training programs
+  | 'agency'            // Service-based business (consulting, marketing, dev agency)
+  | 'marketplace'       // Two-sided platforms
+  | 'media'             // Publishers, news, content platforms
+  | 'fintech'           // Financial services / technology
+  | 'healthcare'        // Health services / technology
+  | 'b2b-services'      // Business services
+  | 'consumer-app'      // Consumer mobile/web applications
+  | 'developer-tools'   // Tools for developers
+  | 'ai-ml'             // AI/ML products and services
+  | 'other';
 
 /**
  * Generated query that the page should answer
@@ -439,6 +463,9 @@ export interface AEOAnalysis {
   topPerformingQueries: string[];
   missedOpportunities: string[];
   keyFindings: string[];
+
+  // Community engagement opportunities
+  communityEngagement?: CommunityEngagementResult;
 }
 
 /**
@@ -600,7 +627,7 @@ export interface PerplexityResult {
 }
 
 /**
- * Community signal from platforms
+ * Community signal from platforms (legacy format for brand mentions)
  */
 export interface CommunitySignal {
   platform: 'reddit' | 'hackernews' | 'github' | 'twitter';
@@ -618,6 +645,41 @@ export interface CommunitySignal {
 }
 
 /**
+ * Engagement opportunity found on community platforms
+ * These are discussions where the brand could add value by participating
+ */
+export interface EngagementOpportunity {
+  platform: 'reddit' | 'twitter' | 'hackernews' | 'other';
+  url: string;
+  title: string;
+  snippet: string;
+  query: string; // The query that found this
+  relevanceScore: number; // 0-100
+  opportunityType: 'question' | 'recommendation-request' | 'comparison' | 'discussion' | 'complaint';
+  foundAt: string;
+  whyGoodOpportunity?: string; // LLM-generated reason why this is a good opportunity
+}
+
+/**
+ * Result from community engagement search
+ */
+export interface CommunityEngagementResult {
+  totalOpportunities: number;
+  platforms: {
+    reddit: EngagementOpportunity[];
+    twitter: EngagementOpportunity[];
+    hackernews: EngagementOpportunity[];
+    other: EngagementOpportunity[];
+  };
+  topOpportunities: EngagementOpportunity[];
+  queryBreakdown: Array<{
+    query: string;
+    opportunitiesFound: number;
+  }>;
+  searchedAt: string;
+}
+
+/**
  * Analysis summary (stored in PostgreSQL analyses table)
  */
 export interface AnalysisSummary {
@@ -629,12 +691,14 @@ export interface AnalysisSummary {
     llmeoScore: number;
     seoScore: number;
     overallScore: number;
+    geoScore?: number; // NEW: Generative Engine Optimization score
   };
   keyMetrics: {
     citationRate: number;
     queriesAnalyzed: number;
     citationCount: number;
     topCompetitors: string[];
+    llmMentionRate?: number; // NEW: % of LLM probes where brand appeared
   };
   summary: {
     topFindings: string[];
@@ -643,5 +707,113 @@ export interface AnalysisSummary {
   };
   reportS3Key: string; // Reference to full report in S3
   generatedAt: string;
+}
+
+// ===================
+// GEO (Generative Engine Optimization) Types
+// ===================
+
+/**
+ * Prompt category for LLM brand probing
+ */
+export type GeoPromptCategory =
+  | 'direct'           // Questions directly about the brand
+  | 'category'         // "Best X tools" type questions
+  | 'problem'          // Questions about problems the brand solves
+  | 'use_case'         // "How do I accomplish X?" questions
+  | 'comparison'       // Brand vs competitor comparisons
+  | 'industry'         // Industry trends and leaders
+  | 'recommendation';  // "What should I use for X?" questions
+
+/**
+ * Generated probe prompt
+ */
+export interface GeoProbePrompt {
+  prompt: string;
+  category: GeoPromptCategory;
+  targetBrand: string;
+  relatedCompetitors: string[];
+}
+
+/**
+ * Result from probing a single LLM with a prompt
+ */
+export interface GeoProbeResult {
+  model: string;
+  prompt: string;
+  promptCategory: GeoPromptCategory;
+  response: string;
+  
+  // Brand mention analysis
+  brandMentioned: boolean;
+  mentionType: 'primary' | 'listed' | 'compared' | 'indirect' | 'absent';
+  mentionPosition?: number;
+  mentionContext?: string;
+  sentiment: 'positive' | 'neutral' | 'negative' | 'not_mentioned';
+  
+  // Competitor analysis
+  competitorsMentioned: {
+    name: string;
+    mentioned: boolean;
+    mentionType?: 'primary' | 'listed' | 'compared' | 'indirect';
+    position?: number;
+  }[];
+  
+  probedAt: string;
+  responseTokens?: number;
+}
+
+/**
+ * Aggregated results from LLM brand probing
+ */
+export interface GeoBrandProbeResult {
+  // Core metrics
+  overallMentionRate: number;
+  primaryMentionRate: number;
+  averageMentionPosition: number;
+  
+  // Breakdown by model
+  modelBreakdown: Record<string, {
+    mentionRate: number;
+    primaryRate: number;
+    probeCount: number;
+  }>;
+  
+  // Breakdown by prompt category
+  categoryBreakdown: Record<GeoPromptCategory, {
+    mentionRate: number;
+    primaryRate: number;
+    probeCount: number;
+  }>;
+  
+  // Competitor comparison
+  competitorComparison: {
+    competitor: string;
+    theirMentionRate: number;
+    yourMentionRate: number;
+    headToHeadWins: number;
+    headToHeadLosses: number;
+  }[];
+  
+  // Sentiment
+  sentimentBreakdown: {
+    positive: number;
+    neutral: number;
+    negative: number;
+  };
+  
+  // GEO Score
+  geoScore: number;
+  geoGrade: string;
+  
+  // Insights
+  strongCategories: string[];
+  weakCategories: string[];
+  keyFindings: string[];
+  
+  // Metadata
+  totalProbes: number;
+  modelsUsed: string[];
+  probedAt: string;
 }
 

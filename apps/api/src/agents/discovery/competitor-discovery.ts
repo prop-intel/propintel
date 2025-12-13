@@ -1,21 +1,86 @@
 /**
  * Competitor Discovery Agent
  *
- * Discovers competing domains that appear in search results
- * for the target queries. These are the sites currently
- * winning visibility for queries the target page should answer.
+ * Discovers REAL BUSINESS competitors - other companies where
+ * a customer could choose to go INSTEAD.
+ * 
+ * This is different from "visibility competitors" (anyone who ranks).
+ * We filter out content platforms (YouTube, Medium, Wikipedia) and
+ * use business context to identify actual competitors.
  */
 
+import { createOpenAI } from '@ai-sdk/openai';
+import { generateObject } from 'ai';
+import { z } from 'zod';
 import { Langfuse } from 'langfuse';
-import { type TargetQuery, type CompetitorVisibility, type TavilySearchResult } from '../../types';
+import { type TargetQuery, type CompetitorVisibility, type TavilySearchResult, type BusinessCategory } from '../../types';
 import { searchBatch } from '../../lib/tavily';
+
+// ===================
+// Timeout Configuration
+// ===================
+
+// 60 second timeout for LLM API calls to prevent indefinite hangs
+const LLM_TIMEOUT_MS = 60_000;
 
 // ===================
 // Configuration
 // ===================
 
 const MAX_COMPETITORS = 10;
-const MIN_APPEARANCES = 2; // Minimum query appearances to be considered a competitor
+const MIN_APPEARANCES = 1; // Lowered since we filter more aggressively
+
+// Content platforms to always exclude - these are never real business competitors
+const CONTENT_PLATFORMS = new Set([
+  'youtube.com',
+  'medium.com',
+  'wikipedia.org',
+  'reddit.com',
+  'quora.com',
+  'twitter.com',
+  'x.com',
+  'linkedin.com',
+  'facebook.com',
+  'instagram.com',
+  'tiktok.com',
+  'pinterest.com',
+  'github.com',
+  'stackoverflow.com',
+  'dev.to',
+  'hashnode.dev',
+  'substack.com',
+  'wordpress.com',
+  'blogger.com',
+  'tumblr.com',
+  'news.ycombinator.com',
+]);
+
+// Generic info sites to exclude
+const INFO_SITES = new Set([
+  'forbes.com',
+  'businessinsider.com',
+  'techcrunch.com',
+  'wired.com',
+  'theverge.com',
+  'cnet.com',
+  'zdnet.com',
+  'entrepreneur.com',
+  'inc.com',
+  'investopedia.com',
+  'hubspot.com', // Content marketing, not competitor for most
+  'nerdwallet.com',
+  'g2.com',
+  'capterra.com',
+  'trustpilot.com',
+]);
+
+// ===================
+// Client Initialization
+// ===================
+
+const openai = createOpenAI({
+  apiKey: process.env.OPENAI_API_KEY || '',
+});
 
 // ===================
 // Client Initialization
@@ -40,11 +105,35 @@ interface DomainStats {
 }
 
 // ===================
+// Business Context
+// ===================
+
+export interface BusinessContext {
+  companyName: string;
+  businessCategory: BusinessCategory;
+  businessModel: string;
+  competitorProfile: string;
+}
+
+// ===================
+// LLM Schema for Competitor Validation
+// ===================
+
+const CompetitorValidationSchema = z.object({
+  validCompetitors: z.array(z.object({
+    domain: z.string(),
+    isRealCompetitor: z.boolean().describe('Is this a real business competitor where a customer could choose to go instead?'),
+    reason: z.string().describe('Brief explanation of why this is or is not a real competitor'),
+    competitorType: z.string().optional().describe('Type of competitor: direct, indirect, or content-only'),
+  })),
+});
+
+// ===================
 // Main Function
 // ===================
 
 /**
- * Discover competing domains based on target queries
+ * Discover REAL BUSINESS competitors based on target queries and business context
  */
 export async function discoverCompetitors(
   queries: TargetQuery[],
@@ -54,14 +143,15 @@ export async function discoverCompetitors(
   options: {
     maxCompetitors?: number;
     searchResults?: TavilySearchResult[]; // Reuse if already searched
+    businessContext?: BusinessContext; // Business understanding for filtering
   } = {}
 ): Promise<CompetitorVisibility[]> {
-  const { maxCompetitors = MAX_COMPETITORS, searchResults } = options;
+  const { maxCompetitors = MAX_COMPETITORS, searchResults, businessContext } = options;
 
   const trace = langfuse.trace({
     name: 'aeo-competitor-discovery',
     userId: tenantId,
-    metadata: { jobId, targetDomain, queryCount: queries.length },
+    metadata: { jobId, targetDomain, queryCount: queries.length, hasBusinessContext: !!businessContext },
   });
 
   const span = trace.span({
@@ -81,18 +171,35 @@ export async function discoverCompetitors(
     // Analyze domain frequency across all results
     const domainStats = analyzeDomainStats(results, targetDomain);
 
-    // Convert to CompetitorVisibility format
-    const competitors = buildCompetitorList(
-      domainStats,
+    // STEP 1: Filter out obvious content platforms
+    const filteredStats = filterContentPlatforms(domainStats);
+
+    // STEP 2: Build initial competitor list
+    let competitors = buildCompetitorList(
+      filteredStats,
       results,
       queries.length,
-      maxCompetitors
+      maxCompetitors * 2 // Get more candidates for LLM filtering
     );
+
+    // STEP 3: If we have business context, use LLM to validate real competitors
+    if (businessContext && competitors.length > 0) {
+      competitors = await validateCompetitorsWithLLM(
+        competitors,
+        businessContext,
+        tenantId,
+        trace
+      );
+    }
+
+    // Limit to requested max
+    competitors = competitors.slice(0, maxCompetitors);
 
     span.end({
       output: {
         competitorsFound: competitors.length,
         topCompetitor: competitors[0]?.domain,
+        filteredOut: domainStats.size - filteredStats.size,
       },
     });
 
@@ -106,6 +213,122 @@ export async function discoverCompetitors(
     });
     await langfuse.flushAsync();
     throw error;
+  }
+}
+
+/**
+ * Filter out known content platforms that are never real business competitors
+ */
+function filterContentPlatforms(stats: Map<string, DomainStats>): Map<string, DomainStats> {
+  const filtered = new Map<string, DomainStats>();
+  
+  for (const [domain, domainStats] of stats) {
+    // Check if domain matches any content platform
+    const isContentPlatform = [...CONTENT_PLATFORMS].some(platform => 
+      domain === platform || domain.endsWith('.' + platform)
+    );
+    
+    const isInfoSite = [...INFO_SITES].some(site => 
+      domain === site || domain.endsWith('.' + site)
+    );
+    
+    if (!isContentPlatform && !isInfoSite) {
+      filtered.set(domain, domainStats);
+    }
+  }
+  
+  return filtered;
+}
+
+/**
+ * Use LLM to validate which domains are real business competitors
+ */
+async function validateCompetitorsWithLLM(
+  candidates: CompetitorVisibility[],
+  businessContext: BusinessContext,
+  tenantId: string,
+  trace: ReturnType<Langfuse['trace']>
+): Promise<CompetitorVisibility[]> {
+  const generation = trace.generation({
+    name: 'competitor-validation',
+    model: 'gpt-4o-mini',
+  });
+
+  try {
+    const systemPrompt = `You are an expert business analyst specializing in competitive intelligence.
+
+Your task is to identify which domains are REAL BUSINESS COMPETITORS vs content/information sites.
+
+A REAL COMPETITOR is:
+- Another company where a customer could CHOOSE to go INSTEAD
+- Offers similar products/services to the same target audience
+- Competes for the same customer dollars/attention
+
+NOT a real competitor:
+- Content platforms (even if they have related content)
+- News/media sites writing about the industry
+- Review/comparison aggregator sites
+- Educational content sites (unless the business IS education)
+- Generic directories or marketplaces (unless the business IS a marketplace)
+
+Be strict. Only mark as "isRealCompetitor: true" if a customer evaluating ${businessContext.companyName} would also realistically evaluate this company.`;
+
+    const userPrompt = `Business being analyzed:
+- Company: ${businessContext.companyName}
+- Category: ${businessContext.businessCategory}
+- Business Model: ${businessContext.businessModel}
+- What a competitor looks like: ${businessContext.competitorProfile}
+
+Candidate domains found in search results:
+${candidates.map(c => `- ${c.domain} (appeared in ${c.citationCount} queries)`).join('\n')}
+
+For each domain, determine if it's a REAL business competitor or just a content/visibility competitor.`;
+
+    const result = await generateObject({
+      model: openai('gpt-4o-mini'),
+      schema: CompetitorValidationSchema,
+      system: systemPrompt,
+      prompt: userPrompt,
+      temperature: 0,
+      abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
+    });
+
+    generation.end({
+      output: result.object,
+      usage: {
+        promptTokens: result.usage?.promptTokens,
+        completionTokens: result.usage?.completionTokens,
+      },
+    });
+
+    // Filter to only real competitors
+    const validDomains = new Set(
+      result.object.validCompetitors
+        .filter(v => v.isRealCompetitor)
+        .map(v => v.domain)
+    );
+
+    // Update competitor info with validation results
+    return candidates
+      .filter(c => validDomains.has(c.domain))
+      .map(c => {
+        const validation = result.object.validCompetitors.find(v => v.domain === c.domain);
+        return {
+          ...c,
+          strengths: [
+            ...c.strengths,
+            validation?.competitorType === 'direct' ? 'Direct competitor' : 'Indirect competitor',
+          ],
+        };
+      });
+  } catch (error) {
+    generation.end({
+      level: 'ERROR',
+      statusMessage: (error as Error).message,
+    });
+    // On error, return candidates without LLM filtering
+    console.warn('[CompetitorDiscovery] LLM validation failed, returning unfiltered results:', error);
+    return candidates;
   }
 }
 

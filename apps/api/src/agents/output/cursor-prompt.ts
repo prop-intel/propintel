@@ -12,6 +12,13 @@ import { Langfuse } from 'langfuse';
 import { type AEOAnalysis, type AEORecommendation, type CursorPrompt, type PageAnalysis } from '../../types';
 
 // ===================
+// Timeout Configuration
+// ===================
+
+// 60 second timeout for LLM API calls to prevent indefinite hangs
+const LLM_TIMEOUT_MS = 60_000;
+
+// ===================
 // Client Initialization
 // ===================
 
@@ -128,6 +135,7 @@ Create a prompt that will help improve visibility for these target queries.`;
       system: systemPrompt,
       prompt: userPrompt,
       temperature: 0,
+      abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
     });
 
     generation.end({

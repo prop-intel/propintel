@@ -26,6 +26,7 @@ provider:
     LANGFUSE_SECRET_KEY: ${env:LANGFUSE_SECRET_KEY, ''}
     LANGFUSE_BASE_URL: ${env:LANGFUSE_BASE_URL, 'https://us.cloud.langfuse.com'}
     TAVILY_API_KEY: ${env:TAVILY_API_KEY, ''}
+    OPENROUTER_API_KEY: ${env:OPENROUTER_API_KEY, ''}
 
   iam:
     role:
@@ -107,12 +108,13 @@ custom:
     keepNames: true
     format: esm
     banner:
-      js: "import { createRequire } from 'module'; const require = createRequire(import.meta.url);"
+      js: "import { createRequire } from 'module'; import { fileURLToPath } from 'url'; import { dirname } from 'path'; const require = createRequire(import.meta.url); const __filename = fileURLToPath(import.meta.url); const __dirname = dirname(__filename);"
   serverless-offline:
     httpPort: 4000
     lambdaPort: 4001
     noPrependStageInUrl: true
     reloadHandler: true
+    noTimeout: true  # Disable timeout for local development
 
 package:
   individually: true
