@@ -11,6 +11,8 @@
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "test:all": "turbo run test",
+    "test:check": "turbo run test:check --filter=@propintel/api",
+    "test:cleanup": "turbo run test:cleanup --filter=@propintel/api",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,mdx}\" --cache --ignore-path .gitignore",
     "format:write": "prettier --write \"**/*.{ts,tsx,js,jsx,mdx}\" --cache --ignore-path .gitignore",
     "clean": "turbo run clean && rm -rf node_modules",

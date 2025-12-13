@@ -9,9 +9,9 @@
  * - Invalid session rejection
  */
 
-import { describe, it, expect, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { eq } from "drizzle-orm";
-import { sessions, users } from "@propintel/database";
+import { sessions } from "@propintel/database";
 import { getTestDb, closeDatabase } from "../setup/db";
 import {
   createTestUser,
@@ -24,6 +24,13 @@ const API_URL = process.env.TEST_API_URL || "http://localhost:4000";
 const API_KEY = process.env.TEST_API_KEY || "propintel-dev-key-2024";
 
 describe("Authentication Flow", () => {
+  // Shared test user - created once, reused across all tests
+  let testUser: Awaited<ReturnType<typeof createTestUser>>;
+
+  beforeAll(async () => {
+    testUser = await createTestUser();
+  });
+
   afterAll(async () => {
     await closeDatabase();
   });
@@ -31,8 +38,7 @@ describe("Authentication Flow", () => {
   describe("Session Creation", () => {
     it("should create session in database when user logs in", async () => {
       const db = getTestDb();
-      const user = await createTestUser();
-      const session = await createTestSession(user.id);
+      const session = await createTestSession(testUser.id);
 
       // Verify session exists in database
       const dbSession = await db.query.sessions.findFirst({
@@ -40,14 +46,13 @@ describe("Authentication Flow", () => {
       });
 
       expect(dbSession).toBeDefined();
-      expect(dbSession?.userId).toBe(user.id);
+      expect(dbSession?.userId).toBe(testUser.id);
       expect(dbSession?.sessionToken).toBe(session.sessionToken);
     });
 
     it("should link session to correct user", async () => {
       const db = getTestDb();
-      const user = await createTestUser();
-      const session = await createTestSession(user.id);
+      const session = await createTestSession(testUser.id);
 
       const dbSession = await db.query.sessions.findFirst({
         where: eq(sessions.sessionToken, session.sessionToken),
@@ -57,15 +62,14 @@ describe("Authentication Flow", () => {
       });
 
       expect(dbSession?.user).toBeDefined();
-      expect(dbSession?.user.id).toBe(user.id);
-      expect(dbSession?.user.email).toBe(user.email);
+      expect(dbSession?.user.id).toBe(testUser.id);
+      expect(dbSession?.user.email).toBe(testUser.email);
     });
   });
 
   describe("Backend Session Validation", () => {
     it("should validate session token via Authorization header", async () => {
-      const user = await createTestUser();
-      const session = await createTestSession(user.id);
+      const session = await createTestSession(testUser.id);
 
       const response = await makeBackendApiRequest(API_URL, "/jobs", {
         method: "GET",
@@ -77,8 +81,7 @@ describe("Authentication Flow", () => {
     });
 
     it("should validate session token via cookie", async () => {
-      const user = await createTestUser();
-      const session = await createTestSession(user.id);
+      const session = await createTestSession(testUser.id);
       const cookie = getSessionCookie(session.sessionToken);
 
       const response = await makeBackendApiRequest(API_URL, "/jobs", {
@@ -101,7 +104,6 @@ describe("Authentication Flow", () => {
 
     it("should reject expired session", async () => {
       const db = getTestDb();
-      const user = await createTestUser();
 
       // Create expired session with unique token
       const expiredToken = `expired-token-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -110,7 +112,7 @@ describe("Authentication Flow", () => {
 
       await db.insert(sessions).values({
         sessionToken: expiredToken,
-        userId: user.id,
+        userId: testUser.id,
         expires: expiredDate,
       });
 
@@ -146,8 +148,7 @@ describe("Authentication Flow", () => {
   describe("User-Session Relationship", () => {
     it("should allow backend to query user from session", async () => {
       const db = getTestDb();
-      const user = await createTestUser();
-      const session = await createTestSession(user.id);
+      const session = await createTestSession(testUser.id);
 
       // Backend should be able to query user via session
       const dbSession = await db.query.sessions.findFirst({
@@ -158,20 +159,19 @@ describe("Authentication Flow", () => {
       });
 
       expect(dbSession?.user).toBeDefined();
-      expect(dbSession?.user.id).toBe(user.id);
+      expect(dbSession?.user.id).toBe(testUser.id);
     });
 
     it("should handle multiple sessions for same user", async () => {
       const db = getTestDb();
-      const user = await createTestUser();
-      const session1 = await createTestSession(user.id);
-      const session2 = await createTestSession(user.id);
+      const session1 = await createTestSession(testUser.id);
+      const session2 = await createTestSession(testUser.id);
 
       expect(session1.sessionToken).not.toBe(session2.sessionToken);
 
       // Both sessions should be valid
       const dbSessions = await db.query.sessions.findMany({
-        where: eq(sessions.userId, user.id),
+        where: eq(sessions.userId, testUser.id),
       });
 
       expect(dbSessions.length).toBeGreaterThanOrEqual(2);
@@ -190,8 +190,7 @@ describe("Authentication Flow", () => {
     });
 
     it("should prioritize API key over session token when both provided", async () => {
-      const user = await createTestUser();
-      const session = await createTestSession(user.id);
+      const session = await createTestSession(testUser.id);
 
       // When both API key and session are provided, API key is checked first
       // This is by design - API key indicates a trusted server-to-server call

@@ -5,13 +5,20 @@
  * across both frontend and backend applications.
  */
 
-import { describe, it, expect, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { eq } from "drizzle-orm";
 import { authUser, users, jobs, sites } from "@propintel/database";
 import { getTestDb, closeDatabase } from "../setup/db";
 import { createTestUser } from "../utils/auth";
 
 describe("Schema Compatibility", () => {
+  // Shared test user - created once, reused across all tests
+  let testUser: Awaited<ReturnType<typeof createTestUser>>;
+
+  beforeAll(async () => {
+    testUser = await createTestUser();
+  });
+
   afterAll(async () => {
     await closeDatabase();
   });
@@ -30,7 +37,6 @@ describe("Schema Compatibility", () => {
 
   it("should query users table using authUser alias", async () => {
     const db = getTestDb();
-    const testUser = await createTestUser();
 
     const result = await db.query.authUser.findFirst({
       where: eq(authUser.id, testUser.id),
@@ -43,7 +49,6 @@ describe("Schema Compatibility", () => {
 
   it("should query users table using users export", async () => {
     const db = getTestDb();
-    const testUser = await createTestUser();
 
     const result = await db.query.users.findFirst({
       where: eq(users.id, testUser.id),
@@ -55,13 +60,12 @@ describe("Schema Compatibility", () => {
 
   it("should create jobs with user references", async () => {
     const db = getTestDb();
-    const testUser = await createTestUser();
 
     const [job] = await db
       .insert(jobs)
       .values({
         userId: testUser.id,
-        targetUrl: "https://example.com",
+        targetUrl: `https://example.com/schema-job-${Date.now()}`,
         status: "pending",
         config: {
           maxPages: 10,
@@ -83,12 +87,11 @@ describe("Schema Compatibility", () => {
 
   it("should use relations from shared schema", async () => {
     const db = getTestDb();
-    const testUser = await createTestUser();
     const [job] = await db
       .insert(jobs)
       .values({
         userId: testUser.id,
-        targetUrl: "https://example.com",
+        targetUrl: `https://example.com/schema-relation-${Date.now()}`,
         status: "pending",
         config: {
           maxPages: 10,
@@ -109,9 +112,7 @@ describe("Schema Compatibility", () => {
     expect(jobWithUser?.user.id).toBe(testUser.id);
   });
 
-  it("should export correct types from shared schema", async () => {
-    const testUser = await createTestUser();
-
+  it("should export correct types from shared schema", () => {
     type AuthUserType = typeof authUser.$inferSelect;
     const userFromBackend: AuthUserType = testUser;
     expect(userFromBackend.id).toBe(testUser.id);

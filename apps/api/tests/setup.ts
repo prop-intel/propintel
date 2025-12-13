@@ -1,7 +1,7 @@
-import { beforeAll, afterAll } from "vitest";
+import { beforeAll } from "vitest";
 import { readFileSync, existsSync } from "fs";
 import { resolve } from "path";
-import { cleanupStuckJobs, cleanupTestData, closeDatabase } from "./setup/db";
+import { cleanupStuckJobs } from "./setup/db";
 
 function loadEnvFile(filePath: string) {
   if (!existsSync(filePath)) {
@@ -75,8 +75,6 @@ beforeAll(async () => {
   await cleanupStuckJobs();
 });
 
-// Clean up test data after all tests complete
-afterAll(async () => {
-  await cleanupTestData();
-  await closeDatabase();
-});
+// Note: Test data cleanup is NOT automatic because tests run in parallel.
+// Run cleanup manually when needed: pnpm test:cleanup
+// Or use the cleanupTestData() function from tests/setup/db.ts

@@ -148,11 +148,11 @@ export async function cleanupTestData() {
 
         // Delete auth data for test users
         await client.query(
-          `DELETE FROM auth_session WHERE "userId" IN (${placeholders})`,
+          `DELETE FROM auth_session WHERE user_id IN (${placeholders})`,
           testUserIds
         );
         await client.query(
-          `DELETE FROM auth_account WHERE "userId" IN (${placeholders})`,
+          `DELETE FROM auth_account WHERE user_id IN (${placeholders})`,
           testUserIds
         );
 
