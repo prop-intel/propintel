@@ -12,7 +12,7 @@ export function Hero() {
 
   const handleAnalyze = () => {
     if (!url) return;
-    window.location.href = `/dashboard?url=${encodeURIComponent(url)}`;
+    window.location.href = `/login?analyze_url=${encodeURIComponent(url)}`;
   };
   return (
     <section className="relative pt-32 pb-20 md:pt-48 md:pb-32 overflow-hidden">

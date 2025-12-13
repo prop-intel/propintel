@@ -15,12 +15,14 @@ interface AuthFormProps {
   error?: string;
   success?: string;
   defaultTab?: "login" | "signup";
+  analyzeUrl?: string;
 }
 
 export function AuthForm({
   error,
   success,
   defaultTab = "login",
+  analyzeUrl,
 }: AuthFormProps) {
   // Explicitly type the actions to avoid linter errors
   const handleLogin = loginAction as unknown as
@@ -65,6 +67,9 @@ export function AuthForm({
                 action={handleLogin}
                 className="my-auto flex h-[280px] flex-col justify-center space-y-4"
               >
+                {analyzeUrl && (
+                  <input type="hidden" name="analyze_url" value={analyzeUrl} />
+                )}
                 <div>
                   <Label
                     htmlFor="email-login"
@@ -115,7 +120,7 @@ export function AuthForm({
                 </div>
               </div>
 
-              <GoogleSignInForm />
+              <GoogleSignInForm analyzeUrl={analyzeUrl} />
             </TabsContent>
 
             <TabsContent value="signup" className="mt-4 space-y-4">
@@ -123,6 +128,9 @@ export function AuthForm({
                 action={handleSignup}
                 className="my-auto flex h-[380px] flex-col justify-center space-y-4"
               >
+                {analyzeUrl && (
+                  <input type="hidden" name="analyze_url" value={analyzeUrl} />
+                )}
                 <div>
                   <Label
                     htmlFor="name-signup"

@@ -56,41 +56,7 @@ function StepIcon({ status }: { status: string }) {
   );
 }
 
-const phaseIcons: Record<string, string> = {
-  Discovery: "🔍",
-  "Discovery-1": "🔍",
-  "Discovery-2": "🔍",
-  "Discovery-3": "🔍",
-  Research: "📚",
-  Analysis: "📊",
-  "Analysis-1": "📊",
-  "Analysis-2": "📊",
-  Output: "📝",
-  "Output-1": "📝",
-  "Output-2": "📝",
-};
 
-function getPhaseIcon(phaseName: string): string {
-  for (const [key, icon] of Object.entries(phaseIcons)) {
-    if (phaseName.toLowerCase().includes(key.toLowerCase())) {
-      return icon;
-    }
-  }
-  return "⚙️";
-}
-
-function getStatusTextColor(status: string) {
-  switch (status) {
-    case "completed":
-      return "text-emerald-500";
-    case "running":
-      return "text-blue-500";
-    case "failed":
-      return "text-red-500";
-    default:
-      return "text-muted-foreground";
-  }
-}
 
 export function AgentPipeline({
   phases,

@@ -12,9 +12,10 @@ const GoogleIcon = (
   </svg>
 );
 
-export function GoogleSignInForm() {
+export function GoogleSignInForm({ analyzeUrl }: { analyzeUrl?: string }) {
+  const handleSignIn = handleGoogleSignIn.bind(null, analyzeUrl);
   return (
-    <form action={handleGoogleSignIn}>
+    <form action={handleSignIn}>
       <Button
         variant="outline"
         className="flex w-full items-center justify-center space-x-2 py-2"
