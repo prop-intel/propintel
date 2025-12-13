@@ -176,6 +176,8 @@ flowchart TB
 | `/login`                | No            | Redirect to `/dashboard` if authenticated                |
 | `/login?force=true`     | No            | Bypass redirect (force login page)                       |
 | `/dashboard/**`         | Yes           | Redirect to `/login` if unauthenticated                  |
+| `/dashboard/agent-analysis` | Yes | Main analysis view (Detailed Results) |
+| `/dashboard/url/[id]`   | Yes | URL-specific history (Coming Soon) |
 | `/api/trpc/**`          | Varies        | Per-procedure (`protectedProcedure` / `publicProcedure`) |
 | `/api/pixel/**`         | No            | Public tracking endpoint                                 |
 | `/api/middleware-track` | No            | Public tracking endpoint                                 |
