@@ -27,6 +27,7 @@ export async function getUser(userId: string) {
 export async function createJob(jobData: {
   id: string;
   userId: string;
+  siteId?: string;
   targetUrl: string;
   status?: JobStatus;
   config?: NewJob['config'];
@@ -40,6 +41,7 @@ export async function createJob(jobData: {
   await db.insert(jobs).values({
     id: jobData.id,
     userId: jobData.userId,
+    siteId: jobData.siteId,
     targetUrl: jobData.targetUrl,
     status: jobData.status || 'pending',
     config: jobData.config,

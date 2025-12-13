@@ -67,13 +67,15 @@ describe("End-to-End Workflows", () => {
   describe("Job Lifecycle", () => {
     it("should handle complete job lifecycle", async () => {
       const cookie = getSessionCookie(testUser.sessionToken);
+      // Use unique URL to avoid deduplication
+      const uniqueUrl = `https://example.com/lifecycle-test-${Date.now()}`;
 
       // 1. Create job
       const createResponse = await makeBackendApiRequest(API_URL, "/jobs", {
         method: "POST",
         cookie,
         body: {
-          targetUrl: "https://example.com",
+          targetUrl: uniqueUrl,
         },
       });
 
@@ -212,11 +214,13 @@ describe("End-to-End Workflows", () => {
     it("should maintain data consistency across frontend and backend", async () => {
       // Create job via backend API
       const cookie = getSessionCookie(testUser.sessionToken);
+      // Use unique URL to avoid deduplication
+      const uniqueUrl = `https://example.com/consistency-test-${Date.now()}`;
       const createResponse = await makeBackendApiRequest(API_URL, "/jobs", {
         method: "POST",
         cookie,
         body: {
-          targetUrl: "https://example.com",
+          targetUrl: uniqueUrl,
         },
       });
 

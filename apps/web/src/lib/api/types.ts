@@ -322,6 +322,8 @@ export interface PaginatedResponse<T> {
 // Job Creation Request
 export interface CreateJobRequest {
   targetUrl: string;
+  userId?: string;
+  siteId?: string;
   config?: {
     maxPages?: number;
     maxDepth?: number;

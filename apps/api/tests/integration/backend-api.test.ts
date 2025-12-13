@@ -80,11 +80,14 @@ describe("Backend API Integration", () => {
 
   describe("Job Operations", () => {
     it("should create a job with API key", async () => {
+      // Use unique URL to avoid deduplication
+      const uniqueUrl = `https://example.com/apikey-test-${Date.now()}`;
       const response = await makeBackendApiRequest(API_URL, "/jobs", {
         method: "POST",
         apiKey: API_KEY,
         body: {
-          targetUrl: "https://example.com",
+          targetUrl: uniqueUrl,
+          userId: testUser.user.id, // Required when using API key auth
           config: {
             maxPages: 5,
             maxDepth: 2,
@@ -106,11 +109,13 @@ describe("Backend API Integration", () => {
     });
 
     it("should create a job with session token", async () => {
+      // Use unique URL to avoid deduplication
+      const uniqueUrl = `https://example.com/session-test-${Date.now()}`;
       const response = await makeBackendApiRequest(API_URL, "/jobs", {
         method: "POST",
         sessionToken: testUser.sessionToken,
         body: {
-          targetUrl: "https://example.com",
+          targetUrl: uniqueUrl,
           config: {
             maxPages: 5,
             maxDepth: 2,
@@ -130,12 +135,15 @@ describe("Backend API Integration", () => {
     });
 
     it("should retrieve a job by ID", async () => {
-      // First create a job
+      // Use unique URL to avoid deduplication
+      const uniqueUrl = `https://example.com/retrieve-test-${Date.now()}`;
+
+      // Create a job with session token
       const createResponse = await makeBackendApiRequest(API_URL, "/jobs", {
         method: "POST",
-        apiKey: API_KEY,
+        sessionToken: testUser.sessionToken,
         body: {
-          targetUrl: "https://example.com",
+          targetUrl: uniqueUrl,
         },
       });
 
@@ -146,13 +154,13 @@ describe("Backend API Integration", () => {
 
       const jobId = createData.data.job.id;
 
-      // Then retrieve it
+      // Retrieve with same session token (same user)
       const getResponse = await makeBackendApiRequest(
         API_URL,
         `/jobs/${jobId}`,
         {
           method: "GET",
-          apiKey: API_KEY,
+          sessionToken: testUser.sessionToken,
         }
       );
 
@@ -218,11 +226,13 @@ describe("Backend API Integration", () => {
     });
 
     it("should create jobs with user references from shared schema", async () => {
+      // Use unique URL to avoid deduplication
+      const uniqueUrl = `https://example.com/schema-test-${Date.now()}`;
       const response = await makeBackendApiRequest(API_URL, "/jobs", {
         method: "POST",
         sessionToken: testUser.sessionToken,
         body: {
-          targetUrl: "https://example.com",
+          targetUrl: uniqueUrl,
         },
       });
 
@@ -239,11 +249,32 @@ describe("Backend API Integration", () => {
   });
 
   describe("Error Handling", () => {
-    it("should return 400 for invalid job data", async () => {
+    it("should return 400 when API key auth is used without userId", async () => {
       const response = await makeBackendApiRequest(API_URL, "/jobs", {
         method: "POST",
         apiKey: API_KEY,
         body: {
+          targetUrl: "https://example.com",
+          // Missing userId - required when using API key auth
+        },
+      });
+
+      expect(response.status).toBe(400);
+
+      const data = await parseApiResponse<{
+        success: boolean;
+        error: { code: string; message: string };
+      }>(response);
+
+      expect(data.error.code).toBe("MISSING_USER_ID");
+    });
+
+    it("should return 400 for missing targetUrl", async () => {
+      const response = await makeBackendApiRequest(API_URL, "/jobs", {
+        method: "POST",
+        apiKey: API_KEY,
+        body: {
+          userId: testUser.user.id,
           // Missing required targetUrl
           config: {},
         },

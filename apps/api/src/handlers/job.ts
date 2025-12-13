@@ -51,7 +51,33 @@ export const create: APIGatewayProxyHandlerV2 = async (event): Promise<APIGatewa
     return jsonResponse(401, undefined, authResult.error);
   }
 
-  const { userId } = authResult.context;
+  // Parse request body early to get userId/siteId if API key auth
+  let request: CreateJobRequest;
+  try {
+    request = JSON.parse(event.body || '{}') as CreateJobRequest;
+  } catch {
+    return jsonResponse(400, undefined, {
+      code: 'INVALID_JSON',
+      message: 'Invalid JSON in request body',
+    });
+  }
+
+  // Determine final userId - use body userId if API key auth, otherwise auth context
+  let userId = authResult.context.userId;
+  let siteId: string | undefined;
+
+  if (authResult.context.isApiKeyAuth) {
+    if (!request.userId) {
+      return jsonResponse(400, undefined, {
+        code: 'MISSING_USER_ID',
+        message: 'userId is required when using API key authentication',
+      });
+    }
+    userId = request.userId;
+    siteId = request.siteId;
+  }
+
+  console.log(`[Job] Auth: isApiKeyAuth=${authResult.context.isApiKeyAuth}, body.userId=${request.userId}, final userId=${userId}, siteId=${siteId}`);
 
   const rateLimit = checkRateLimit(userId);
   if (!rateLimit.allowed) {
@@ -78,16 +104,6 @@ export const create: APIGatewayProxyHandlerV2 = async (event): Promise<APIGatewa
     return jsonResponse(409, undefined, {
       code: 'CONCURRENT_LIMIT',
       message: `Maximum concurrent jobs (${MAX_CONCURRENT_JOBS}) reached. Wait for current jobs to complete.`,
-    });
-  }
-
-  let request: CreateJobRequest;
-  try {
-    request = JSON.parse(event.body || '{}') as CreateJobRequest;
-  } catch {
-    return jsonResponse(400, undefined, {
-      code: 'INVALID_JSON',
-      message: 'Invalid JSON in request body',
     });
   }
 
@@ -138,6 +154,7 @@ export const create: APIGatewayProxyHandlerV2 = async (event): Promise<APIGatewa
   await createJobInDb({
     id: jobId,
     userId,
+    siteId,
     targetUrl: request.targetUrl,
     status: 'pending',
     config,

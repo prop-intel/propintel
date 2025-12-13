@@ -40,6 +40,8 @@ export type JobStatus = 'pending' | 'queued' | 'crawling' | 'analyzing' | 'compl
 
 export interface CreateJobRequest {
   targetUrl: string;
+  userId?: string;
+  siteId?: string;
   config?: Partial<CrawlConfig>;
   competitors?: string[];
   webhookUrl?: string;

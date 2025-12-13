@@ -45,6 +45,7 @@ export interface AuthContext {
   user: AuthUser;
   userId: string;
   isAuthenticated: boolean;
+  isApiKeyAuth?: boolean;
 }
 
 export interface AuthError {
@@ -130,6 +131,7 @@ export async function authenticateRequest(
           user,
           userId: user.id,
           isAuthenticated: true,
+          isApiKeyAuth: true,
         },
       };
     }

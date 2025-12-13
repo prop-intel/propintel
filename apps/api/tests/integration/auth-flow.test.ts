@@ -103,8 +103,8 @@ describe("Authentication Flow", () => {
       const db = getTestDb();
       const user = await createTestUser();
 
-      // Create expired session
-      const expiredToken = "expired-token-12345";
+      // Create expired session with unique token
+      const expiredToken = `expired-token-${Date.now()}-${Math.random().toString(36).slice(2)}`;
       const expiredDate = new Date();
       expiredDate.setDate(expiredDate.getDate() - 1); // Yesterday
 
@@ -189,17 +189,19 @@ describe("Authentication Flow", () => {
       expect(response.status).not.toBe(401);
     });
 
-    it("should prioritize session token over API key", async () => {
+    it("should prioritize API key over session token when both provided", async () => {
       const user = await createTestUser();
       const session = await createTestSession(user.id);
 
+      // When both API key and session are provided, API key is checked first
+      // This is by design - API key indicates a trusted server-to-server call
       const response = await makeBackendApiRequest(API_URL, "/jobs", {
         method: "GET",
         sessionToken: session.sessionToken,
-        apiKey: API_KEY, // Both provided, session should be used
+        apiKey: API_KEY, // Both provided, API key takes precedence
       });
 
-      // Should work with session token
+      // Should work - API key is valid
       expect(response.status).not.toBe(401);
     });
   });

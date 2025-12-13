@@ -1,6 +1,7 @@
 import { relations } from "drizzle-orm";
 import { index, pgTableCreator } from "drizzle-orm/pg-core";
 import { users } from "./auth";
+import { sites } from "./sites";
 
 const createTable = pgTableCreator((name) => name);
 
@@ -65,6 +66,9 @@ export const jobs = createTable(
       .varchar("user_id", { length: 255 })
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
+    siteId: d
+      .varchar("site_id", { length: 255 })
+      .references(() => sites.id, { onDelete: "cascade" }),
     targetUrl: d.text("target_url").notNull(),
     status: d
       .varchar("status", { length: 50 })
@@ -100,6 +104,7 @@ export const jobs = createTable(
   }),
   (t) => [
     index("jobs_user_id_idx").on(t.userId),
+    index("jobs_site_id_idx").on(t.siteId),
     index("jobs_status_idx").on(t.status),
     index("jobs_created_at_idx").on(t.createdAt),
   ]
@@ -256,6 +261,10 @@ export const jobsRelations = relations(jobs, ({ one, many }) => ({
   user: one(users, {
     fields: [jobs.userId],
     references: [users.id],
+  }),
+  site: one(sites, {
+    fields: [jobs.siteId],
+    references: [sites.id],
   }),
   pages: many(crawledPages),
   report: one(reports),

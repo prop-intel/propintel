@@ -73,9 +73,11 @@ async function apiRequest<T>(
     // Server-side: Use cookie header (only if cookie is not empty)
     headers.set("Cookie", cookie);
   }
-  
-  // Always include API key as fallback if available (for server-side calls)
-  if (process.env.API_KEY) {
+
+  // Only include API key if no other auth method is being used
+  // When we have a cookie, we want to use session auth to get the real user ID
+  const hasSessionAuth = sessionToken || (cookie && cookie.trim().length > 0);
+  if (!hasSessionAuth && process.env.API_KEY) {
     headers.set("X-Api-Key", process.env.API_KEY);
   }
   // Client-side: cookies are sent automatically with credentials: "include"
@@ -147,6 +149,8 @@ export const api = {
           method: "POST",
           body: JSON.stringify({
             targetUrl: request.targetUrl,
+            userId: request.userId,
+            siteId: request.siteId,
             config: request.config,
             competitors: request.competitors,
             webhookUrl: request.webhookUrl,

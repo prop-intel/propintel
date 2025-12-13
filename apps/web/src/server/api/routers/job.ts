@@ -15,6 +15,7 @@ export const jobRouter = createTRPCRouter({
     .input(
       z.object({
         targetUrl: z.string().url(),
+        siteId: z.string().optional(),
         config: z
           .object({
             maxPages: z.number().min(1).max(100).optional(),
@@ -47,6 +48,8 @@ export const jobRouter = createTRPCRouter({
         const result = await api.jobs.create(
           {
             targetUrl: input.targetUrl,
+            userId: ctx.session.user.id,
+            siteId: input.siteId,
             config: input.config,
             competitors: input.competitors,
             webhookUrl: input.webhookUrl,
