@@ -44,13 +44,12 @@ import {
   KeyFindings,
 } from "@/components/analysis";
 import type { AgentStatus, PipelinePhase } from "@/components/analysis";
-import type { AgentSummary, StatusUpdate } from "@/types/agent-analysis";
+import type { AgentSummary } from "@/types/agent-analysis";
 import { isFullSummary } from "@/types/agent-analysis";
 
 export default function AgentAnalysisPage() {
   const { activeSite, isLoading: siteLoading } = useSite();
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
-  const [statusHistory, setStatusHistory] = useState<StatusUpdate[]>([]);
   const previousStatusRef = useRef<string | null>(null);
   const [activeTab, setActiveTab] = useState("pipeline");
   const utils = api.useUtils();
@@ -64,7 +63,7 @@ export default function AgentAnalysisPage() {
     { enabled: !!activeSite?.id }
   );
 
-  const jobs = jobsData?.items ?? [];
+  const jobs = useMemo(() => jobsData?.items ?? [], [jobsData?.items]);
 
   // Auto-select most recent job on load
   useEffect(() => {
@@ -76,14 +75,12 @@ export default function AgentAnalysisPage() {
   // Reset selection when site changes
   useEffect(() => {
     setSelectedJobId(null);
-    setStatusHistory([]);
     previousStatusRef.current = null;
   }, [activeSite?.id]);
 
   const createJobMutation = api.job.create.useMutation({
     onSuccess: (job) => {
       setSelectedJobId(job.id);
-      setStatusHistory([]);
       previousStatusRef.current = null;
       void utils.job.list.invalidate();
     },
@@ -113,55 +110,11 @@ export default function AgentAnalysisPage() {
     },
   );
 
-  // Track status history
+  // Track status changes
   useEffect(() => {
     if (!status) return;
-
     const currentStatusKey = `${status.status}-${status.currentPhase}`;
-
-    // Only add new entry if status or phase changed
-    if (previousStatusRef.current !== currentStatusKey) {
-      const newUpdate: StatusUpdate = {
-        phase: status.currentPhase || status.status,
-        status: status.status,
-        timestamp: new Date(),
-        summary: status.summary ?? undefined,
-        agentSummaries: status.agentSummaries ?? undefined,
-      };
-
-      setStatusHistory((prev) => {
-        // Check if we already have this exact status (avoid duplicates)
-        const lastUpdate = prev[prev.length - 1];
-        if (
-          lastUpdate &&
-          lastUpdate.phase === newUpdate.phase &&
-          lastUpdate.status === newUpdate.status
-        ) {
-          // Update the existing entry instead of adding duplicate
-          return prev.map((update, idx) =>
-            idx === prev.length - 1 ? { ...update, ...newUpdate } : update,
-          );
-        }
-        return [...prev, newUpdate];
-      });
-
-      previousStatusRef.current = currentStatusKey;
-    } else {
-      // Update the latest entry with new data (like summary or agent summaries)
-      setStatusHistory((prev) => {
-        if (prev.length === 0) return prev;
-        const updated = [...prev];
-        const lastIndex = updated.length - 1;
-        const lastItem = updated[lastIndex];
-        if (!lastItem) return prev;
-        updated[lastIndex] = {
-          ...lastItem,
-          summary: status.summary ?? lastItem.summary,
-          agentSummaries: status.agentSummaries ?? lastItem.agentSummaries,
-        };
-        return updated;
-      });
-    }
+    previousStatusRef.current = currentStatusKey;
   }, [status]);
 
   // Convert status to pipeline phases
@@ -413,7 +366,6 @@ export default function AgentAnalysisPage() {
                 value={selectedJobId ?? undefined}
                 onValueChange={(value) => {
                   setSelectedJobId(value);
-                  setStatusHistory([]);
                   previousStatusRef.current = null;
                 }}
               >

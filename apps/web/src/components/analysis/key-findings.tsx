@@ -2,13 +2,12 @@
 
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { 
-  Lightbulb, 
-  AlertTriangle, 
-  CheckCircle2, 
+import {
+  Lightbulb,
+  AlertTriangle,
+  CheckCircle2,
   XCircle,
   TrendingUp,
-  TrendingDown,
   Info
 } from "lucide-react";
 import { motion } from "motion/react";

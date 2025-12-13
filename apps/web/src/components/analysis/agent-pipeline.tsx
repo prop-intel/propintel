@@ -58,19 +58,6 @@ function getPhaseIcon(phaseName: string): string {
   return "⚙️";
 }
 
-function getStatusColor(status: string) {
-  switch (status) {
-    case "completed":
-      return "bg-emerald-500";
-    case "running":
-      return "bg-blue-500";
-    case "failed":
-      return "bg-red-500";
-    default:
-      return "bg-muted-foreground/30";
-  }
-}
-
 function getStatusTextColor(status: string) {
   switch (status) {
     case "completed":
@@ -97,7 +84,7 @@ function AgentStatusIcon({ status }: { status: string }) {
   }
 }
 
-export function AgentPipeline({ phases, currentPhase, className }: AgentPipelineProps) {
+export function AgentPipeline({ phases, currentPhase: _currentPhase, className }: AgentPipelineProps) {
   const completedPhases = phases.filter(p => p.status === "completed").length;
   const totalPhases = phases.length;
   const progress = totalPhases > 0 ? (completedPhases / totalPhases) * 100 : 0;
