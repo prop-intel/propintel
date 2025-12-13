@@ -29,7 +29,11 @@ export default async function LoginPage({
   // Redirect if already logged in (middleware also handles this, but good to have here too)
   // UNLESS force=true is set
   if (session && !force) {
-    redirect("/dashboard");
+    if (analyzeUrl) {
+      redirect(`/dashboard?analyze_url=${encodeURIComponent(analyzeUrl)}`);
+    } else {
+      redirect("/dashboard");
+    }
   }
 
   return (

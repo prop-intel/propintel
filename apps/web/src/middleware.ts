@@ -17,7 +17,9 @@ export async function middleware(request: NextRequest) {
   // If user has session token and tries to access login page, redirect to dashboard
   // UNLESS force=true is set
   if (pathname === "/login" && sessionToken && !forceLogin) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+    const url = new URL("/dashboard", request.url);
+    url.search = request.nextUrl.search;
+    return NextResponse.redirect(url);
   }
 
   // If user doesn't have session token and tries to access dashboard, redirect to login
