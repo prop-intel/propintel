@@ -544,8 +544,10 @@ async function runAgent(
     }
 
     case "recommendations": {
+      console.log(`[Executor] Starting recommendations agent...`);
       // Need to build AEO analysis from various sources
       const aeoAnalysis = await buildAEOAnalysisFromContext(context);
+      console.log(`[Executor] AEO analysis built:`, aeoAnalysis ? 'success' : 'null');
       const contentComparisonRaw = await context.getAgentResult<
         ContentComparisonResult | { skipped: boolean }
       >("content-comparison");
@@ -574,6 +576,7 @@ async function runAgent(
         contentComparison = contentComparisonRaw as ContentComparisonResult;
       }
 
+      console.log(`[Executor] Calling generateAEORecommendations...`);
       return await generateAEORecommendations(
         aeoAnalysis,
         contentComparison,

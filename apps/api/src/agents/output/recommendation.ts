@@ -91,8 +91,17 @@ export async function generateAEORecommendations(
   });
 
   try {
+    console.log(`[Recommendations] Starting recommendation generation for job ${jobId}`);
+
+    // Check for API key
+    if (!process.env.OPENAI_API_KEY) {
+      console.error(`[Recommendations] OPENAI_API_KEY is not set!`);
+      throw new Error('OPENAI_API_KEY environment variable is not set');
+    }
+
     // Build context for LLM
     const context = buildRecommendationContext(aeoAnalysis, contentComparison);
+    console.log(`[Recommendations] Context built, making LLM call with model: ${model}`);
 
     const systemPrompt = `You are an expert AEO (Answer Engine Optimization) consultant.
 Generate specific, actionable recommendations to improve visibility in AI search results.
@@ -130,6 +139,7 @@ ${aeoAnalysis.competitors.slice(0, 3).map(c =>
 
 Generate 5-8 specific, prioritized recommendations.`;
 
+    console.log(`[Recommendations] Calling OpenAI API with ${LLM_TIMEOUT_MS}ms timeout...`);
     const result = await generateObject({
       model: openai(model),
       schema: RecommendationsSchema,
@@ -138,6 +148,7 @@ Generate 5-8 specific, prioritized recommendations.`;
       temperature: 0,
       abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
     });
+    console.log(`[Recommendations] OpenAI API call completed, got ${result.object.recommendations.length} recommendations`);
 
     generation.end({
       output: result.object,
@@ -167,6 +178,7 @@ Generate 5-8 specific, prioritized recommendations.`;
 
     return recommendations;
   } catch (error) {
+    console.error(`[Recommendations] Error generating recommendations:`, error);
     generation.end({
       output: null,
       level: 'ERROR',
