@@ -3,12 +3,10 @@
 import {
   createContext,
   useContext,
-  useState,
-  useEffect,
   type ReactNode,
 } from "react";
-import { api } from "@/trpc/react";
-import { useSiteStore } from "@/stores/site-store";
+import { useRouter } from "next/navigation";
+import { setActiveSiteCookie } from "@/lib/cookies";
 
 type Site = {
   id: string;
@@ -26,40 +24,35 @@ type SiteContextType = {
 
 const SiteContext = createContext<SiteContextType | null>(null);
 
-export function SiteProvider({ children }: { children: ReactNode }) {
-  const { activeSiteId, setActiveSiteId } = useSiteStore();
-  const { data: sites = [], isLoading } = api.site.list.useQuery();
-  const [activeSite, setActiveSiteState] = useState<Site | null>(null);
+interface SiteProviderProps {
+  children: ReactNode;
+  initialSites: Site[];
+  initialActiveSite: Site | null;
+}
 
-  // Resolve active site from stored ID or default to first site
-  useEffect(() => {
-    if (sites.length === 0) {
-      setActiveSiteState(null);
-      return;
-    }
-
-    const site = activeSiteId
-      ? sites.find((s) => s.id === activeSiteId)
-      : sites[0];
-
-    // If stored ID doesn't match any site, default to first
-    const resolvedSite = site ?? sites[0] ?? null;
-    setActiveSiteState(resolvedSite);
-
-    // Update store if we defaulted to first site
-    if (!site && resolvedSite) {
-      setActiveSiteId(resolvedSite.id);
-    }
-  }, [sites, activeSiteId, setActiveSiteId]);
+export function SiteProvider({
+  children,
+  initialSites,
+  initialActiveSite,
+}: SiteProviderProps) {
+  const router = useRouter();
 
   const setActiveSite = (site: Site | null) => {
-    setActiveSiteState(site);
-    setActiveSiteId(site?.id ?? null);
+    if (site) {
+      setActiveSiteCookie(site.id);
+    }
+    // Refresh the page to re-fetch data with new site
+    router.refresh();
   };
 
   return (
     <SiteContext.Provider
-      value={{ activeSite, setActiveSite, sites, isLoading }}
+      value={{
+        activeSite: initialActiveSite,
+        setActiveSite,
+        sites: initialSites,
+        isLoading: false,
+      }}
     >
       {children}
     </SiteContext.Provider>
