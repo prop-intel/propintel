@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { motion } from "motion/react";
-import { Bot } from "lucide-react";
+import { Bot, LayoutDashboard, LogOut } from "lucide-react";
+import { useSession, signOut } from "next-auth/react";
 
 export function Navbar() {
+  const { data: session } = useSession();
   return (
     <motion.header
       initial={{ y: -100 }}
@@ -21,25 +23,50 @@ export function Navbar() {
           PropIntel
         </Link>
 
-        <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-muted-foreground">
-          <Link href="#features" className="hover:text-foreground transition-colors">
+        <nav className="hidden md:flex items-center gap-5 text-sm font-medium text-muted-foreground">
+          <Link href="/#features" className="hover:text-foreground transition-colors">
             Features
           </Link>
-          <Link href="#how-it-works" className="hover:text-foreground transition-colors">
+          <Link href="/how-it-works" className="hover:text-foreground transition-colors">
             How it Works
           </Link>
-          <Link href="#pricing" className="hover:text-foreground transition-colors">
-            Pricing
+          <Link href="/enterprise" className="hover:text-foreground transition-colors">
+            Enterprise
+          </Link>
+          <Link href="/about" className="hover:text-foreground transition-colors">
+            About
           </Link>
         </nav>
 
         <div className="flex items-center gap-4">
-          <Link href="/login" className="text-sm font-medium text-muted-foreground hover:text-foreground hidden sm:block">
-            Sign In
-          </Link>
-          <Link href="/dashboard">
-            <Button>Get Started</Button>
-          </Link>
+          {session ? (
+            <>
+              <Link href="/dashboard">
+                <Button variant="ghost" size="sm" className="gap-2">
+                  <LayoutDashboard className="size-4" />
+                  Dashboard
+                </Button>
+              </Link>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => signOut()}
+                className="gap-2"
+              >
+                <LogOut className="size-4" />
+                Log Out
+              </Button>
+            </>
+          ) : (
+            <>
+              <Link href="/login" className="text-sm font-medium text-muted-foreground hover:text-foreground hidden sm:block">
+                Sign In
+              </Link>
+              <Link href="/dashboard">
+                <Button>Get Started</Button>
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </motion.header>

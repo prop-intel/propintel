@@ -4,34 +4,34 @@
 
 ## Quick Navigation
 
-| Section | Purpose |
-|---------|---------|
-| [Tech Stack](#tech-stack) | Framework versions and config locations |
-| [Directory Map](#directory-map) | File locations with purposes |
-| [Data Flow](#data-flow) | How data moves through the app |
-| [Routing](#routing) | Page structure and auth gates |
-| [State Management](#state-management) | Server state (tRPC) + Client state (Zustand) |
-| [Component Patterns](#component-patterns) | UI composition rules |
-| [Auth System](#auth-system) | NextAuth v5 configuration |
-| [tRPC Routers](#trpc-router-reference) | Available API endpoints |
-| [Common Tasks](#common-tasks) | Step-by-step guides |
+| Section                                   | Purpose                                      |
+| ----------------------------------------- | -------------------------------------------- |
+| [Tech Stack](#tech-stack)                 | Framework versions and config locations      |
+| [Directory Map](#directory-map)           | File locations with purposes                 |
+| [Data Flow](#data-flow)                   | How data moves through the app               |
+| [Routing](#routing)                       | Page structure and auth gates                |
+| [State Management](#state-management)     | Server state (tRPC) + Client state (Zustand) |
+| [Component Patterns](#component-patterns) | UI composition rules                         |
+| [Auth System](#auth-system)               | NextAuth v5 configuration                    |
+| [tRPC Routers](#trpc-router-reference)    | Available API endpoints                      |
+| [Common Tasks](#common-tasks)             | Step-by-step guides                          |
 
 ---
 
 ## Tech Stack
 
-| Layer | Technology | Version | Config Location |
-|-------|------------|---------|-----------------|
-| Framework | Next.js (App Router) | 16.x | `apps/web/next.config.ts` |
-| UI Library | React | 19.x | - |
-| API Layer | tRPC | 11.x | `apps/web/src/server/api/` |
-| Server State | TanStack Query | 5.x | `apps/web/src/trpc/query-client.ts` |
-| Client State | Zustand | 5.x | `apps/web/src/stores/` |
-| Auth | NextAuth | 5.0-beta | `apps/web/src/server/auth/` |
-| Styling | Tailwind CSS | 4.x | `apps/web/src/styles/globals.css` |
-| Components | shadcn/ui + Radix | - | `apps/web/src/components/ui/` |
-| ORM | Drizzle | 0.41.x | `packages/database/` |
-| Types | TypeScript | 5.8.x | `apps/web/tsconfig.json` |
+| Layer        | Technology           | Version  | Config Location                     |
+| ------------ | -------------------- | -------- | ----------------------------------- |
+| Framework    | Next.js (App Router) | 16.x     | `apps/web/next.config.ts`           |
+| UI Library   | React                | 19.x     | -                                   |
+| API Layer    | tRPC                 | 11.x     | `apps/web/src/server/api/`          |
+| Server State | TanStack Query       | 5.x      | `apps/web/src/trpc/query-client.ts` |
+| Client State | Zustand              | 5.x      | `apps/web/src/stores/`              |
+| Auth         | NextAuth             | 5.0-beta | `apps/web/src/server/auth/`         |
+| Styling      | Tailwind CSS         | 4.x      | `apps/web/src/styles/globals.css`   |
+| Components   | shadcn/ui + Radix    | -        | `apps/web/src/components/ui/`       |
+| ORM          | Drizzle              | 0.41.x   | `packages/database/`                |
+| Types        | TypeScript           | 5.8.x    | `apps/web/tsconfig.json`            |
 
 ---
 
@@ -44,9 +44,8 @@ apps/web/src/
 │   ├── page.tsx                 # Landing page (public)
 │   ├── login/page.tsx           # Auth page (redirects if logged in)
 │   ├── dashboard/               # Protected routes (all require auth)
-│   │   ├── layout.tsx           # Dashboard shell (sidebar)
-│   │   ├── page.tsx             # Main analytics dashboard
-│   │   ├── tracking/            # Tracking script installation
+│   │   ├── layout.tsx           # Dashboard shell (sidebar, SSR site fetching)
+│   │   ├── page.tsx             # Main analytics dashboard (Server Component)
 │   │   ├── agent-analysis/      # AI agent behavior analysis
 │   │   ├── robots/              # Robots.txt viewer
 │   │   └── url/[id]/            # Dynamic URL detail page
@@ -59,6 +58,7 @@ apps/web/src/
 ├── components/
 │   ├── ui/                      # shadcn/ui primitives (DO NOT MODIFY)
 │   ├── dashboard/               # Dashboard-specific components
+│   │   ├── dashboard-content.tsx # Client component for dashboard interactivity
 │   ├── landing/                 # Landing page sections
 │   ├── layout/                  # Navigation, sidebar
 │   ├── login/                   # Auth form components
@@ -67,16 +67,18 @@ apps/web/src/
 │   └── ai-elements/             # AI visualization components
 │
 ├── contexts/
-│   └── site-context.tsx         # Active site selection (Context + Zustand + tRPC)
+│   └── site-context.tsx         # Active site selection (SSR props + cookie switching)
 │
 ├── hooks/
 │   ├── use-dashboard.ts         # Dashboard data aggregation
+│   ├── use-dashboard-filters.ts # URL-based filter state (timeframe, source, companies)
 │   ├── use-job.ts               # Single job status polling
 │   ├── use-jobs.ts              # Job list with polling
 │   └── use-mobile.ts            # Responsive breakpoint detection
 │
 ├── lib/
 │   ├── utils.ts                 # cn() helper for Tailwind class merging
+│   ├── cookies.ts               # Client-side cookie utilities (site selection)
 │   ├── crawler-detection.ts     # AI crawler user-agent patterns
 │   └── api/                     # External API utilities
 │
@@ -110,12 +112,40 @@ apps/web/src/
 
 ## Data Flow
 
+### SSR Pattern (Dashboard)
+
+The main dashboard uses Server-Side Rendering for faster initial load:
+
+```mermaid
+flowchart TB
+    subgraph Server["Server RSC"]
+        PAGE["page.tsx<br/>Server Component"]
+        COOKIE["cookies<br/>activeSiteId"]
+        TRPC_S["tRPC Server Caller"]
+        DB[(PostgreSQL)]
+    end
+
+    subgraph Client["Client Browser"]
+        DC["DashboardContent<br/>Client Component"]
+        FILTERS["DashboardFilters<br/>URL params"]
+    end
+
+    PAGE -->|read| COOKIE
+    PAGE -->|await api.site.list| TRPC_S
+    PAGE -->|await api.analytics| TRPC_S
+    TRPC_S --> DB
+    PAGE -->|pass initialData| DC
+    DC -->|router.push| FILTERS
+    FILTERS -->|triggers re-render| PAGE
+```
+
+### Client-Side Pattern (Other Pages)
+
 ```mermaid
 flowchart TB
     subgraph Client["Client (Browser)"]
         RC[React Components]
         RQ[React Query Cache]
-        ZS[Zustand Store<br/>localStorage]
     end
 
     subgraph Server["Server"]
@@ -131,7 +161,6 @@ flowchart TB
     NA -->|"session check"| DB
     TR -->|"ctx.db.query"| DB
 
-    RC -->|"useSiteStore()"| ZS
     MW -->|"cookie check"| NA
 ```
 
@@ -141,15 +170,17 @@ flowchart TB
 
 ### Route Protection Matrix
 
-| Route Pattern | Auth Required | Middleware Action |
-|--------------|---------------|-------------------|
-| `/` | No | Pass through |
-| `/login` | No | Redirect to `/dashboard` if authenticated |
-| `/login?force=true` | No | Bypass redirect (force login page) |
-| `/dashboard/**` | Yes | Redirect to `/login` if unauthenticated |
-| `/api/trpc/**` | Varies | Per-procedure (`protectedProcedure` / `publicProcedure`) |
-| `/api/pixel/**` | No | Public tracking endpoint |
-| `/api/middleware-track` | No | Public tracking endpoint |
+| Route Pattern           | Auth Required | Middleware Action                                        |
+| ----------------------- | ------------- | -------------------------------------------------------- |
+| `/`                     | No            | Pass through                                             |
+| `/login`                | No            | Redirect to `/dashboard` if authenticated                |
+| `/login?force=true`     | No            | Bypass redirect (force login page)                       |
+| `/dashboard/**`         | Yes           | Redirect to `/login` if unauthenticated                  |
+| `/dashboard/agent-analysis` | Yes | Main analysis view (Detailed Results) |
+| `/dashboard/url/[id]`   | Yes | URL-specific history (Coming Soon) |
+| `/api/trpc/**`          | Varies        | Per-procedure (`protectedProcedure` / `publicProcedure`) |
+| `/api/pixel/**`         | No            | Public tracking endpoint                                 |
+| `/api/middleware-track` | No            | Public tracking endpoint                                 |
 
 ### Middleware Implementation
 
@@ -171,32 +202,45 @@ Matcher: `["/login", "/dashboard/:path*"]`
 
 ### Server State (tRPC + React Query)
 
-**Client Component Pattern:**
+**SSR Pattern (Dashboard):**
+
 ```typescript
-// apps/web/src/app/dashboard/page.tsx
+// apps/web/src/app/dashboard/page.tsx (Server Component)
+import { cookies } from "next/headers";
+import { api } from "@/trpc/server";
+
+export default async function DashboardPage({ searchParams }) {
+  const params = await searchParams;
+  const cookieStore = await cookies();
+  const siteId = cookieStore.get("activeSiteId")?.value;
+
+  // Fetch all data in parallel on server
+  const [sites, summary, crawlerStats] = await Promise.all([
+    api.site.list(),
+    api.analytics.getSummary({ siteId, ...params }),
+    api.analytics.getCrawlerStats({ siteId, ...params }),
+  ]);
+
+  return <DashboardContent initialData={{ summary, crawlerStats }} />;
+}
+```
+
+**Client Component Pattern:**
+
+```typescript
+// For pages that need client-side interactivity
 "use client";
 import { api } from "@/trpc/react";
 
 const { data, isLoading } = api.analytics.getSummary.useQuery(
   { siteId: activeSite?.id ?? "" },
-  { enabled: !!activeSite?.id }  // Conditional fetching
+  { enabled: !!activeSite?.id },
 );
 
 // Mutations
 const mutation = api.site.create.useMutation({
   onSuccess: () => utils.site.list.invalidate(),
 });
-```
-
-**Server Component / RSC Pattern:**
-```typescript
-// Server Component (no "use client")
-import { api } from "@/trpc/server";
-
-export default async function Page() {
-  const sites = await api.site.list();
-  return <div>{sites.map(...)}</div>;
-}
 ```
 
 ### Client State (Zustand)
@@ -218,34 +262,47 @@ export const useSiteStore = create<SiteStore>()(
       activeSiteId: null,
       setActiveSiteId: (id) => set({ activeSiteId: id }),
     }),
-    { name: "site-store" }  // localStorage key
-  )
+    { name: "site-store" }, // localStorage key
+  ),
 );
 ```
 
-### Hybrid Pattern (Context + Zustand + tRPC)
+### Site Context (SSR + Cookie Pattern)
 
 File: `apps/web/src/contexts/site-context.tsx`
 
-Combines all three state approaches:
-- **Zustand**: Persists `activeSiteId` to localStorage
-- **tRPC**: Fetches site list from server
-- **Context**: Provides resolved `activeSite` object to components
+Site selection uses SSR with cookie persistence:
+
+- **Server**: Layout fetches sites and reads `activeSiteId` cookie
+- **Props**: `SiteProvider` receives `initialSites` and `initialActiveSite`
+- **Switching**: `setActiveSite()` sets cookie + calls `router.refresh()`
 
 ```mermaid
 flowchart LR
-    ZS[Zustand Store<br/>activeSiteId] --> SC[SiteContext]
-    TQ[tRPC Query<br/>api.site.list] --> SC
-    SC --> |"useSite()"| Components
+    LAYOUT[layout.tsx<br/>SSR fetch] -->|"initialSites, initialActiveSite"| SP[SiteProvider]
+    SP -->|"useSite()"| Components
+    Components -->|"setActiveSite()"| COOKIE[Cookie + refresh]
+    COOKIE -->|"triggers"| LAYOUT
 ```
 
 **Usage:**
+
 ```typescript
 import { useSite } from "@/contexts/site-context";
 
 function MyComponent() {
   const { activeSite, setActiveSite, sites, isLoading } = useSite();
+  // isLoading is always false (data pre-fetched on server)
 }
+```
+
+**Cookie Utility** (`lib/cookies.ts`):
+
+```typescript
+import { setActiveSiteCookie } from "@/lib/cookies";
+
+// Client-side only - sets "activeSiteId" cookie
+setActiveSiteCookie(site.id);
 ```
 
 ---
@@ -306,12 +363,12 @@ flowchart TB
 
 ### Key Files
 
-| File | Purpose |
-|------|---------|
-| `server/auth/config.ts` | Provider config (Google), DrizzleAdapter, callbacks |
-| `server/auth/index.ts` | Cached `auth()`, `signIn()`, `signOut()` exports |
-| `app/api/auth/[...nextauth]/route.ts` | HTTP handlers (GET/POST) |
-| `middleware.ts` | Route protection (cookie-based, Edge compatible) |
+| File                                  | Purpose                                             |
+| ------------------------------------- | --------------------------------------------------- |
+| `server/auth/config.ts`               | Provider config (Google), DrizzleAdapter, callbacks |
+| `server/auth/index.ts`                | Cached `auth()`, `signIn()`, `signOut()` exports    |
+| `app/api/auth/[...nextauth]/route.ts` | HTTP handlers (GET/POST)                            |
+| `middleware.ts`                       | Route protection (cookie-based, Edge compatible)    |
 
 ### Session Access
 
@@ -329,23 +386,23 @@ const session = await auth();
 
 File: `apps/web/src/server/api/root.ts`
 
-| Router | File | Key Procedures |
-|--------|------|----------------|
-| `site` | `routers/site.ts` | `list`, `getById`, `create`, `update`, `delete` |
-| `analytics` | `routers/analytics.ts` | `getSummary`, `getCrawlerStats`, `getVisitTimeline`, `getTopPages` |
-| `tracking` | `routers/tracking.ts` | Snippet generation (pixel/middleware) |
-| `robots` | `routers/robots.ts` | Robots.txt parsing and analysis |
-| `job` | `routers/job.ts` | `getById`, `getStatus` |
-| `orchestrator` | `routers/orchestrator.ts` | Job orchestration |
-| `url` | `routers/url.ts` | URL CRUD operations |
-| `dashboard` | `routers/dashboard.ts` | Dashboard aggregations |
-| `post` | `routers/post.ts` | Example/placeholder router |
+| Router         | File                      | Key Procedures                                                     |
+| -------------- | ------------------------- | ------------------------------------------------------------------ |
+| `site`         | `routers/site.ts`         | `list`, `getById`, `create`, `update`, `delete`                    |
+| `analytics`    | `routers/analytics.ts`    | `getSummary`, `getCrawlerStats`, `getVisitTimeline`, `getTopPages` |
+| `tracking`     | `routers/tracking.ts`     | Snippet generation (pixel/middleware)                              |
+| `robots`       | `routers/robots.ts`       | Robots.txt parsing and analysis                                    |
+| `job`          | `routers/job.ts`          | `getById`, `getStatus`                                             |
+| `orchestrator` | `routers/orchestrator.ts` | Job orchestration                                                  |
+| `url`          | `routers/url.ts`          | URL CRUD operations                                                |
+| `dashboard`    | `routers/dashboard.ts`    | Dashboard aggregations                                             |
+| `post`         | `routers/post.ts`         | Example/placeholder router                                         |
 
 ### Procedure Types
 
 ```typescript
 // apps/web/src/server/api/trpc.ts
-export const publicProcedure = t.procedure;  // No auth required
+export const publicProcedure = t.procedure; // No auth required
 export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
   if (!ctx.session?.user) throw new TRPCError({ code: "UNAUTHORIZED" });
   return next({ ctx: { session: ctx.session } });
@@ -366,8 +423,17 @@ export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
 
 ### Add a New Dashboard Page
 
+**Option A: SSR (recommended for data-heavy pages)**
+
+1. Create `apps/web/src/app/dashboard/[feature]/page.tsx` as Server Component
+2. Read `activeSiteId` from cookies: `const cookieStore = await cookies()`
+3. Fetch data via `api.[router].[procedure]()` (server tRPC caller)
+4. Pass data to a Client Component for interactivity
+
+**Option B: Client-side (for interactive pages)**
+
 1. Create `apps/web/src/app/dashboard/[feature]/page.tsx`
-2. Add `"use client"` directive if using hooks
+2. Add `"use client"` directive
 3. Use `useSite()` for active site context
 4. Fetch data via `api.[router].[procedure].useQuery()`
 
@@ -387,11 +453,11 @@ export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
 
 ## Import Aliases
 
-| Alias | Resolves To |
-|-------|-------------|
-| `@/*` | `apps/web/src/*` |
+| Alias                 | Resolves To         |
+| --------------------- | ------------------- |
+| `@/*`                 | `apps/web/src/*`    |
 | `@propintel/database` | `packages/database` |
-| `@propintel/types` | `packages/types` |
+| `@propintel/types`    | `packages/types`    |
 
 ---
 
@@ -400,10 +466,12 @@ export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
 File: `apps/web/src/env.ts` (Zod validated)
 
 **Server-only:**
+
 - `AUTH_SECRET` - NextAuth secret
 - `AUTH_GOOGLE_ID` - Google OAuth client ID
 - `AUTH_GOOGLE_SECRET` - Google OAuth secret
 - `DATABASE_URL` - PostgreSQL connection string
 
 **Client-exposed:**
+
 - `NEXT_PUBLIC_APP_URL` - Application URL

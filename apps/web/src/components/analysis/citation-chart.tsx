@@ -2,7 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { BarChart3, PieChart, CheckCircle2, AlertCircle, XCircle, TrendingUp } from "lucide-react";
+import { BarChart3, CheckCircle2, AlertCircle, XCircle } from "lucide-react";
 import { motion } from "motion/react";
 
 interface CitationChartProps {

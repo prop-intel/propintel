@@ -45,6 +45,39 @@ function StepIcon({ status }: { status: string }) {
         <Loader2 className="h-4 w-4 text-white animate-spin" />
       </div>
     );
+const phaseIcons: Record<string, string> = {
+  "Discovery": "🔍",
+  "Discovery-1": "🔍",
+  "Discovery-2": "🔍",
+  "Discovery-3": "🔍",
+  "Research": "📚",
+  "Analysis": "📊",
+  "Analysis-1": "📊",
+  "Analysis-2": "📊",
+  "Output": "📝",
+  "Output-1": "📝",
+  "Output-2": "📝",
+};
+
+function getPhaseIcon(phaseName: string): string {
+  for (const [key, icon] of Object.entries(phaseIcons)) {
+    if (phaseName.toLowerCase().includes(key.toLowerCase())) {
+      return icon;
+    }
+  }
+  return "⚙️";
+}
+
+function getStatusTextColor(status: string) {
+  switch (status) {
+    case "completed":
+      return "text-emerald-500";
+    case "running":
+      return "text-blue-500";
+    case "failed":
+      return "text-red-500";
+    default:
+      return "text-muted-foreground";
   }
   if (status === "failed") {
     return (
@@ -60,22 +93,24 @@ function StepIcon({ status }: { status: string }) {
   );
 }
 
-export function AgentPipeline({ phases, className }: AgentPipelineProps) {
-  // Flatten all agents into a single linear list
-  const allAgents = phases.flatMap(phase => phase.agents);
-  
-  // Calculate progress based on completed agents
-  const completedCount = allAgents.filter(a => a.status === "completed").length;
-  const runningCount = allAgents.filter(a => a.status === "running").length;
-  const totalCount = allAgents.length;
-  
-  // Show only agents that have started (running or completed or failed)
-  const activeAgents = allAgents.filter(
-    a => a.status === "running" || a.status === "completed" || a.status === "failed"
-  );
-  
-  const isRunning = runningCount > 0;
-  const isComplete = totalCount > 0 && completedCount === totalCount;
+export function AgentPipeline({ phases, currentPhase: _currentPhase, className }: AgentPipelineProps) {
+  const completedPhases = phases.filter(p => p.status === "completed").length;
+  const totalPhases = phases.length;
+  const progress = totalPhases > 0 ? (completedPhases / totalPhases) * 100 : 0;
+
+  // Group phases by category
+  const phaseCategories = [
+    { name: "Discovery", phases: phases.filter(p => p.name.toLowerCase().includes("discovery")) },
+    { name: "Research", phases: phases.filter(p => p.name.toLowerCase().includes("research")) },
+    { name: "Analysis", phases: phases.filter(p => p.name.toLowerCase().includes("analysis")) },
+    { name: "Output", phases: phases.filter(p => p.name.toLowerCase().includes("output")) },
+  ].filter(c => c.phases.length > 0);
+
+  // Get current insights from the latest running or completed phase
+  const currentInsights = phases
+    .filter(p => p.status === "completed" || p.status === "running")
+    .flatMap(p => p.insights ?? [])
+    .slice(-3);
 
   return (
     <div className={cn("space-y-4", className)}>

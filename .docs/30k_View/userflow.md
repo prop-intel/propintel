@@ -60,7 +60,7 @@ journey
         - *Analysis*: Computing scores and checking competitors.
     4.  **Completed**: Report is ready.
 
-### 5. Viewing Results (`/dashboard/jobs/[id]`)
+### 5. Viewing Results (`/dashboard/agent-analysis`)
 - **Overview**: High-level scores (AEO Visibility Score, SEO Score).
 - **Key Findings**: Top 3-5 critical insights.
 - **Recommendations**: Actionable steps to improve visibility.

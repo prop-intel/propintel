@@ -61,9 +61,9 @@ Breadth-first crawl starting from `targetUrl`. Discovers internal links and craw
 | Agent | Purpose |
 |-------|---------|
 | `tavily-research` | Performs live web searches for each target query |
-| `google-aio` | Scrapes Google AI Overviews for citation data |
-| `perplexity` | Queries Perplexity for AI-generated citations |
-| `community-signals` | Scans Reddit, HackerNews, GitHub for brand mentions |
+| `google-aio-agent` | Scrapes Google AI Overviews for citation data |
+| `perplexity-agent` | Queries Perplexity for AI-generated citations |
+| `community-agent` | Scans Reddit, HackerNews, GitHub for brand mentions |
 
 ## Phase 3: Analysis
 
@@ -79,7 +79,7 @@ Breadth-first crawl starting from `targetUrl`. Discovers internal links and craw
 
 | Agent | Purpose |
 |-------|---------|
-| `recommendations` | Generates 5-8 prioritized actions (High/Medium/Low impact) |
+| `recommendation` | Generates 5-8 prioritized actions (High/Medium/Low impact) |
 | `cursor-prompt` | Creates copy-paste prompt for AI-assisted content fixes |
 | `report-generator` | Compiles final AEO report |
 

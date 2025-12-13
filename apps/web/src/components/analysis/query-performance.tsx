@@ -3,14 +3,13 @@
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { 
-  Search, 
-  CheckCircle2, 
-  AlertCircle, 
+import {
+  Search,
+  CheckCircle2,
+  AlertCircle,
   XCircle,
   ChevronDown,
-  ChevronUp,
-  TrendingUp
+  ChevronUp
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useState } from "react";
