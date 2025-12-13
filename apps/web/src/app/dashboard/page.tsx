@@ -1,131 +1,92 @@
-"use client";
-
-import { Suspense, useState } from "react";
-import { useSite } from "@/contexts/site-context";
-import { useDashboardFilters } from "@/hooks/use-dashboard-filters";
-import { api } from "@/trpc/react";
-import { SummaryCards } from "@/components/dashboard/summary-cards";
-import { CrawlerChart } from "@/components/dashboard/crawler-chart";
-import { TimelineChart } from "@/components/dashboard/timeline-chart";
-import { TopPagesTable } from "@/components/dashboard/top-pages-table";
-import { DashboardFilters } from "@/components/dashboard/dashboard-filters";
+import { cookies } from "next/headers";
+import { api } from "@/trpc/server";
 import {
-  TrackingStatusBadge,
-  TrackingSetupDialog,
-  TrackingEmptyState,
-} from "@/components/dashboard/tracking-status";
+  DashboardContent,
+  DashboardEmpty,
+} from "@/components/dashboard/dashboard-content";
 
-function DashboardContent() {
-  const { activeSite, isLoading: siteLoading } = useSite();
-  const { apiParams, timeFrameLabel } = useDashboardFilters();
-  const [dialogOpen, setDialogOpen] = useState(false);
+type TimeFramePreset = "12h" | "24h" | "3d" | "7d" | "30d" | "90d";
 
-  const queryParams = {
-    siteId: activeSite?.id ?? "",
-    ...apiParams,
-  };
+const TIME_FRAME_CONFIG: Record<
+  TimeFramePreset,
+  { hours?: number; days?: number; label: string }
+> = {
+  "12h": { hours: 12, label: "Last 12 hours" },
+  "24h": { hours: 24, label: "Last 24 hours" },
+  "3d": { days: 3, label: "Last 3 days" },
+  "7d": { days: 7, label: "Last 7 days" },
+  "30d": { days: 30, label: "Last 30 days" },
+  "90d": { days: 90, label: "Last 90 days" },
+};
 
-  const { data: trackingStatus } = api.tracking.getTrackingStatus.useQuery(
-    { siteId: activeSite?.id ?? "" },
-    { enabled: !!activeSite?.id }
-  );
-
-  const { data: summary, isLoading: summaryLoading } =
-    api.analytics.getSummary.useQuery(queryParams, {
-      enabled: !!activeSite?.id,
-    });
-
-  const { data: crawlerStats, isLoading: crawlerLoading } =
-    api.analytics.getCrawlerStats.useQuery(queryParams, {
-      enabled: !!activeSite?.id,
-    });
-
-  const { data: timeline, isLoading: timelineLoading } =
-    api.analytics.getVisitTimeline.useQuery(queryParams, {
-      enabled: !!activeSite?.id,
-    });
-
-  const { data: topPages, isLoading: topPagesLoading } =
-    api.analytics.getTopPages.useQuery(
-      { ...queryParams, limit: 10 },
-      { enabled: !!activeSite?.id }
-    );
-
-  const hasTracking = trackingStatus?.hasPixel || trackingStatus?.hasMiddleware;
-
-  if (siteLoading) {
-    return (
-      <div className="p-6 space-y-6">
-        <SummaryCards data={undefined} isLoading={true} />
-      </div>
-    );
-  }
-
-  if (!activeSite) {
-    return (
-      <div className="p-6">
-        <div className="rounded-lg border p-8 text-center">
-          <h2 className="text-xl font-semibold mb-2">Welcome to Prop Intel</h2>
-          <p className="text-muted-foreground mb-4">
-            Add your first site to start tracking AI crawler visits.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="p-6 space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
-          <div>
-            <h1 className="text-2xl font-bold">
-              {activeSite.name ?? activeSite.domain}
-            </h1>
-            <p className="text-muted-foreground">AI Crawler Analytics Dashboard</p>
-          </div>
-          <TrackingStatusBadge
-            siteId={activeSite.id}
-            onClick={() => setDialogOpen(true)}
-          />
-        </div>
-        <DashboardFilters siteId={activeSite.id} />
-      </div>
-
-      {hasTracking ? (
-        <>
-          <SummaryCards data={summary} isLoading={summaryLoading} />
-
-          <div className="grid gap-6 md:grid-cols-2">
-            <CrawlerChart data={crawlerStats} isLoading={crawlerLoading} />
-            <TimelineChart data={timeline} isLoading={timelineLoading} timeFrameLabel={timeFrameLabel} />
-          </div>
-
-          <TopPagesTable data={topPages} isLoading={topPagesLoading} />
-        </>
-      ) : (
-        <TrackingEmptyState onSetupClick={() => setDialogOpen(true)} />
-      )}
-
-      <TrackingSetupDialog
-        siteId={activeSite.id}
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-      />
-    </div>
-  );
+interface DashboardPageProps {
+  searchParams: Promise<{
+    tf?: string;
+    source?: string;
+    companies?: string;
+  }>;
 }
 
-export default function DashboardPage() {
+export default async function DashboardPage({ searchParams }: DashboardPageProps) {
+  // Parse filter params from URL
+  const params = await searchParams;
+  const validTimeFrames: TimeFramePreset[] = ["12h", "24h", "3d", "7d", "30d", "90d"];
+  const timeFrame: TimeFramePreset = validTimeFrames.includes(params.tf as TimeFramePreset)
+    ? (params.tf as TimeFramePreset)
+    : "30d";
+  const source = params.source as "pixel" | "middleware" | undefined;
+  const companies = params.companies ? params.companies.split(",").filter(Boolean) : undefined;
+
+  const timeFrameConfig = TIME_FRAME_CONFIG[timeFrame];
+
+  // Fetch user's sites
+  const sites = await api.site.list();
+
+  if (sites.length === 0) {
+    return <DashboardEmpty />;
+  }
+
+  // Get active site from cookie or default to first
+  const cookieStore = await cookies();
+  const cookieSiteId = cookieStore.get("activeSiteId")?.value ?? null;
+  const activeSite = cookieSiteId
+    ? sites.find((s) => s.id === cookieSiteId) ?? sites[0]
+    : sites[0];
+
+  if (!activeSite) {
+    return <DashboardEmpty />;
+  }
+
+  // Build query params for analytics
+  const queryParams = {
+    siteId: activeSite.id,
+    ...(timeFrameConfig.hours ? { hours: timeFrameConfig.hours } : {}),
+    ...(timeFrameConfig.days ? { days: timeFrameConfig.days } : {}),
+    ...(source ? { source } : {}),
+    ...(companies?.length ? { companies } : {}),
+  };
+
+  // Fetch all dashboard data in parallel
+  const [summary, crawlerStats, timeline, topPages, trackingStatus] = await Promise.all([
+    api.analytics.getSummary(queryParams),
+    api.analytics.getCrawlerStats(queryParams),
+    api.analytics.getVisitTimeline(queryParams),
+    api.analytics.getTopPages({ ...queryParams, limit: 10 }),
+    api.tracking.getTrackingStatus({ siteId: activeSite.id }),
+  ]);
+
   return (
-    <Suspense
-      fallback={
-        <div className="p-6 space-y-6">
-          <SummaryCards data={undefined} isLoading={true} />
-        </div>
-      }
-    >
-      <DashboardContent />
-    </Suspense>
+    <DashboardContent
+      site={activeSite}
+      sites={sites}
+      initialData={{
+        summary,
+        crawlerStats,
+        timeline,
+        topPages,
+        trackingStatus,
+      }}
+      timeFrameLabel={timeFrameConfig.label}
+    />
   );
 }

@@ -2,8 +2,8 @@ import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { api } from "@/lib/api/client";
 import { TRPCError } from "@trpc/server";
-import { sites } from "@propintel/database";
-import { and, eq } from "drizzle-orm";
+import { jobs, sites } from "@propintel/database";
+import { and, desc, eq } from "drizzle-orm";
 
 // Helper to extract cookie header from tRPC context
 function getCookieFromHeaders(headers: Headers): string | null {
@@ -74,23 +74,21 @@ export const jobRouter = createTRPCRouter({
   get: protectedProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ input, ctx }) => {
-      try {
-        const cookie = getCookieFromHeaders(ctx.headers);
-        const result = await api.jobs.get(input.id, cookie);
-        return result.job;
-      } catch (error) {
-        if (error instanceof Error && error.message.includes("404")) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "Job not found",
-          });
-        }
+      const job = await ctx.db.query.jobs.findFirst({
+        where: and(
+          eq(jobs.id, input.id),
+          eq(jobs.userId, ctx.session.user.id)
+        ),
+      });
+
+      if (!job) {
         throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message:
-            error instanceof Error ? error.message : "Failed to get job",
+          code: "NOT_FOUND",
+          message: "Job not found",
         });
       }
+
+      return job;
     }),
 
   // List jobs with pagination, optionally filtered by site
@@ -103,59 +101,76 @@ export const jobRouter = createTRPCRouter({
       })
     )
     .query(async ({ input, ctx }) => {
-      try {
-        // Validate site ownership if siteId provided
-        if (input.siteId) {
-          const site = await ctx.db.query.sites.findFirst({
-            where: and(
-              eq(sites.id, input.siteId),
-              eq(sites.userId, ctx.session.user.id)
-            ),
-          });
-          if (!site) {
-            throw new TRPCError({ code: "NOT_FOUND", message: "Site not found" });
-          }
-        }
+      // Build where conditions
+      const conditions = [eq(jobs.userId, ctx.session.user.id)];
 
-        const cookie = getCookieFromHeaders(ctx.headers);
-        const result = await api.jobs.list(input.limit, input.offset, cookie, input.siteId);
-        return result;
-      } catch (error) {
-        if (error instanceof TRPCError) throw error;
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message:
-            error instanceof Error ? error.message : "Failed to list jobs",
+      if (input.siteId) {
+        // Validate site ownership
+        const site = await ctx.db.query.sites.findFirst({
+          where: and(
+            eq(sites.id, input.siteId),
+            eq(sites.userId, ctx.session.user.id)
+          ),
         });
+        if (!site) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Site not found" });
+        }
+        conditions.push(eq(jobs.siteId, input.siteId));
       }
+
+      // Query jobs directly from DB
+      const items = await ctx.db.query.jobs.findMany({
+        where: and(...conditions),
+        orderBy: [desc(jobs.createdAt)],
+        limit: input.limit + 1, // Fetch one extra to check hasMore
+        offset: input.offset,
+      });
+
+      const hasMore = items.length > input.limit;
+      if (hasMore) {
+        items.pop(); // Remove the extra item
+      }
+
+      return {
+        items,
+        pagination: {
+          limit: input.limit,
+          offset: input.offset,
+          hasMore,
+        },
+      };
     }),
 
   // Get job status
   getStatus: protectedProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ input, ctx }) => {
-      try {
-        const cookie = getCookieFromHeaders(ctx.headers);
-        const result = await api.jobs.get(input.id, cookie);
-        return {
-          status: result.job.status,
-          progress: result.job.progress,
-          metrics: result.job.metrics,
-          error: result.job.error,
-        };
-      } catch (error) {
-        if (error instanceof Error && error.message.includes("404")) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "Job not found",
-          });
-        }
+      const job = await ctx.db.query.jobs.findFirst({
+        where: and(
+          eq(jobs.id, input.id),
+          eq(jobs.userId, ctx.session.user.id)
+        ),
+        columns: {
+          status: true,
+          progress: true,
+          metrics: true,
+          error: true,
+        },
+      });
+
+      if (!job) {
         throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message:
-            error instanceof Error ? error.message : "Failed to get job status",
+          code: "NOT_FOUND",
+          message: "Job not found",
         });
       }
+
+      return {
+        status: job.status,
+        progress: job.progress,
+        metrics: job.metrics,
+        error: job.error,
+      };
     }),
 
   // Get report (JSON or Markdown)
