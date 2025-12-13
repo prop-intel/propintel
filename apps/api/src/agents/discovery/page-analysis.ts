@@ -9,11 +9,11 @@
  * - Summary and key points
  */
 
-import { createOpenAI } from '@ai-sdk/openai';
 import { generateObject } from 'ai';
 import { z } from 'zod';
 import { type CrawledPage, type PageAnalysis } from '../../types';
 import { createTrace, flushLangfuse } from '../../lib/langfuse';
+import { openai } from '../../lib/openai';
 
 // ===================
 // Timeout Configuration
@@ -21,14 +21,6 @@ import { createTrace, flushLangfuse } from '../../lib/langfuse';
 
 // 60 second timeout for LLM API calls to prevent indefinite hangs
 const LLM_TIMEOUT_MS = 60_000;
-
-// ===================
-// Client Initialization
-// ===================
-
-const openai = createOpenAI({
-  apiKey: process.env.OPENAI_API_KEY || '',
-});
 
 // ===================
 // Schema Definition

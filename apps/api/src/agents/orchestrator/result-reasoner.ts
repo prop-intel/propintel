@@ -5,11 +5,11 @@
  * and determine next steps.
  */
 
-import { createOpenAI } from '@ai-sdk/openai';
 import { generateObject } from 'ai';
 import { z } from 'zod';
-import { Langfuse } from 'langfuse';
 import { type AgentContext } from '../context';
+import { openai } from '../../lib/openai';
+import { createTrace, flushLangfuse } from '../../lib/langfuse';
 
 // ===================
 // Timeout Configuration
@@ -17,20 +17,6 @@ import { type AgentContext } from '../context';
 
 // 60 second timeout for LLM API calls to prevent indefinite hangs
 const LLM_TIMEOUT_MS = 60_000;
-
-// ===================
-// Client Initialization
-// ===================
-
-const openai = createOpenAI({
-  apiKey: process.env.OPENAI_API_KEY || '',
-});
-
-const langfuse = new Langfuse({
-  publicKey: process.env.LANGFUSE_PUBLIC_KEY || '',
-  secretKey: process.env.LANGFUSE_SECRET_KEY || '',
-  baseUrl: process.env.LANGFUSE_BASE_URL || 'https://us.cloud.langfuse.com',
-});
 
 // ===================
 // Schema Definition
@@ -63,7 +49,7 @@ export async function reasonOverResults(
   insights: string[];
   confidence: number;
 }> {
-  const trace = langfuse.trace({
+  const trace = createTrace({
     name: 'result-reasoning',
     userId: tenantId,
     metadata: { jobId },
@@ -121,7 +107,7 @@ Provide reasoning about:
       },
     });
 
-    await langfuse.flushAsync();
+    await flushLangfuse();
 
     return result.object;
   } catch (error) {
@@ -130,7 +116,7 @@ Provide reasoning about:
       level: 'ERROR',
       statusMessage: (error as Error).message,
     });
-    await langfuse.flushAsync();
+    await flushLangfuse();
     throw error;
   }
 }

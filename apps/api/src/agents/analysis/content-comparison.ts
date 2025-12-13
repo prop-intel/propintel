@@ -5,10 +5,11 @@
  * to identify what they're doing differently.
  */
 
-import { createOpenAI } from '@ai-sdk/openai';
 import { generateObject } from 'ai';
 import { z } from 'zod';
-import { Langfuse } from 'langfuse';
+import { type TavilySearchResult, type PageAnalysis, type CompetitorVisibility } from '../../types';
+import { openai } from '../../lib/openai';
+import { createTrace, flushLangfuse } from '../../lib/langfuse';
 
 // ===================
 // Timeout Configuration
@@ -16,21 +17,6 @@ import { Langfuse } from 'langfuse';
 
 // 60 second timeout for LLM API calls to prevent indefinite hangs
 const LLM_TIMEOUT_MS = 60_000;
-import { type TavilySearchResult, type PageAnalysis, type CompetitorVisibility } from '../../types';
-
-// ===================
-// Client Initialization
-// ===================
-
-const openai = createOpenAI({
-  apiKey: process.env.OPENAI_API_KEY || '',
-});
-
-const langfuse = new Langfuse({
-  publicKey: process.env.LANGFUSE_PUBLIC_KEY || '',
-  secretKey: process.env.LANGFUSE_SECRET_KEY || '',
-  baseUrl: process.env.LANGFUSE_BASE_URL || 'https://us.cloud.langfuse.com',
-});
 
 // ===================
 // Types
@@ -110,7 +96,7 @@ export async function compareContent(
   jobId: string,
   model = 'gpt-4o-mini'
 ): Promise<ContentComparisonResult> {
-  const trace = langfuse.trace({
+  const trace = createTrace({
     name: 'aeo-content-comparison',
     userId: tenantId,
     metadata: { jobId, competitorCount: competitors.length },
@@ -132,7 +118,7 @@ export async function compareContent(
       generation.end({
         output: { skipped: true, reason: 'No competitor content available for comparison' },
       });
-      await langfuse.flushAsync();
+      await flushLangfuse();
       
       return {
         competitorInsights: [],
@@ -192,7 +178,7 @@ Analyze what competitors are doing better and what content gaps exist.`;
       },
     });
 
-    await langfuse.flushAsync();
+    await flushLangfuse();
 
     // Transform to our format
     const comparisonResult: ContentComparisonResult = {
@@ -217,7 +203,7 @@ Analyze what competitors are doing better and what content gaps exist.`;
       level: 'ERROR',
       statusMessage: (error as Error).message,
     });
-    await langfuse.flushAsync();
+    await flushLangfuse();
     throw error;
   }
 }

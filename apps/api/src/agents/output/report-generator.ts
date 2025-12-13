@@ -5,7 +5,6 @@
  * with existing LLMEO/SEO analysis.
  */
 
-import { Langfuse } from 'langfuse';
 import {
   type AEOReport,
   type AEOAnalysis,
@@ -16,16 +15,7 @@ import {
   type Report,
   type CrawledPage,
 } from '../../types';
-
-// ===================
-// Client Initialization
-// ===================
-
-const langfuse = new Langfuse({
-  publicKey: process.env.LANGFUSE_PUBLIC_KEY || '',
-  secretKey: process.env.LANGFUSE_SECRET_KEY || '',
-  baseUrl: process.env.LANGFUSE_BASE_URL || 'https://us.cloud.langfuse.com',
-});
+import { createTrace, flushLangfuse } from '../../lib/langfuse';
 
 // ===================
 // Score Weights
@@ -57,7 +47,7 @@ export async function generateAEOReport(
   seoAnalysis: SEOAnalysis,
   existingReport: Partial<Report> = {}
 ): Promise<AEOReport> {
-  const trace = langfuse.trace({
+  const trace = createTrace({
     name: 'aeo-report-generation',
     userId: tenantId,
     metadata: { jobId, domain },
@@ -130,7 +120,7 @@ export async function generateAEOReport(
       },
     });
 
-    await langfuse.flushAsync();
+    await flushLangfuse();
 
     return report;
   } catch (error) {
@@ -138,7 +128,7 @@ export async function generateAEOReport(
       level: 'ERROR',
       statusMessage: (error as Error).message,
     });
-    await langfuse.flushAsync();
+    await flushLangfuse();
     throw error;
   }
 }

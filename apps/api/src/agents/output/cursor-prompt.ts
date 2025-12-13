@@ -5,11 +5,11 @@
  * that will help optimize content for AEO.
  */
 
-import { createOpenAI } from '@ai-sdk/openai';
 import { generateObject } from 'ai';
 import { z } from 'zod';
-import { Langfuse } from 'langfuse';
 import { type AEOAnalysis, type AEORecommendation, type CursorPrompt, type PageAnalysis } from '../../types';
+import { openai } from '../../lib/openai';
+import { createTrace, flushLangfuse } from '../../lib/langfuse';
 
 // ===================
 // Timeout Configuration
@@ -17,20 +17,6 @@ import { type AEOAnalysis, type AEORecommendation, type CursorPrompt, type PageA
 
 // 60 second timeout for LLM API calls to prevent indefinite hangs
 const LLM_TIMEOUT_MS = 60_000;
-
-// ===================
-// Client Initialization
-// ===================
-
-const openai = createOpenAI({
-  apiKey: process.env.OPENAI_API_KEY || '',
-});
-
-const langfuse = new Langfuse({
-  publicKey: process.env.LANGFUSE_PUBLIC_KEY || '',
-  secretKey: process.env.LANGFUSE_SECRET_KEY || '',
-  baseUrl: process.env.LANGFUSE_BASE_URL || 'https://us.cloud.langfuse.com',
-});
 
 // ===================
 // Schema Definition
@@ -76,7 +62,7 @@ export async function generateCursorPrompt(
   jobId: string,
   model = 'gpt-4o-mini'
 ): Promise<CursorPrompt> {
-  const trace = langfuse.trace({
+  const trace = createTrace({
     name: 'aeo-cursor-prompt',
     userId: tenantId,
     metadata: { jobId, domain },
@@ -146,7 +132,7 @@ Create a prompt that will help improve visibility for these target queries.`;
       },
     });
 
-    await langfuse.flushAsync();
+    await flushLangfuse();
 
     const normalized = normalizeCursorPrompt(result.object);
     return {
@@ -161,7 +147,7 @@ Create a prompt that will help improve visibility for these target queries.`;
       level: 'ERROR',
       statusMessage: (error as Error).message,
     });
-    await langfuse.flushAsync();
+    await flushLangfuse();
     throw error;
   }
 }

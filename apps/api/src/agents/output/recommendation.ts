@@ -5,12 +5,12 @@
  * based on AEO analysis results.
  */
 
-import { createOpenAI } from '@ai-sdk/openai';
 import { generateObject } from 'ai';
 import { z } from 'zod';
-import { Langfuse } from 'langfuse';
 import { type AEOAnalysis, type AEORecommendation, type QueryGap, type CompetitorVisibility } from '../../types';
 import { type ContentComparisonResult } from '../analysis/content-comparison';
+import { openai } from '../../lib/openai';
+import { createTrace, flushLangfuse } from '../../lib/langfuse';
 
 // ===================
 // Timeout Configuration
@@ -18,20 +18,6 @@ import { type ContentComparisonResult } from '../analysis/content-comparison';
 
 // 60 second timeout for LLM API calls to prevent indefinite hangs
 const LLM_TIMEOUT_MS = 60_000;
-
-// ===================
-// Client Initialization
-// ===================
-
-const openai = createOpenAI({
-  apiKey: process.env.OPENAI_API_KEY || '',
-});
-
-const langfuse = new Langfuse({
-  publicKey: process.env.LANGFUSE_PUBLIC_KEY || '',
-  secretKey: process.env.LANGFUSE_SECRET_KEY || '',
-  baseUrl: process.env.LANGFUSE_BASE_URL || 'https://us.cloud.langfuse.com',
-});
 
 // ===================
 // Schema Definition
@@ -79,7 +65,7 @@ export async function generateAEORecommendations(
   jobId: string,
   model = 'gpt-4o-mini'
 ): Promise<AEORecommendation[]> {
-  const trace = langfuse.trace({
+  const trace = createTrace({
     name: 'aeo-recommendations',
     userId: tenantId,
     metadata: { jobId },
@@ -158,7 +144,7 @@ Generate 5-8 specific, prioritized recommendations.`;
       },
     });
 
-    await langfuse.flushAsync();
+    await flushLangfuse();
 
     // Add IDs and competitor examples, normalize enum values
     const recommendations: AEORecommendation[] = result.object.recommendations.map((rec, index) => {
@@ -184,7 +170,7 @@ Generate 5-8 specific, prioritized recommendations.`;
       level: 'ERROR',
       statusMessage: (error as Error).message,
     });
-    await langfuse.flushAsync();
+    await flushLangfuse();
     throw error;
   }
 }

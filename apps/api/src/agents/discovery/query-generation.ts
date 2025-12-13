@@ -6,11 +6,11 @@
  * result in the analyzed page being cited.
  */
 
-import { createOpenAI } from '@ai-sdk/openai';
 import { generateObject } from 'ai';
 import { z } from 'zod';
 import { type PageAnalysis, type TargetQuery } from '../../types';
 import { createTrace, flushLangfuse } from '../../lib/langfuse';
+import { openai } from '../../lib/openai';
 
 // ===================
 // Timeout Configuration
@@ -24,14 +24,6 @@ const LLM_TIMEOUT_MS = 60_000;
 // ===================
 
 const DEFAULT_QUERY_COUNT = 10;
-
-// ===================
-// Client Initialization
-// ===================
-
-const openai = createOpenAI({
-  apiKey: process.env.OPENAI_API_KEY || '',
-});
 
 // ===================
 // Schema Definition

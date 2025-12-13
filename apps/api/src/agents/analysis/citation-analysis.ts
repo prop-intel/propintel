@@ -7,18 +7,8 @@
  * - Patterns in winning vs losing queries
  */
 
-import { Langfuse } from 'langfuse';
 import { type QueryCitation, type QueryGap, type TavilySearchResult } from '../../types';
-
-// ===================
-// Client Initialization
-// ===================
-
-const langfuse = new Langfuse({
-  publicKey: process.env.LANGFUSE_PUBLIC_KEY || '',
-  secretKey: process.env.LANGFUSE_SECRET_KEY || '',
-  baseUrl: process.env.LANGFUSE_BASE_URL || 'https://us.cloud.langfuse.com',
-});
+import { createTrace, flushLangfuse } from '../../lib/langfuse';
 
 // ===================
 // Types
@@ -62,7 +52,7 @@ export async function analyzeCitationPatterns(
   tenantId: string,
   jobId: string
 ): Promise<CitationAnalysisResult> {
-  const trace = langfuse.trace({
+  const trace = createTrace({
     name: 'aeo-citation-analysis',
     userId: tenantId,
     metadata: { jobId, targetDomain },
@@ -102,7 +92,7 @@ export async function analyzeCitationPatterns(
       },
     });
 
-    await langfuse.flushAsync();
+    await flushLangfuse();
 
     return result;
   } catch (error) {
@@ -110,7 +100,7 @@ export async function analyzeCitationPatterns(
       level: 'ERROR',
       statusMessage: (error as Error).message,
     });
-    await langfuse.flushAsync();
+    await flushLangfuse();
     throw error;
   }
 }

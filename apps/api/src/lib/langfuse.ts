@@ -37,10 +37,23 @@ export function createTrace(config: {
   };
 }
 
-// Helper to flush Langfuse (no-op if not configured)
+// Helper to flush Langfuse with timeout (no-op if not configured)
+// Includes 5-second timeout to prevent hanging on slow/unreachable servers
+const FLUSH_TIMEOUT_MS = 5000;
+
 export async function flushLangfuse(): Promise<void> {
   if (langfuse) {
-    await langfuse.flushAsync();
+    try {
+      await Promise.race([
+        langfuse.flushAsync(),
+        new Promise<void>((_, reject) =>
+          setTimeout(() => reject(new Error('Langfuse flush timeout')), FLUSH_TIMEOUT_MS)
+        ),
+      ]);
+    } catch (error) {
+      // Don't let observability errors break the core functionality
+      console.warn('[Langfuse] Flush warning:', (error as Error).message);
+    }
   }
 }
 

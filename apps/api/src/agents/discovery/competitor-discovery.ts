@@ -9,12 +9,12 @@
  * use business context to identify actual competitors.
  */
 
-import { createOpenAI } from '@ai-sdk/openai';
 import { generateObject } from 'ai';
 import { z } from 'zod';
-import { Langfuse } from 'langfuse';
 import { type TargetQuery, type CompetitorVisibility, type TavilySearchResult, type BusinessCategory } from '../../types';
 import { searchBatch } from '../../lib/tavily';
+import { openai } from '../../lib/openai';
+import { createTrace, flushLangfuse } from '../../lib/langfuse';
 
 // ===================
 // Timeout Configuration
@@ -74,23 +74,6 @@ const INFO_SITES = new Set([
   'trustpilot.com',
 ]);
 
-// ===================
-// Client Initialization
-// ===================
-
-const openai = createOpenAI({
-  apiKey: process.env.OPENAI_API_KEY || '',
-});
-
-// ===================
-// Client Initialization
-// ===================
-
-const langfuse = new Langfuse({
-  publicKey: process.env.LANGFUSE_PUBLIC_KEY || '',
-  secretKey: process.env.LANGFUSE_SECRET_KEY || '',
-  baseUrl: process.env.LANGFUSE_BASE_URL || 'https://us.cloud.langfuse.com',
-});
 
 // ===================
 // Types
@@ -148,7 +131,7 @@ export async function discoverCompetitors(
 ): Promise<CompetitorVisibility[]> {
   const { maxCompetitors = MAX_COMPETITORS, searchResults, businessContext } = options;
 
-  const trace = langfuse.trace({
+  const trace = createTrace({
     name: 'aeo-competitor-discovery',
     userId: tenantId,
     metadata: { jobId, targetDomain, queryCount: queries.length, hasBusinessContext: !!businessContext },
@@ -203,7 +186,7 @@ export async function discoverCompetitors(
       },
     });
 
-    await langfuse.flushAsync();
+    await flushLangfuse();
 
     return competitors;
   } catch (error) {
@@ -211,7 +194,7 @@ export async function discoverCompetitors(
       level: 'ERROR',
       statusMessage: (error as Error).message,
     });
-    await langfuse.flushAsync();
+    await flushLangfuse();
     throw error;
   }
 }
@@ -247,7 +230,7 @@ async function validateCompetitorsWithLLM(
   candidates: CompetitorVisibility[],
   businessContext: BusinessContext,
   tenantId: string,
-  trace: ReturnType<Langfuse['trace']>
+  trace: ReturnType<typeof createTrace>
 ): Promise<CompetitorVisibility[]> {
   const generation = trace.generation({
     name: 'competitor-validation',

@@ -10,10 +10,10 @@
  * 2. Probe LLMs with those prompts and analyze for brand mentions
  */
 
-import { createOpenAI } from "@ai-sdk/openai";
 import { generateObject, generateText } from "ai";
 import { z } from "zod";
 import { createTrace, flushLangfuse } from "../../lib/langfuse";
+import { openai } from "../../lib/openai";
 import {
   type PageAnalysis,
   type TargetQuery,
@@ -152,14 +152,6 @@ export interface LLMBrandProbeAggregate {
   modelsUsed: string[];
   probedAt: string;
 }
-
-// ===================
-// Client Initialization
-// ===================
-
-const openai = createOpenAI({
-  apiKey: process.env.OPENAI_API_KEY || "",
-});
 
 // ===================
 // Schema Definitions

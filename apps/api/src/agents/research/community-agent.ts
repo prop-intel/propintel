@@ -13,9 +13,9 @@
  * - "Looking for Netlify alternatives"
  */
 
-import { Langfuse } from 'langfuse';
 import { type TargetQuery } from '../../types';
 import { search, searchBatch, isConfigured } from '../../lib/tavily';
+import { createTrace, flushLangfuse } from '../../lib/langfuse';
 
 // ===================
 // Types
@@ -71,16 +71,6 @@ const SEARCH_CONCURRENCY = 2;
 const MAX_RESULTS_PER_QUERY = 5;
 
 // ===================
-// Client Initialization
-// ===================
-
-const langfuse = new Langfuse({
-  publicKey: process.env.LANGFUSE_PUBLIC_KEY || '',
-  secretKey: process.env.LANGFUSE_SECRET_KEY || '',
-  baseUrl: process.env.LANGFUSE_BASE_URL || 'https://us.cloud.langfuse.com',
-});
-
-// ===================
 // Main Function
 // ===================
 
@@ -101,7 +91,7 @@ export async function searchCommunitySignals(
     return createEmptyResult();
   }
 
-  const trace = langfuse.trace({
+  const trace = createTrace({
     name: 'community-engagement-search',
     userId: tenantId,
     metadata: { jobId, queryCount: queries.length, targetDomain },
@@ -173,7 +163,7 @@ export async function searchCommunitySignals(
       },
     });
 
-    await langfuse.flushAsync();
+    await flushLangfuse();
 
     console.log(`[Community Agent] Found ${result.totalOpportunities} engagement opportunities`);
     return result;
@@ -182,7 +172,7 @@ export async function searchCommunitySignals(
       level: 'ERROR',
       statusMessage: (error as Error).message,
     });
-    await langfuse.flushAsync();
+    await flushLangfuse();
     throw error;
   }
 }

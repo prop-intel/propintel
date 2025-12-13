@@ -6,10 +6,10 @@
  * for planning and reasoning without loading full data.
  */
 
-import { createOpenAI } from '@ai-sdk/openai';
 import { generateObject } from 'ai';
 import { z } from 'zod';
-import { Langfuse } from 'langfuse';
+import { openai } from '../../lib/openai';
+import { createTrace, flushLangfuse } from '../../lib/langfuse';
 
 // ===================
 // Timeout Configuration
@@ -17,20 +17,6 @@ import { Langfuse } from 'langfuse';
 
 // 60 second timeout for LLM API calls to prevent indefinite hangs
 const LLM_TIMEOUT_MS = 60_000;
-
-// ===================
-// Client Initialization
-// ===================
-
-const openai = createOpenAI({
-  apiKey: process.env.OPENAI_API_KEY || '',
-});
-
-const langfuse = new Langfuse({
-  publicKey: process.env.LANGFUSE_PUBLIC_KEY || '',
-  secretKey: process.env.LANGFUSE_SECRET_KEY || '',
-  baseUrl: process.env.LANGFUSE_BASE_URL || 'https://us.cloud.langfuse.com',
-});
 
 // ===================
 // Schema Definition
@@ -81,7 +67,7 @@ export async function generateAgentSummary(
   status: 'completed' | 'partial' | 'failed';
   nextSteps?: string[];
 }> {
-  const trace = langfuse.trace({
+  const trace = createTrace({
     name: 'agent-summary-generation',
     userId: tenantId,
     metadata: { jobId, agentId },
@@ -136,7 +122,7 @@ Generate a structured summary with key findings, metrics, and status.`;
       },
     });
 
-    await langfuse.flushAsync();
+    await flushLangfuse();
 
     return normalized;
   } catch (error) {
@@ -145,7 +131,7 @@ Generate a structured summary with key findings, metrics, and status.`;
       level: 'ERROR',
       statusMessage: (error as Error).message,
     });
-    await langfuse.flushAsync();
+    await flushLangfuse();
     throw error;
   }
 }
@@ -160,7 +146,7 @@ export async function generateBriefSummary(
   jobId: string,
   model = 'gpt-4o-mini'
 ): Promise<string> {
-  const trace = langfuse.trace({
+  const trace = createTrace({
     name: 'brief-summary-generation',
     userId: tenantId,
     metadata: { jobId, agentId },
@@ -194,7 +180,7 @@ export async function generateBriefSummary(
       output: result.object,
     });
 
-    await langfuse.flushAsync();
+    await flushLangfuse();
 
     return result.object.summary;
   } catch (error) {
@@ -203,7 +189,7 @@ export async function generateBriefSummary(
       level: 'ERROR',
       statusMessage: (error as Error).message,
     });
-    await langfuse.flushAsync();
+    await flushLangfuse();
     throw error;
   }
 }

@@ -6,9 +6,9 @@
  * Also includes community signal tracking (Reddit, HN, GitHub, Twitter).
  */
 
-import { Langfuse } from 'langfuse';
 import { type TargetQuery, type TavilySearchResult, type QueryCitation } from '../../types';
 import { search, searchBatch, isConfigured } from '../../lib/tavily';
+import { createTrace, flushLangfuse } from '../../lib/langfuse';
 
 // ===================
 // Configuration
@@ -16,16 +16,6 @@ import { search, searchBatch, isConfigured } from '../../lib/tavily';
 
 const DEFAULT_RESULTS_PER_QUERY = 10;
 const SEARCH_CONCURRENCY = 3;
-
-// ===================
-// Client Initialization
-// ===================
-
-const langfuse = new Langfuse({
-  publicKey: process.env.LANGFUSE_PUBLIC_KEY || '',
-  secretKey: process.env.LANGFUSE_SECRET_KEY || '',
-  baseUrl: process.env.LANGFUSE_BASE_URL || 'https://us.cloud.langfuse.com',
-});
 
 // ===================
 // Main Functions
@@ -54,7 +44,7 @@ export async function researchQueries(
     }));
   }
 
-  const trace = langfuse.trace({
+  const trace = createTrace({
     name: 'aeo-tavily-research',
     userId: tenantId,
     metadata: { jobId, queryCount: queries.length },
@@ -83,7 +73,7 @@ export async function researchQueries(
       },
     });
 
-    await langfuse.flushAsync();
+    await flushLangfuse();
 
     return results;
   } catch (error) {
@@ -91,7 +81,7 @@ export async function researchQueries(
       level: 'ERROR',
       statusMessage: (error as Error).message,
     });
-    await langfuse.flushAsync();
+    await flushLangfuse();
     throw error;
   }
 }
@@ -343,7 +333,7 @@ export async function searchCommunitySignals(
     return createEmptyCommunityResult();
   }
 
-  const trace = langfuse.trace({
+  const trace = createTrace({
     name: 'aeo-community-signals',
     userId: tenantId,
     metadata: { jobId, domain, brandName },
@@ -409,7 +399,7 @@ export async function searchCommunitySignals(
       },
     });
 
-    await langfuse.flushAsync();
+    await flushLangfuse();
 
     return {
       totalMentions: allSignals.length,
@@ -424,7 +414,7 @@ export async function searchCommunitySignals(
       level: 'ERROR',
       statusMessage: (error as Error).message,
     });
-    await langfuse.flushAsync();
+    await flushLangfuse();
     throw error;
   }
 }
