@@ -27,13 +27,6 @@ function getScoreColor(score: number): string {
   return "text-red-500";
 }
 
-function getScoreGradient(score: number): string {
-  if (score >= 80) return "from-emerald-500 to-emerald-400";
-  if (score >= 60) return "from-amber-500 to-amber-400";
-  if (score >= 40) return "from-orange-500 to-orange-400";
-  return "from-red-500 to-red-400";
-}
-
 function getScoreLabel(score: number): string {
   if (score >= 90) return "Excellent";
   if (score >= 80) return "Very Good";
@@ -107,14 +100,14 @@ function CircularProgress({ score, size = 100, strokeWidth = 8 }: { score: numbe
   );
 }
 
-function ScoreCard({ 
-  label, 
-  score, 
-  maxScore = 100, 
+function ScoreCard({
+  label,
+  score,
+  maxScore: _maxScore = 100,
   description,
   trend,
   trendValue,
-  className 
+  className
 }: ScoreCardProps) {
   return (
     <div className={cn(
