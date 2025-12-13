@@ -1,7 +1,7 @@
-import { beforeAll } from "vitest";
+import { beforeAll, afterAll } from "vitest";
 import { readFileSync, existsSync } from "fs";
 import { resolve } from "path";
-import { cleanupStuckJobs } from "./setup/db";
+import { cleanupStuckJobs, cleanupTestData, closeDatabase } from "./setup/db";
 
 function loadEnvFile(filePath: string) {
   if (!existsSync(filePath)) {
@@ -73,4 +73,10 @@ process.env.IS_OFFLINE = process.env.IS_OFFLINE || "true";
 // Clean up stuck jobs before tests run
 beforeAll(async () => {
   await cleanupStuckJobs();
+});
+
+// Clean up test data after all tests complete
+afterAll(async () => {
+  await cleanupTestData();
+  await closeDatabase();
 });

@@ -92,6 +92,116 @@ export async function cleanupDatabase() {
   }
 }
 
+/**
+ * Clean up only test data (users with test-* emails and their related data)
+ * Safe to run against any database - won't delete real user data
+ */
+export async function cleanupTestData() {
+  try {
+    const conn = pool || new Pool({ connectionString: getTestDatabaseUrl(), max: 1 });
+    const client = await conn.connect();
+
+    try {
+      await client.query("BEGIN");
+
+      // Find test user IDs (emails starting with "test-" or containing "@example.com")
+      const testUsersResult = await client.query(`
+        SELECT id FROM auth_user
+        WHERE email LIKE 'test-%' OR email LIKE '%@example.com'
+      `);
+      const testUserIds = testUsersResult.rows.map((row: { id: string }) => row.id);
+
+      if (testUserIds.length > 0) {
+        const placeholders = testUserIds.map((_, i) => `$${i + 1}`).join(", ");
+
+        // Delete in dependency order - jobs and related data first
+        await client.query(
+          `DELETE FROM crawled_pages WHERE job_id IN (SELECT id FROM jobs WHERE user_id IN (${placeholders}))`,
+          testUserIds
+        );
+        await client.query(
+          `DELETE FROM reports WHERE job_id IN (SELECT id FROM jobs WHERE user_id IN (${placeholders}))`,
+          testUserIds
+        );
+        await client.query(
+          `DELETE FROM analyses WHERE job_id IN (SELECT id FROM jobs WHERE user_id IN (${placeholders}))`,
+          testUserIds
+        );
+        await client.query(
+          `DELETE FROM jobs WHERE user_id IN (${placeholders})`,
+          testUserIds
+        );
+
+        // Delete sites owned by test users
+        await client.query(
+          `DELETE FROM crawler_visits WHERE site_id IN (SELECT id FROM sites WHERE user_id IN (${placeholders}))`,
+          testUserIds
+        );
+        await client.query(
+          `DELETE FROM site_urls WHERE site_id IN (SELECT id FROM sites WHERE user_id IN (${placeholders}))`,
+          testUserIds
+        );
+        await client.query(
+          `DELETE FROM sites WHERE user_id IN (${placeholders})`,
+          testUserIds
+        );
+
+        // Delete auth data for test users
+        await client.query(
+          `DELETE FROM auth_session WHERE "userId" IN (${placeholders})`,
+          testUserIds
+        );
+        await client.query(
+          `DELETE FROM auth_account WHERE "userId" IN (${placeholders})`,
+          testUserIds
+        );
+
+        // Finally delete the test users
+        await client.query(
+          `DELETE FROM auth_user WHERE id IN (${placeholders})`,
+          testUserIds
+        );
+
+        console.log(`Cleaned up ${testUserIds.length} test user(s) and their data`);
+      }
+
+      // Also clean up test URLs (jobs with example.com URLs that might not have test users)
+      await client.query(`
+        DELETE FROM crawled_pages WHERE job_id IN (
+          SELECT id FROM jobs WHERE target_url LIKE '%example.com%'
+        )
+      `);
+      await client.query(`
+        DELETE FROM reports WHERE job_id IN (
+          SELECT id FROM jobs WHERE target_url LIKE '%example.com%'
+        )
+      `);
+      await client.query(`
+        DELETE FROM analyses WHERE job_id IN (
+          SELECT id FROM jobs WHERE target_url LIKE '%example.com%'
+        )
+      `);
+      await client.query(`DELETE FROM jobs WHERE target_url LIKE '%example.com%'`);
+
+      // Clean up expired sessions (older than 30 days)
+      await client.query(`DELETE FROM auth_session WHERE expires < NOW() - INTERVAL '30 days'`);
+
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+
+    if (conn !== pool) {
+      await conn.end();
+    }
+  } catch (error) {
+    console.warn("Test data cleanup warning:", error);
+  }
+}
+
 export async function closeDatabase() {
   if (pool) {
     await pool.end();
