@@ -17,5 +17,19 @@ export {
 
 export { searchGoogleAIO } from './google-aio-agent';
 export { searchPerplexity } from './perplexity-agent';
-export { searchCommunitySignals as searchCommunitySignalsNew } from './community-agent';
+export {
+  searchCommunitySignals as searchCommunitySignalsNew,
+  type EngagementOpportunity,
+  type CommunityEngagementResult,
+} from './community-agent';
+
+// GEO (Generative Engine Optimization) - LLM Brand Probing
+export {
+  probeLLMsForBrand,
+  type LLMBrandProbeInput,
+  type LLMBrandProbeAggregate,
+  type LLMProbeResult,
+  type ProbePrompt,
+  type PromptCategory,
+} from './llm-brand-probe';
 

@@ -11,6 +11,39 @@ export interface SummaryScores {
   overallScore?: number;
 }
 
+export interface EngagementOpportunity {
+  platform: "reddit" | "twitter" | "hackernews" | "other";
+  url: string;
+  title: string;
+  snippet: string;
+  query: string;
+  relevanceScore: number;
+  opportunityType:
+    | "question"
+    | "recommendation-request"
+    | "comparison"
+    | "discussion"
+    | "complaint";
+  foundAt: string;
+  whyGoodOpportunity?: string;
+}
+
+export interface CommunityEngagement {
+  totalOpportunities: number;
+  platforms: {
+    reddit: EngagementOpportunity[];
+    twitter: EngagementOpportunity[];
+    hackernews: EngagementOpportunity[];
+    other: EngagementOpportunity[];
+  };
+  topOpportunities: EngagementOpportunity[];
+  queryBreakdown: Array<{
+    query: string;
+    opportunitiesFound: number;
+  }>;
+  searchedAt: string;
+}
+
 export interface AEOAnalysis {
   visibilityScore?: number;
   queriesAnalyzed?: number;
@@ -60,6 +93,8 @@ export interface AEOAnalysis {
   keyFindings?: string[];
   topPerformingQueries?: string[];
   missedOpportunities?: string[];
+  // Community engagement opportunities
+  communityEngagement?: CommunityEngagement;
 }
 
 export interface FullSummary {

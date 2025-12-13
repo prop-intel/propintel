@@ -15,3 +15,6 @@ export { ContentGaps } from "./content-gaps";
 
 export { KeyFindings } from "./key-findings";
 
+export { EngagementOpportunities } from "./engagement-opportunities";
+export type { EngagementOpportunity, EngagementOpportunitiesProps } from "./engagement-opportunities";
+

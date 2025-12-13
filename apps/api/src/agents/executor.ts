@@ -12,7 +12,7 @@ import { analyzePages, generateTargetQueries, discoverCompetitors } from './disc
 import { researchQueries, analyzeCitations } from './research';
 import { analyzeCitationPatterns, compareContent, calculateVisibilityScore, buildAEOAnalysis, type CitationAnalysisResult, type ContentComparisonResult } from './analysis';
 import { generateAEORecommendations, generateCursorPrompt } from './output';
-import { type CrawledPage, type PageAnalysis, type TargetQuery, type AEOAnalysis, type TavilySearchResult, type CompetitorVisibility, type QueryCitation, type AEORecommendation } from '../types';
+import { type CrawledPage, type PageAnalysis, type TargetQuery, type AEOAnalysis, type TavilySearchResult, type CompetitorVisibility, type QueryCitation, type AEORecommendation, type CommunityEngagementResult } from '../types';
 
 // ===================
 // Helper Functions
@@ -239,11 +239,22 @@ async function runAgent(
     case 'competitor-discovery': {
       const targetQueries = await context.getAgentResult<TargetQuery[]>('query-generation');
       const searchResults = await context.getAgentResult<TavilySearchResult[]>('tavily-research');
+      const pageAnalysis = await context.getAgentResult<PageAnalysis>('page-analysis');
       if (!targetQueries) {
         throw new Error('Target queries not available. Run query-generation first.');
       }
+      
+      // Build business context from page analysis for smarter competitor filtering
+      const businessContext = pageAnalysis ? {
+        companyName: pageAnalysis.companyName || ctx.domain,
+        businessCategory: pageAnalysis.businessCategory || 'other',
+        businessModel: pageAnalysis.businessModel || '',
+        competitorProfile: pageAnalysis.competitorProfile || '',
+      } : undefined;
+      
       return await discoverCompetitors(targetQueries, ctx.domain, tenantId, jobId, {
         searchResults: searchResults ?? undefined,
+        businessContext,
       });
     }
 
@@ -421,6 +432,7 @@ async function buildAEOAnalysisFromContext(context: ContextManager): Promise<AEO
   const competitors = await context.getAgentResult<CompetitorVisibility[]>('competitor-discovery');
   const visibilityScore = await context.getAgentResult<{ score: number }>('visibility-scoring');
   const citationAnalysis = await context.getAgentResult<CitationAnalysisResult>('citation-analysis');
+  const communityEngagement = await context.getAgentResult<CommunityEngagementResult>('community-signals');
 
   if (!pageAnalysis || !targetQueries || !searchResults || !citationAnalysis) {
     return null;
@@ -437,6 +449,7 @@ async function buildAEOAnalysisFromContext(context: ContextManager): Promise<AEO
     competitors || [],
     gaps,
     visibilityScore?.score || 0,
-    citationAnalysis
+    citationAnalysis,
+    communityEngagement ?? undefined
   );
 }

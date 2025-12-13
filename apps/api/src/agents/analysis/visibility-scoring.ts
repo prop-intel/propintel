@@ -6,7 +6,7 @@
  */
 
 import { Langfuse } from 'langfuse';
-import { type QueryCitation, type CompetitorVisibility, type AEOAnalysis, type PageAnalysis, type TargetQuery, type TavilySearchResult, type QueryGap } from '../../types';
+import { type QueryCitation, type CompetitorVisibility, type AEOAnalysis, type PageAnalysis, type TargetQuery, type TavilySearchResult, type QueryGap, type CommunityEngagementResult } from '../../types';
 import { type CitationAnalysisResult } from './citation-analysis';
 import { type ContentComparisonResult } from './content-comparison';
 
@@ -14,14 +14,27 @@ import { type ContentComparisonResult } from './content-comparison';
 // Configuration
 // ===================
 
-// Score weights
-const WEIGHTS = {
-  citationRate: 0.35,      // How often you appear
+// Score weights WITHOUT GEO (legacy mode)
+const WEIGHTS_LEGACY = {
+  citationRate: 0.35,      // How often you appear in search
   rankQuality: 0.25,       // Position when you do appear
   competitivePosition: 0.20, // How you compare to competitors
   queryBreadth: 0.10,      // Coverage across different query types
   gapPenalty: 0.10,        // Penalty for missed opportunities
 };
+
+// Score weights WITH GEO (new mode)
+const WEIGHTS_WITH_GEO = {
+  citationRate: 0.28,      // How often you appear in search (reduced)
+  rankQuality: 0.20,       // Position when you do appear (reduced)
+  competitivePosition: 0.15, // How you compare to competitors (reduced)
+  queryBreadth: 0.08,      // Coverage across different query types
+  gapPenalty: 0.09,        // Penalty for missed opportunities
+  geoScore: 0.20,          // NEW: LLM brand recognition score
+};
+
+// Default to legacy weights (GEO is optional)
+const WEIGHTS = WEIGHTS_LEGACY;
 
 // ===================
 // Client Initialization
@@ -39,13 +52,17 @@ const langfuse = new Langfuse({
 
 /**
  * Calculate the comprehensive AEO Visibility Score
+ * 
+ * @param geoScore - Optional GEO score from llm-brand-probe agent (0-100).
+ *                   When provided, uses updated weights that factor in LLM brand recognition.
  */
 export async function calculateVisibilityScore(
   citationAnalysis: CitationAnalysisResult,
   competitors: CompetitorVisibility[],
   contentComparison: ContentComparisonResult,
   tenantId: string,
-  jobId: string
+  jobId: string,
+  geoScore?: number
 ): Promise<{
   score: number;
   breakdown: ScoreBreakdown;
@@ -55,7 +72,7 @@ export async function calculateVisibilityScore(
   const trace = langfuse.trace({
     name: 'aeo-visibility-scoring',
     userId: tenantId,
-    metadata: { jobId },
+    metadata: { jobId, includesGeo: geoScore !== undefined },
   });
 
   const span = trace.span({
@@ -63,6 +80,9 @@ export async function calculateVisibilityScore(
   });
 
   try {
+    // Choose weights based on whether GEO score is available
+    const weights = geoScore !== undefined ? WEIGHTS_WITH_GEO : WEIGHTS_LEGACY;
+    
     // Calculate component scores
     const citationScore = calculateCitationScore(citationAnalysis);
     const rankScore = calculateRankScore(citationAnalysis);
@@ -71,13 +91,18 @@ export async function calculateVisibilityScore(
     const gapPenalty = calculateGapPenalty(citationAnalysis.gaps, citationAnalysis.totalQueries);
 
     // Calculate weighted total
-    const totalScore = Math.round(
-      citationScore * WEIGHTS.citationRate +
-      rankScore * WEIGHTS.rankQuality +
-      competitiveScore * WEIGHTS.competitivePosition +
-      breadthScore * WEIGHTS.queryBreadth -
-      gapPenalty * WEIGHTS.gapPenalty
+    let totalScore = Math.round(
+      citationScore * weights.citationRate +
+      rankScore * weights.rankQuality +
+      competitiveScore * weights.competitivePosition +
+      breadthScore * weights.queryBreadth -
+      gapPenalty * weights.gapPenalty
     );
+    
+    // Add GEO score contribution if available
+    if (geoScore !== undefined && 'geoScore' in weights) {
+      totalScore += Math.round(geoScore * weights.geoScore);
+    }
 
     // Clamp to 0-100
     const finalScore = Math.max(0, Math.min(100, totalScore));
@@ -85,36 +110,45 @@ export async function calculateVisibilityScore(
     const breakdown: ScoreBreakdown = {
       citationRate: {
         score: citationScore,
-        weight: WEIGHTS.citationRate,
-        contribution: Math.round(citationScore * WEIGHTS.citationRate),
+        weight: weights.citationRate,
+        contribution: Math.round(citationScore * weights.citationRate),
       },
       rankQuality: {
         score: rankScore,
-        weight: WEIGHTS.rankQuality,
-        contribution: Math.round(rankScore * WEIGHTS.rankQuality),
+        weight: weights.rankQuality,
+        contribution: Math.round(rankScore * weights.rankQuality),
       },
       competitivePosition: {
         score: competitiveScore,
-        weight: WEIGHTS.competitivePosition,
-        contribution: Math.round(competitiveScore * WEIGHTS.competitivePosition),
+        weight: weights.competitivePosition,
+        contribution: Math.round(competitiveScore * weights.competitivePosition),
       },
       queryBreadth: {
         score: breadthScore,
-        weight: WEIGHTS.queryBreadth,
-        contribution: Math.round(breadthScore * WEIGHTS.queryBreadth),
+        weight: weights.queryBreadth,
+        contribution: Math.round(breadthScore * weights.queryBreadth),
       },
       gapPenalty: {
         score: gapPenalty,
-        weight: WEIGHTS.gapPenalty,
-        contribution: -Math.round(gapPenalty * WEIGHTS.gapPenalty),
+        weight: weights.gapPenalty,
+        contribution: -Math.round(gapPenalty * weights.gapPenalty),
       },
     };
+    
+    // Add GEO breakdown if available
+    if (geoScore !== undefined && 'geoScore' in weights) {
+      breakdown.geoScore = {
+        score: geoScore,
+        weight: weights.geoScore,
+        contribution: Math.round(geoScore * weights.geoScore),
+      };
+    }
 
     const grade = getGrade(finalScore);
-    const summary = generateScoreSummary(finalScore, breakdown, citationAnalysis);
+    const summary = generateScoreSummary(finalScore, breakdown, citationAnalysis, geoScore);
 
     span.end({
-      output: { score: finalScore, grade },
+      output: { score: finalScore, grade, geoIncluded: geoScore !== undefined },
     });
 
     await langfuse.flushAsync();
@@ -146,7 +180,8 @@ export function buildAEOAnalysis(
   competitors: CompetitorVisibility[],
   gaps: QueryGap[],
   visibilityScore: number,
-  citationAnalysis: CitationAnalysisResult
+  citationAnalysis: CitationAnalysisResult,
+  communityEngagement?: CommunityEngagementResult
 ): AEOAnalysis {
   return {
     // Core metrics
@@ -171,6 +206,9 @@ export function buildAEOAnalysis(
     topPerformingQueries: getTopPerformingQueries(citations),
     missedOpportunities: getMissedOpportunities(citations),
     keyFindings: citationAnalysis.findings,
+
+    // Community engagement opportunities
+    communityEngagement,
   };
 }
 
@@ -184,6 +222,7 @@ interface ScoreBreakdown {
   competitivePosition: { score: number; weight: number; contribution: number };
   queryBreadth: { score: number; weight: number; contribution: number };
   gapPenalty: { score: number; weight: number; contribution: number };
+  geoScore?: { score: number; weight: number; contribution: number }; // Optional GEO component
 }
 
 /**
@@ -279,7 +318,8 @@ function getGrade(score: number): string {
 function generateScoreSummary(
   score: number,
   breakdown: ScoreBreakdown,
-  analysis: CitationAnalysisResult
+  analysis: CitationAnalysisResult,
+  geoScore?: number
 ): string {
   const parts: string[] = [];
 
@@ -307,6 +347,19 @@ function generateScoreSummary(
   if (breakdown.gapPenalty.contribution < -10) {
     parts.push(`Missing opportunities are hurting your score (${Math.abs(breakdown.gapPenalty.contribution)} point penalty).`);
   }
+  
+  // GEO-specific insights
+  if (geoScore !== undefined) {
+    if (geoScore >= 70) {
+      parts.push(`Strong LLM brand recognition (GEO: ${geoScore}/100) - AI models know your brand.`);
+    } else if (geoScore >= 40) {
+      parts.push(`Moderate LLM brand recognition (GEO: ${geoScore}/100) - room to improve AI visibility.`);
+    } else if (geoScore > 0) {
+      parts.push(`Low LLM brand recognition (GEO: ${geoScore}/100) - AI models rarely mention your brand.`);
+    } else {
+      parts.push(`Critical: AI models don't recognize your brand (GEO: 0/100).`);
+    }
+  }
 
   return parts.join(' ');
 }
@@ -321,6 +374,7 @@ function formatComponentName(key: string): string {
     competitivePosition: 'competitive position',
     queryBreadth: 'query coverage',
     gapPenalty: 'gaps',
+    geoScore: 'LLM brand recognition',
   };
   return names[key] || key;
 }

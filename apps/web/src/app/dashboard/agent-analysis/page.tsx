@@ -42,6 +42,7 @@ import {
   CompetitorLandscape,
   ContentGaps,
   KeyFindings,
+  EngagementOpportunities,
 } from "@/components/analysis";
 import type { AgentStatus, PipelinePhase } from "@/components/analysis";
 import type { AgentSummary, StatusUpdate } from "@/types/agent-analysis";
@@ -578,6 +579,14 @@ export default function AgentAnalysisPage() {
                 }
               />
             )}
+
+            {/* Community Engagement Opportunities */}
+            {aeoAnalysis?.communityEngagement?.topOpportunities &&
+              aeoAnalysis.communityEngagement.topOpportunities.length > 0 && (
+                <EngagementOpportunities
+                  opportunities={aeoAnalysis.communityEngagement.topOpportunities}
+                />
+              )}
 
             {aeoAnalysis?.citations && aeoAnalysis.citations.length > 0 && (
               <CitationChart
