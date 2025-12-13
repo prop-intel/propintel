@@ -7,6 +7,7 @@
 
 import { type ContextManager, type AgentContext } from './context';
 import { getAgentMetadata, areDependenciesSatisfied } from './registry';
+import { DISABLED_AGENTS } from './orchestrator/plan-generator';
 import { analyzePages, generateTargetQueries, discoverCompetitors } from './discovery';
 import { researchQueries, analyzeCitations } from './research';
 import { analyzeCitationPatterns, compareContent, calculateVisibilityScore, buildAEOAnalysis, type CitationAnalysisResult, type ContentComparisonResult } from './analysis';
@@ -153,6 +154,14 @@ async function executeAgent(
   jobId: string,
   model: string
 ): Promise<void> {
+  // Skip disabled/stub agents
+  if (DISABLED_AGENTS.has(agentId)) {
+    console.log(`[Executor] Skipping disabled agent: ${agentId}`);
+    // Mark as completed with empty result so dependencies are satisfied
+    await context.storeAgentResult(agentId, { skipped: true, reason: 'Agent disabled' }, model);
+    return;
+  }
+
   const agentMetadata = getAgentMetadata(agentId);
   if (!agentMetadata) {
     throw new Error(`Unknown agent: ${agentId}`);

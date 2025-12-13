@@ -12,6 +12,7 @@ import {
   getActiveJobCount,
   getDailyJobCount,
   updateJob,
+  findRecentJobForUrl,
 } from '../lib/db';
 import { getReport as getReportFromS3 } from '../lib/s3';
 import { enqueueJob } from '../lib/sqs';
@@ -103,6 +104,22 @@ export const create: APIGatewayProxyHandlerV2 = async (event): Promise<APIGatewa
     return jsonResponse(400, undefined, {
       code: 'INVALID_URL',
       message: 'targetUrl must be a valid URL',
+    });
+  }
+
+  // Check for duplicate/recent jobs for the same URL
+  const existingJob = await findRecentJobForUrl(userId, request.targetUrl);
+  if (existingJob) {
+    // If there's an active or recent job, return it instead of creating a new one
+    const isActive = ['pending', 'queued', 'crawling', 'analyzing'].includes(existingJob.status);
+    console.log(`[Job] Found ${isActive ? 'active' : 'recent'} job ${existingJob.id} for URL ${request.targetUrl}`);
+    
+    return jsonResponse(200, { 
+      job: existingJob,
+      deduplicated: true,
+      message: isActive 
+        ? 'An analysis for this URL is already in progress' 
+        : 'A recent analysis for this URL was found',
     });
   }
 

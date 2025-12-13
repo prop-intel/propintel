@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { api } from "@/trpc/react";
 import { useSite } from "@/contexts/site-context";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,20 @@ import { Spinner } from "@/components/ui/spinner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Play, RefreshCw, CheckCircle2, XCircle, Clock, Loader2, Globe, AlertCircle } from "lucide-react";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+// Import analysis components
+import {
+  AgentPipeline,
+  ScoreDashboard,
+  PageAnalysisCard,
+  QueryPerformance,
+  CitationChart,
+  CompetitorLandscape,
+  ContentGaps,
+  KeyFindings,
+} from "@/components/analysis";
+import type { AgentStatus, PipelinePhase } from "@/components/analysis";
 
 interface AgentSummary {
   status?: string;
@@ -24,6 +38,57 @@ interface SummaryScores {
   overallScore?: number;
 }
 
+interface AEOAnalysis {
+  visibilityScore?: number;
+  queriesAnalyzed?: number;
+  citationCount?: number;
+  citationRate?: number;
+  pageAnalysis?: {
+    topic?: string;
+    intent?: string;
+    entities?: string[];
+    contentType?: string;
+    summary?: string;
+    keyPoints?: string[];
+  };
+  targetQueries?: Array<{
+    query: string;
+    type: string;
+    relevanceScore: number;
+  }>;
+  citations?: Array<{
+    query: string;
+    yourPosition: "cited" | "mentioned" | "absent";
+    yourRank?: number;
+    topResults?: Array<{
+      domain: string;
+      url: string;
+      rank: number;
+    }>;
+    winningDomain?: string;
+    winningReason?: string;
+  }>;
+  competitors?: Array<{
+    domain: string;
+    citationCount: number;
+    citationRate: number;
+    averageRank: number;
+    topQueries?: string[];
+    strengths?: string[];
+  }>;
+  gaps?: Array<{
+    query: string;
+    yourPosition: string;
+    winningDomain: string;
+    winningUrl: string;
+    winningReason?: string;
+    suggestedAction?: string;
+  }>;
+  keyFindings?: string[];
+  topPerformingQueries?: string[];
+  missedOpportunities?: string[];
+}
+
 interface FullSummary {
   scores?: SummaryScores;
   strengths?: string[];
@@ -31,131 +96,21 @@ interface FullSummary {
   opportunities?: string[];
   nextSteps?: string[];
   recommendations?: Recommendation[];
-  fullReport?: Record<string, unknown>;
+  fullReport?: {
+    aeoAnalysis?: AEOAnalysis;
+    meta?: {
+      domain?: string;
+    };
+    scores?: {
+      confidence?: number;
+    };
+    [key: string]: unknown;
+  };
 }
 
 // Type guard to check if summary is a FullSummary object
 function isFullSummary(summary: unknown): summary is FullSummary {
   return typeof summary === 'object' && summary !== null;
-}
-
-// Component to display the full summary
-function SummaryDisplay({ summary }: { summary: FullSummary }) {
-  return (
-    <>
-      {summary.scores && (
-        <div>
-          <Label className="text-sm font-semibold mb-2 block">Scores</Label>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-            {summary.scores.aeoVisibilityScore !== undefined && (
-              <div className="border rounded p-2">
-                <div className="text-xs text-muted-foreground">AEO Visibility</div>
-                <div className="text-lg font-bold">{summary.scores.aeoVisibilityScore}/100</div>
-              </div>
-            )}
-            {summary.scores.llmeoScore !== undefined && (
-              <div className="border rounded p-2">
-                <div className="text-xs text-muted-foreground">LLMEO</div>
-                <div className="text-lg font-bold">{summary.scores.llmeoScore}/100</div>
-              </div>
-            )}
-            {summary.scores.seoScore !== undefined && (
-              <div className="border rounded p-2">
-                <div className="text-xs text-muted-foreground">SEO</div>
-                <div className="text-lg font-bold">{summary.scores.seoScore}/100</div>
-              </div>
-            )}
-            {summary.scores.overallScore !== undefined && (
-              <div className="border rounded p-2">
-                <div className="text-xs text-muted-foreground">Overall</div>
-                <div className="text-lg font-bold">{summary.scores.overallScore}/100</div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {summary.strengths && summary.strengths.length > 0 && (
-        <div>
-          <Label className="text-sm font-semibold mb-2 block">Strengths</Label>
-          <ul className="list-disc list-inside space-y-1 text-sm">
-            {summary.strengths.map((item, idx) => (
-              <li key={idx}>{item}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {summary.weaknesses && summary.weaknesses.length > 0 && (
-        <div>
-          <Label className="text-sm font-semibold mb-2 block">Weaknesses</Label>
-          <ul className="list-disc list-inside space-y-1 text-sm">
-            {summary.weaknesses.map((item, idx) => (
-              <li key={idx}>{item}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {summary.opportunities && summary.opportunities.length > 0 && (
-        <div>
-          <Label className="text-sm font-semibold mb-2 block">Opportunities</Label>
-          <ul className="list-disc list-inside space-y-1 text-sm">
-            {summary.opportunities.map((item, idx) => (
-              <li key={idx}>{item}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {summary.nextSteps && summary.nextSteps.length > 0 && (
-        <div>
-          <Label className="text-sm font-semibold mb-2 block">Next Steps</Label>
-          <ul className="list-disc list-inside space-y-1 text-sm">
-            {summary.nextSteps.map((item, idx) => (
-              <li key={idx}>{item}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {summary.recommendations && summary.recommendations.length > 0 && (
-        <div>
-          <Label className="text-sm font-semibold mb-2 block">Recommendations</Label>
-          <div className="space-y-2">
-            {summary.recommendations.map((rec, idx) => (
-              <div key={idx} className="border rounded p-3">
-                <div className="flex items-center justify-between mb-1">
-                  <h5 className="font-medium text-sm">{rec.title ?? `Recommendation ${idx + 1}`}</h5>
-                  {rec.priority && (
-                    <Badge variant={rec.priority === "high" ? "destructive" : rec.priority === "medium" ? "default" : "secondary"}>
-                      {rec.priority}
-                    </Badge>
-                  )}
-                </div>
-                {rec.description && (
-                  <p className="text-sm text-muted-foreground">{rec.description}</p>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {summary.fullReport && (
-        <details className="mt-4">
-          <summary className="cursor-pointer text-sm font-semibold text-muted-foreground hover:text-foreground">
-            View Full Report (JSON)
-          </summary>
-          <div className="mt-2 rounded-md bg-muted p-4">
-            <pre className="text-xs overflow-auto max-h-96">
-              {JSON.stringify(summary.fullReport, null, 2)}
-            </pre>
-          </div>
-        </details>
-      )}
-    </>
-  );
 }
 
 interface Recommendation {
@@ -187,6 +142,7 @@ export default function AgentAnalysisPage() {
   const [jobId, setJobId] = useState<string | null>(null);
   const [statusHistory, setStatusHistory] = useState<StatusUpdate[]>([]);
   const previousStatusRef = useRef<string | null>(null);
+  const [activeTab, setActiveTab] = useState("pipeline");
 
   // Compute the target URL from the active site
   const targetUrl = activeSite ? `https://${activeSite.domain}` : "";
@@ -268,6 +224,87 @@ export default function AgentAnalysisPage() {
     }
   }, [status]);
 
+  // Convert status to pipeline phases
+  const pipelinePhases = useMemo((): PipelinePhase[] => {
+    if (!status?.agentSummaries) return [];
+
+    const agentSummaries = status.agentSummaries as Record<string, AgentSummary>;
+    
+    // Group agents by phase
+    const phases: PipelinePhase[] = [];
+    const seenAgents = new Set<string>();
+
+    // Define phase categories
+    const phaseGroups = [
+      { name: "Discovery", pattern: /page|query|competitor|discovery/i },
+      { name: "Research", pattern: /tavily|research|google|perplexity|community/i },
+      { name: "Analysis", pattern: /citation|content|visibility|analysis/i },
+      { name: "Output", pattern: /recommendation|cursor|prompt|output/i },
+    ];
+
+    for (const group of phaseGroups) {
+      const agents: AgentStatus[] = [];
+      
+      for (const [agentId, summary] of Object.entries(agentSummaries)) {
+        if (seenAgents.has(agentId)) continue;
+        if (group.pattern.test(agentId)) {
+          seenAgents.add(agentId);
+          agents.push({
+            id: agentId,
+            name: agentId.replace(/-/g, " ").replace(/\b\w/g, l => l.toUpperCase()),
+            status: summary?.status === "completed" ? "completed" :
+                   summary?.status === "running" ? "running" :
+                   summary?.status === "failed" ? "failed" : "pending",
+            summary: summary?.summary,
+            keyFindings: summary?.keyFindings,
+          });
+        }
+      }
+
+      if (agents.length > 0) {
+        const phaseStatus = agents.every(a => a.status === "completed") ? "completed" :
+                          agents.some(a => a.status === "running") ? "running" :
+                          agents.some(a => a.status === "failed") ? "failed" : "pending";
+        
+        phases.push({
+          name: group.name,
+          status: phaseStatus,
+          agents,
+          parallel: group.name === "Research" || group.name === "Analysis",
+        });
+      }
+    }
+
+    // Add any remaining agents to a general phase
+    const remainingAgents: AgentStatus[] = [];
+    for (const [agentId, summary] of Object.entries(agentSummaries)) {
+      if (!seenAgents.has(agentId)) {
+        remainingAgents.push({
+          id: agentId,
+          name: agentId.replace(/-/g, " ").replace(/\b\w/g, l => l.toUpperCase()),
+          status: summary?.status === "completed" ? "completed" :
+                 summary?.status === "running" ? "running" :
+                 summary?.status === "failed" ? "failed" : "pending",
+          summary: summary?.summary,
+          keyFindings: summary?.keyFindings,
+        });
+      }
+    }
+
+    if (remainingAgents.length > 0) {
+      phases.push({
+        name: "Processing",
+        status: remainingAgents.every(a => a.status === "completed") ? "completed" :
+               remainingAgents.some(a => a.status === "running") ? "running" :
+               remainingAgents.some(a => a.status === "failed") ? "failed" : "pending",
+        agents: remainingAgents,
+        parallel: false,
+      });
+    }
+
+    return phases;
+  }, [status?.agentSummaries]);
+
   const handleStartAnalysis = () => {
     if (!activeSite) {
       return;
@@ -298,6 +335,12 @@ export default function AgentAnalysisPage() {
       </Badge>
     );
   };
+
+  // Extract report data
+  const fullReport = isFullSummary(status?.summary) ? status.summary.fullReport : null;
+  const aeoAnalysis = fullReport?.aeoAnalysis;
+  const scores = isFullSummary(status?.summary) ? status.summary.scores : null;
+  const domain = fullReport?.meta?.domain ?? activeSite?.domain ?? "";
 
   return (
     <div className="p-6 space-y-6">
@@ -365,232 +408,153 @@ export default function AgentAnalysisPage() {
       </Card>
 
       {jobId && (
-        <>
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Analysis Progress</CardTitle>
-                  <CardDescription>
-                    Analyzing: <span className="font-mono text-sm">{targetUrl || "N/A"}</span>
-                  </CardDescription>
-                </div>
-                <div className="flex items-center gap-2">
-                  {status && (
-                    <div className="text-sm text-muted-foreground">
-                      {getStatusBadge(status.status)}
-                    </div>
-                  )}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => refetchStatus()}
-                    disabled={statusLoading}
-                  >
-                    <RefreshCw className={`h-4 w-4 ${statusLoading ? "animate-spin" : ""}`} />
-                  </Button>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {statusLoading && statusHistory.length === 0 ? (
-                <div className="flex items-center justify-center py-8">
-                  <Spinner />
-                </div>
-              ) : statusHistory.length > 0 ? (
-                <div className="space-y-4">
-                  {statusHistory.map((update, index) => {
-                    const isLatest = index === statusHistory.length - 1;
-                    const overallCompleted = status?.status === "completed";
-                    const overallFailed = status?.status === "failed" || status?.status === "blocked";
-                    
-                    // Determine the effective status for this phase:
-                    // - If overall job is completed, all phases should show completed
-                    // - If overall job failed, previous phases completed before failure
-                    // - Otherwise, use the phase's own status
-                    const effectiveStatus = overallCompleted 
-                      ? "completed" 
-                      : overallFailed && !isLatest
-                        ? "completed"
-                        : update.status;
-                    
-                    const isInProgress = isLatest && (effectiveStatus === "crawling" || effectiveStatus === "analyzing");
-                    const isCompleted = effectiveStatus === "completed";
-                    const isFailed = effectiveStatus === "failed" || effectiveStatus === "blocked";
-                    
-                    return (
-                    <div key={index} className={`border-l-2 pl-4 space-y-2 ${isCompleted ? "border-green-500" : isFailed ? "border-destructive" : isInProgress ? "border-primary" : "border-muted-foreground"}`}>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          {isInProgress ? (
-                            <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                          ) : isCompleted ? (
-                            <CheckCircle2 className="h-4 w-4 text-green-500" />
-                          ) : isFailed ? (
-                            <XCircle className="h-4 w-4 text-destructive" />
-                          ) : (
-                            <div className="w-2 h-2 rounded-full bg-muted-foreground" />
-                          )}
-                          <h4 className="font-semibold capitalize">{update.phase}</h4>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {getStatusBadge(effectiveStatus)}
-                          <span className="text-xs text-muted-foreground">
-                            {update.timestamp.toLocaleTimeString()}
-                          </span>
-                        </div>
-                      </div>
-                      
-                      {update.agentSummaries && Object.keys(update.agentSummaries).length > 0 && (
-                        <div className="ml-6 space-y-2">
-                          <Label className="text-xs text-muted-foreground">Agent Steps:</Label>
-                          <div className="space-y-2">
-                            {Object.entries(update.agentSummaries).map(([agentId, rawSummary]) => {
-                              const agentSummary = rawSummary as AgentSummary;
-                              return (
-                              <div key={agentId} className="text-sm border rounded p-2 bg-muted/50">
-                                <div className="flex items-center justify-between mb-1">
-                                  <div className="flex items-center gap-2">
-                                    {agentSummary.status === "completed" ? (
-                                      <CheckCircle2 className="h-4 w-4 text-green-500" />
-                                    ) : agentSummary.status === "failed" ? (
-                                      <XCircle className="h-4 w-4 text-destructive" />
-                                    ) : agentSummary.status === "running" ? (
-                                      <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                                    ) : (
-                                      <Clock className="h-4 w-4 text-muted-foreground" />
-                                    )}
-                                    <span className="font-medium">{agentId}</span>
-                                  </div>
-                                  {agentSummary.status && (
-                                    <Badge
-                                      variant={
-                                        agentSummary.status === "completed"
-                                          ? "default"
-                                          : agentSummary.status === "failed"
-                                          ? "destructive"
-                                          : agentSummary.status === "running"
-                                          ? "default"
-                                          : "secondary"
-                                      }
-                                      className={`text-xs ${agentSummary.status === "completed" ? "bg-green-500 hover:bg-green-600" : ""}`}
-                                    >
-                                      {agentSummary.status === "running" && (
-                                        <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                                      )}
-                                      {agentSummary.status}
-                                    </Badge>
-                                  )}
-                                </div>
-                                {agentSummary.summary && (
-                                  <p className="text-xs text-muted-foreground mb-2">{agentSummary.summary}</p>
-                                )}
-                                {agentSummary.keyFindings && agentSummary.keyFindings.length > 0 && (
-                                  <div className="text-xs">
-                                    <span className="font-medium">Findings: </span>
-                                    <span className="text-muted-foreground">
-                                      {agentSummary.keyFindings.join(", ")}
-                                    </span>
-                                  </div>
-                                )}
-                              </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )})}
-                </div>
-              ) : status ? (
-                <Alert>
-                  <AlertDescription>
-                    Waiting for status updates...
-                  </AlertDescription>
-                </Alert>
-              ) : (
-                <Alert>
-                  <AlertDescription>
-                    No status data available. Make sure the job ID is correct and the job exists.
-                  </AlertDescription>
-                </Alert>
-              )}
-            </CardContent>
-          </Card>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <div className="flex items-center justify-between">
+            <TabsList>
+              <TabsTrigger value="pipeline">Pipeline</TabsTrigger>
+              <TabsTrigger value="results" disabled={status?.status !== "completed"}>
+                Results
+              </TabsTrigger>
+              <TabsTrigger value="details" disabled={status?.status !== "completed"}>
+                Details
+              </TabsTrigger>
+            </TabsList>
+            <div className="flex items-center gap-2">
+              {status && getStatusBadge(status.status)}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => refetchStatus()}
+                disabled={statusLoading}
+              >
+                <RefreshCw className={`h-4 w-4 ${statusLoading ? "animate-spin" : ""}`} />
+              </Button>
+            </div>
+          </div>
 
-          {/* Show full summary at the end when completed */}
-          {status?.status === "completed" && (
+          {/* Pipeline Tab - Shows during analysis */}
+          <TabsContent value="pipeline" className="space-y-6">
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle>Final Summary</CardTitle>
-                    <CardDescription>Complete analysis summary</CardDescription>
+                    <CardTitle>Analysis Progress</CardTitle>
+                    <CardDescription>
+                      Analyzing: <span className="font-mono text-sm">{targetUrl || "N/A"}</span>
+                    </CardDescription>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => refetchStatus()}
-                    disabled={statusLoading}
-                  >
-                    <RefreshCw className={`h-4 w-4 ${statusLoading ? "animate-spin" : ""}`} />
-                    Refresh Report
-                  </Button>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-4">
-                {isFullSummary(status.summary) ? (
-                  <SummaryDisplay summary={status.summary} />
-                ) : status.summary ? (
-                  <div className="rounded-md bg-muted p-4 text-sm whitespace-pre-wrap">
-                    {typeof status.summary === 'string' 
-                      ? status.summary 
-                      : JSON.stringify(status.summary, null, 2)}
+              <CardContent>
+                {statusLoading && pipelinePhases.length === 0 ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Spinner />
                   </div>
+                ) : pipelinePhases.length > 0 ? (
+                  <AgentPipeline 
+                    phases={pipelinePhases} 
+                    currentPhase={status?.currentPhase ?? undefined}
+                  />
                 ) : (
                   <Alert>
                     <AlertDescription>
-                      Report is being generated. Click &quot;Refresh Report&quot; to check again.
+                      Waiting for analysis to start...
                     </AlertDescription>
                   </Alert>
                 )}
               </CardContent>
             </Card>
-          )}
+          </TabsContent>
 
-          {/* Show execution plan if available */}
-          {status?.executionPlan && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Execution Plan</CardTitle>
-                <CardDescription>Planned phases and agents</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {(status.executionPlan as ExecutionPlan).phases?.map((phase, index) => (
-                    <div key={index} className="border rounded-lg p-4 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <h4 className="font-semibold">{phase.name ?? `Phase ${index + 1}`}</h4>
-                        <Badge variant={phase.runInParallel ? "default" : "secondary"}>
-                          {phase.runInParallel ? "Parallel" : "Sequential"}
-                        </Badge>
-                      </div>
-                      {phase.agents && phase.agents.length > 0 && (
-                        <div className="flex flex-wrap gap-2">
-                          {phase.agents.map((agentId: string, agentIndex: number) => (
-                            <Badge key={agentIndex} variant="outline">
-                              {agentId}
-                            </Badge>
-                          ))}
-                        </div>
-                      )}
+          {/* Results Tab - Shows after completion */}
+          <TabsContent value="results" className="space-y-6">
+            {scores && (
+              <Card>
+                <CardContent className="pt-6">
+                  <ScoreDashboard 
+                    scores={scores}
+                    confidence={fullReport?.scores?.confidence ?? 0.6}
+                  />
+                </CardContent>
+              </Card>
+            )}
+
+            {aeoAnalysis?.keyFindings && (
+              <KeyFindings 
+                findings={aeoAnalysis.keyFindings}
+                strengths={isFullSummary(status?.summary) ? status.summary.strengths : undefined}
+                weaknesses={isFullSummary(status?.summary) ? status.summary.weaknesses : undefined}
+                opportunities={isFullSummary(status?.summary) ? status.summary.opportunities : undefined}
+              />
+            )}
+
+            {aeoAnalysis?.citations && aeoAnalysis.citations.length > 0 && (
+              <CitationChart 
+                citations={aeoAnalysis.citations}
+                visibilityScore={aeoAnalysis.visibilityScore ?? 0}
+                queriesAnalyzed={aeoAnalysis.queriesAnalyzed ?? 0}
+                citationRate={aeoAnalysis.citationRate ?? 0}
+              />
+            )}
+
+            {aeoAnalysis?.competitors && aeoAnalysis.competitors.length > 0 && (
+              <CompetitorLandscape 
+                competitors={aeoAnalysis.competitors}
+                yourDomain={domain}
+                yourCitationRate={aeoAnalysis.citationRate ?? 0}
+                yourAverageRank={
+                  aeoAnalysis.citations
+                    ?.filter(c => c.yourRank)
+                    .reduce((sum, c, _, arr) => sum + (c.yourRank ?? 0) / arr.length, 0)
+                }
+              />
+            )}
+          </TabsContent>
+
+          {/* Details Tab - Detailed breakdown */}
+          <TabsContent value="details" className="space-y-6">
+            {aeoAnalysis?.pageAnalysis && (
+              <PageAnalysisCard analysis={aeoAnalysis.pageAnalysis} />
+            )}
+
+            {aeoAnalysis?.targetQueries && aeoAnalysis.citations && (
+              <QueryPerformance 
+                targetQueries={aeoAnalysis.targetQueries}
+                citations={aeoAnalysis.citations}
+              />
+            )}
+
+            {aeoAnalysis?.gaps && aeoAnalysis.gaps.length > 0 && (
+              <ContentGaps 
+                gaps={aeoAnalysis.gaps}
+                missedOpportunities={aeoAnalysis.missedOpportunities}
+                topPerformingQueries={aeoAnalysis.topPerformingQueries}
+              />
+            )}
+
+            {/* Full JSON report */}
+            {fullReport && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Full Report (JSON)</CardTitle>
+                  <CardDescription>Raw analysis data for debugging</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <details>
+                    <summary className="cursor-pointer text-sm font-medium text-muted-foreground hover:text-foreground">
+                      Click to expand
+                    </summary>
+                    <div className="mt-4 rounded-md bg-muted p-4">
+                      <pre className="text-xs overflow-auto max-h-96">
+                        {JSON.stringify(fullReport, null, 2)}
+                      </pre>
                     </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </>
+                  </details>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+        </Tabs>
       )}
 
       {!jobId && !createJobMutation.isPending && activeSite && (

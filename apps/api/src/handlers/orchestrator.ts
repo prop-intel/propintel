@@ -273,8 +273,30 @@ async function runAEOPipelineWithOrchestrator(
   const plan = await orchestrator.initialize(job.targetUrl, domain, llmModel);
   console.log(`[${jobId}] Execution plan created: ${plan.phases.length} phases, estimated ${plan.estimatedDuration}s`);
 
-  // Execute the plan
-  await orchestrator.execute(llmModel);
+  // Update job with initial plan info
+  await updateJob(userId, jobId, {
+    progress: {
+      pagesCrawled: 0,
+      pagesTotal: 0,
+      currentPhase: 'aeo-discovery',
+      executionPlan: plan,
+      agentSummaries: orchestrator.getAllAgentSummaries(),
+    },
+  });
+
+  // Execute the plan with progress updates
+  await orchestrator.execute(llmModel, async (phaseName, agentSummaries) => {
+    // Update job progress after each phase completes
+    await updateJob(userId, jobId, {
+      progress: {
+        pagesCrawled: 0,
+        pagesTotal: 0,
+        currentPhase: phaseName,
+        executionPlan: plan,
+        agentSummaries,
+      },
+    });
+  });
 
   // Retrieve results from context
   const finalContext = orchestrator.getContext();

@@ -25,6 +25,18 @@ export type JobProgress = {
   pagesCrawled: number;
   pagesTotal: number;
   currentPhase: string;
+  executionPlan?: {
+    phases: Array<{
+      name: string;
+      agents: string[];
+      runInParallel: boolean;
+      dependsOn?: string[];
+    }>;
+    estimatedDuration: number;
+    reasoning: string;
+  };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  agentSummaries?: Record<string, any>;
 };
 
 export type JobMetrics = {

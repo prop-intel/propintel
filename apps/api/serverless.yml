@@ -105,6 +105,9 @@ custom:
     target: node20
     platform: node
     keepNames: true
+    format: esm
+    banner:
+      js: "import { createRequire } from 'module'; const require = createRequire(import.meta.url);"
   serverless-offline:
     httpPort: 4000
     lambdaPort: 4001

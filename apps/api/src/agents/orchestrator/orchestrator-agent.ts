@@ -46,9 +46,21 @@ export class OrchestratorAgent {
   }
 
   /**
-   * Execute the plan
+   * Get all agent summaries for progress updates
    */
-  async execute(model = 'gpt-4o-mini'): Promise<void> {
+  getAllAgentSummaries(): Record<string, { status: string; summary?: string; keyFindings?: string[] }> {
+    return this.context.getAllSummaries();
+  }
+
+  /**
+   * Execute the plan
+   * @param model LLM model to use
+   * @param onPhaseComplete Callback called after each phase with current agent summaries
+   */
+  async execute(
+    model = 'gpt-4o-mini',
+    onPhaseComplete?: (phaseName: string, agentSummaries: Record<string, unknown>) => Promise<void>
+  ): Promise<void> {
     if (!this.plan) {
       throw new Error('Orchestrator not initialized. Call initialize() first.');
     }
@@ -90,6 +102,11 @@ export class OrchestratorAgent {
         );
 
         console.log(`[Orchestrator] Phase ${phase.name} completed. Insights:`, reasoning.insights);
+
+        // Call progress callback if provided
+        if (onPhaseComplete) {
+          await onPhaseComplete(phase.name, this.getAllAgentSummaries());
+        }
 
         // Apply adjustments if suggested
         if (reasoning.adjustments && reasoning.adjustments.length > 0) {

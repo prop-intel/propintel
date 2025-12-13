@@ -42,35 +42,64 @@ const ExecutionPlanSchema = z.object({
 // Available Agents
 // ===================
 
+// NOTE: google-aio, perplexity, community-signals are disabled (not yet implemented)
 const AVAILABLE_AGENTS = {
   discovery: ['page-analysis', 'query-generation', 'competitor-discovery'],
-  research: ['tavily-research', 'google-aio', 'perplexity', 'community-signals'],
+  research: ['tavily-research'], // Disabled: 'google-aio', 'perplexity', 'community-signals'
   analysis: ['citation-analysis', 'content-comparison', 'visibility-scoring'],
   output: ['recommendations', 'cursor-prompt', 'report-generator'],
 };
 
+// Agents that are stubs and should be skipped
+export const DISABLED_AGENTS = new Set(['google-aio', 'perplexity', 'community-signals']);
+
 // ===================
-// Static Fallback Plan
+// Static Fallback Plan (Optimized)
 // ===================
 
 /**
- * Deterministic fallback plan with guaranteed correct dependency ordering.
- * Used when LLM-generated plan fails validation.
+ * Optimized deterministic plan with guaranteed correct dependency ordering.
+ * - Combines sequential discovery steps for efficiency
+ * - Excludes disabled/stub agents
+ * - 5 phases instead of 8 for faster execution
  */
 const STATIC_EXECUTION_PLAN: ExecutionPlan = {
   phases: [
-    { name: 'Discovery-1', agents: ['page-analysis'], runInParallel: false },
-    { name: 'Discovery-2', agents: ['query-generation'], runInParallel: false },
-    { name: 'Discovery-3', agents: ['competitor-discovery'], runInParallel: false },
-    { name: 'Research', agents: ['tavily-research', 'google-aio', 'perplexity', 'community-signals'], runInParallel: true },
-    { name: 'Analysis-1', agents: ['citation-analysis', 'content-comparison'], runInParallel: true },
-    { name: 'Analysis-2', agents: ['visibility-scoring'], runInParallel: false },
-    { name: 'Output-1', agents: ['recommendations'], runInParallel: false },
-    { name: 'Output-2', agents: ['cursor-prompt'], runInParallel: false },
+    // Phase 1: Discovery (sequential - dependencies require ordering)
+    { name: 'Discovery', agents: ['page-analysis', 'query-generation', 'competitor-discovery'], runInParallel: false },
+    // Phase 2: Research (only tavily-research - others are stubs)
+    { name: 'Research', agents: ['tavily-research'], runInParallel: false },
+    // Phase 3: Analysis Part 1 (can run in parallel)
+    { name: 'Analysis', agents: ['citation-analysis', 'content-comparison'], runInParallel: true },
+    // Phase 4: Scoring (depends on Analysis)
+    { name: 'Scoring', agents: ['visibility-scoring'], runInParallel: false },
+    // Phase 5: Output (sequential)
+    { name: 'Output', agents: ['recommendations', 'cursor-prompt'], runInParallel: false },
   ],
-  estimatedDuration: 180,
-  reasoning: 'Static fallback plan with guaranteed dependency ordering',
+  estimatedDuration: 90, // Much faster without stub agents
+  reasoning: 'Optimized static plan with disabled stub agents removed',
 };
+
+// ===================
+// Plan Sanitization
+// ===================
+
+/**
+ * Remove disabled/stub agents from the execution plan
+ */
+function sanitizePlan(plan: ExecutionPlan): ExecutionPlan {
+  const sanitizedPhases = plan.phases
+    .map(phase => ({
+      ...phase,
+      agents: phase.agents.filter(agent => !DISABLED_AGENTS.has(agent)),
+    }))
+    .filter(phase => phase.agents.length > 0); // Remove empty phases
+
+  return {
+    ...plan,
+    phases: sanitizedPhases,
+  };
+}
 
 // ===================
 // Plan Validation
@@ -222,25 +251,33 @@ Your task is to create an execution plan that determines:
 3. Which agents can run in parallel
 4. Estimated duration
 
-Available agents:
+Available agents (USE ONLY THESE):
 - Discovery: ${AVAILABLE_AGENTS.discovery.join(', ')}
 - Research: ${AVAILABLE_AGENTS.research.join(', ')}
 - Analysis: ${AVAILABLE_AGENTS.analysis.join(', ')}
 - Output: ${AVAILABLE_AGENTS.output.join(', ')}
 
-CRITICAL DEPENDENCY RULES:
-1. Discovery phase (sequential): page-analysis → query-generation → competitor-discovery
-2. Research phase (parallel): tavily-research, google-aio, perplexity, community-signals can run in parallel after query-generation
-3. Analysis phase has TWO sub-phases:
-   - First: citation-analysis and content-comparison can run in parallel
-   - Second: visibility-scoring MUST run AFTER citation-analysis and content-comparison complete
-4. Output phase (sequential): recommendations → cursor-prompt → report-generator
+NOTE: Do NOT include these disabled agents: google-aio, perplexity, community-signals
 
-IMPORTANT: visibility-scoring depends on citation-analysis AND content-comparison. 
-Never put visibility-scoring in the same parallel phase as citation-analysis or content-comparison.
+CRITICAL DEPENDENCY RULES (MUST FOLLOW):
+1. page-analysis MUST be the FIRST agent to run (no dependencies)
+2. query-generation depends on page-analysis (must run AFTER page-analysis)
+3. competitor-discovery depends on query-generation
+4. tavily-research depends on query-generation
+5. citation-analysis depends on tavily-research
+6. content-comparison depends on page-analysis AND competitor-discovery
+7. visibility-scoring depends on citation-analysis AND content-comparison
+8. recommendations depends on visibility-scoring
+9. cursor-prompt depends on recommendations
 
-Consider what's already completed in the context.
-Optimize for speed by parallelizing when possible, but ALWAYS respect dependencies.`;
+RECOMMENDED STRUCTURE (5 phases):
+Phase 1 - Discovery: page-analysis, then query-generation, then competitor-discovery (sequential)
+Phase 2 - Research: tavily-research
+Phase 3 - Analysis: citation-analysis, content-comparison (parallel)
+Phase 4 - Scoring: visibility-scoring
+Phase 5 - Output: recommendations, cursor-prompt (sequential)
+
+IMPORTANT: Always start with page-analysis in the first phase!`;
 
     const userPrompt = `Create an execution plan for analyzing: ${targetUrl} (${domain})
 
@@ -262,6 +299,9 @@ Generate a plan that:
     });
 
     let finalPlan = result.object;
+    
+    // First, sanitize the plan to remove disabled agents
+    finalPlan = sanitizePlan(finalPlan);
     
     // Validate the LLM-generated plan
     console.log(`[Plan] Validating LLM-generated plan with ${finalPlan.phases.length} phases`);

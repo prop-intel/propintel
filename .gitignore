@@ -57,3 +57,6 @@ next-env.d.ts
 
 # Local storage (API dev mode)
 .local-storage
+
+# Memory bank (Cursor AI context)
+memory-bank/

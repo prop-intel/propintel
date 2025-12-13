@@ -205,6 +205,44 @@ export async function getDailyJobCount(userId: string): Promise<number> {
   return Number(result[0]?.count ?? 0);
 }
 
+/**
+ * Find active or recent jobs for the same URL (for deduplication)
+ * Returns a job if one exists that is:
+ * - Active (pending, queued, crawling, analyzing)
+ * - Or completed within the last 5 minutes
+ */
+export async function findRecentJobForUrl(
+  userId: string, 
+  targetUrl: string
+): Promise<Job | null> {
+  // Check for active jobs first
+  const activeJob = await db.query.jobs.findFirst({
+    where: and(
+      eq(jobs.userId, userId),
+      eq(jobs.targetUrl, targetUrl),
+      inArray(jobs.status, ['pending', 'queued', 'crawling', 'analyzing'])
+    ),
+    orderBy: [desc(jobs.createdAt)],
+  });
+
+  if (activeJob) {
+    return activeJob;
+  }
+
+  // Check for recently completed jobs (within 5 minutes)
+  const recentJob = await db.query.jobs.findFirst({
+    where: and(
+      eq(jobs.userId, userId),
+      eq(jobs.targetUrl, targetUrl),
+      eq(jobs.status, 'completed'),
+      sql`${jobs.updatedAt} > NOW() - INTERVAL '5 minutes'`
+    ),
+    orderBy: [desc(jobs.createdAt)],
+  });
+
+  return recentJob ?? null;
+}
+
 // ===================
 // Page Operations
 // ===================
