@@ -174,9 +174,9 @@ curl -H "X-Api-Key: your-api-key" https://your-api/endpoint
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | POST | `/jobs` | Create crawl job |
-| GET | `/jobs` | List jobs |
-| GET | `/jobs/{id}` | Get job status |
 | GET | `/jobs/{id}/report` | Get report (JSON or Markdown) |
+
+> **Note**: Job listing and status are accessed via tRPC through the Next.js frontend for better performance.
 
 #### Dashboard
 

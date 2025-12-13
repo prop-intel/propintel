@@ -40,7 +40,7 @@ describe("Backend API Integration", () => {
 
   describe("Authentication", () => {
     it("should authenticate with API key", async () => {
-      const response = await makeBackendApiRequest(API_URL, "/jobs", {
+      const response = await makeBackendApiRequest(API_URL, "/dashboard/summary", {
         method: "GET",
         apiKey: API_KEY,
       });
@@ -50,7 +50,7 @@ describe("Backend API Integration", () => {
     });
 
     it("should authenticate with session token", async () => {
-      const response = await makeBackendApiRequest(API_URL, "/jobs", {
+      const response = await makeBackendApiRequest(API_URL, "/dashboard/summary", {
         method: "GET",
         sessionToken: testUser.sessionToken,
       });
@@ -60,7 +60,7 @@ describe("Backend API Integration", () => {
 
     it("should authenticate with session cookie", async () => {
       const cookie = `authjs.session-token=${testUser.sessionToken}`;
-      const response = await makeBackendApiRequest(API_URL, "/jobs", {
+      const response = await makeBackendApiRequest(API_URL, "/dashboard/summary", {
         method: "GET",
         cookie,
       });
@@ -70,7 +70,8 @@ describe("Backend API Integration", () => {
 
     it("should reject unauthenticated requests", async () => {
       const response = await makeBackendApiRequest(API_URL, "/jobs", {
-        method: "GET",
+        method: "POST",
+        body: { targetUrl: "https://example.com" },
         // No auth headers
       });
 
@@ -133,89 +134,13 @@ describe("Backend API Integration", () => {
       expect(data.success).toBe(true);
       expect(data.data.job.userId).toBe(testUser.user.id);
     });
-
-    it("should retrieve a job by ID", async () => {
-      // Use unique URL to avoid deduplication
-      const uniqueUrl = `https://example.com/retrieve-test-${Date.now()}`;
-
-      // Create a job with session token
-      const createResponse = await makeBackendApiRequest(API_URL, "/jobs", {
-        method: "POST",
-        sessionToken: testUser.sessionToken,
-        body: {
-          targetUrl: uniqueUrl,
-        },
-      });
-
-      const createData = await parseApiResponse<{
-        success: boolean;
-        data: { job: { id: string } };
-      }>(createResponse);
-
-      const jobId = createData.data.job.id;
-
-      // Retrieve with same session token (same user)
-      const getResponse = await makeBackendApiRequest(
-        API_URL,
-        `/jobs/${jobId}`,
-        {
-          method: "GET",
-          sessionToken: testUser.sessionToken,
-        }
-      );
-
-      expect(getResponse.status).toBe(200);
-
-      const getData = await parseApiResponse<{
-        success: boolean;
-        data: { job: { id: string } };
-      }>(getResponse);
-
-      expect(getData.success).toBe(true);
-      expect(getData.data.job.id).toBe(jobId);
-    });
-
-    it("should list jobs", async () => {
-      const response = await makeBackendApiRequest(API_URL, "/jobs?limit=10", {
-        method: "GET",
-        apiKey: API_KEY,
-      });
-
-      expect(response.status).toBe(200);
-
-      const data = await parseApiResponse<{
-        success: boolean;
-        data: {
-          jobs: unknown[];
-          pagination: { limit: number; offset: number; hasMore: boolean };
-        };
-      }>(response);
-
-      expect(data.success).toBe(true);
-      expect(Array.isArray(data.data.jobs)).toBe(true);
-      expect(data.data.pagination).toBeDefined();
-      expect(typeof data.data.pagination.hasMore).toBe("boolean");
-    });
-
-    it("should return 404 for non-existent job", async () => {
-      const response = await makeBackendApiRequest(
-        API_URL,
-        "/jobs/non-existent-id-12345",
-        {
-          method: "GET",
-          apiKey: API_KEY,
-        }
-      );
-
-      expect(response.status).toBe(404);
-    });
   });
 
   describe("Schema-Dependent Operations", () => {
     it("should read from shared auth_user table", async () => {
       // This test verifies backend can query the shared auth_user table
       // by creating a user via frontend and querying via backend API
-      const response = await makeBackendApiRequest(API_URL, "/jobs", {
+      const response = await makeBackendApiRequest(API_URL, "/dashboard/summary", {
         method: "GET",
         sessionToken: testUser.sessionToken,
       });
@@ -284,7 +209,8 @@ describe("Backend API Integration", () => {
     });
 
     it("should return proper error format", async () => {
-      const response = await makeBackendApiRequest(API_URL, "/jobs/invalid-id", {
+      // Test error format using report endpoint with invalid job ID
+      const response = await makeBackendApiRequest(API_URL, "/jobs/invalid-id/report", {
         method: "GET",
         apiKey: API_KEY,
       });

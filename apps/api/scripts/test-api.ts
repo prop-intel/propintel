@@ -2,14 +2,12 @@
 
 /**
  * PropIntel API Test Script
- * 
+ *
  * Tests the PropIntel API endpoints including:
  * - Health check
  * - Job creation
- * - Job status retrieval
- * - Job listing
  * - Report retrieval
- * 
+ *
  * Usage:
  *   npm run test:api                    # Test against local serverless-offline
  *   npm run test:api -- --url <url>     # Test against deployed API
@@ -18,6 +16,7 @@
 
 import * as https from 'https';
 import * as http from 'http';
+import { getJobById } from '../src/lib/db';
 
 // ===================
 // Configuration
@@ -258,75 +257,15 @@ async function testCreateJob(config: TestConfig): Promise<string> {
   return jobId;
 }
 
-async function testGetJob(config: TestConfig, jobId: string): Promise<void> {
-  const response = await makeRequest(`${config.apiUrl}/jobs/${jobId}`, {
-    method: 'GET',
-    path: `/jobs/${jobId}`,
-    headers: {
-      'X-Api-Key': config.apiKey,
-    },
-  });
-
-  if (response.statusCode !== 200) {
-    const errorBody = JSON.parse(response.body);
-    throw new Error(`Expected status 200, got ${response.statusCode}: ${errorBody.error?.message || response.body}`);
-  }
-
-  const data = JSON.parse(response.body);
-  if (!data.success || !data.data?.job) {
-    throw new Error('Job retrieval response missing job data');
-  }
-
-  if (data.data.job.id !== jobId) {
-    throw new Error(`Job ID mismatch: expected ${jobId}, got ${data.data.job.id}`);
-  }
-
-  if (config.verbose) {
-    console.log('  Job status:', JSON.stringify(data.data.job, null, 2));
-  }
-}
-
-async function testListJobs(config: TestConfig): Promise<void> {
-  const response = await makeRequest(`${config.apiUrl}/jobs?limit=10`, {
-    method: 'GET',
-    path: '/jobs?limit=10',
-    headers: {
-      'X-Api-Key': config.apiKey,
-    },
-  });
-
-  if (response.statusCode !== 200) {
-    const errorBody = JSON.parse(response.body);
-    throw new Error(`Expected status 200, got ${response.statusCode}: ${errorBody.error?.message || response.body}`);
-  }
-
-  const data = JSON.parse(response.body);
-  if (!data.success || !Array.isArray(data.data?.jobs)) {
-    throw new Error('Jobs list response missing jobs array');
-  }
-
-  if (config.verbose) {
-    console.log(`  Found ${data.data.jobs.length} jobs`);
-    console.log('  Jobs:', JSON.stringify(data.data.jobs, null, 2));
-  }
-}
-
 async function testGetReport(config: TestConfig, jobId: string): Promise<void> {
-  // First check if job is completed
-  const jobResponse = await makeRequest(`${config.apiUrl}/jobs/${jobId}`, {
-    method: 'GET',
-    path: `/jobs/${jobId}`,
-    headers: {
-      'X-Api-Key': config.apiKey,
-    },
-  });
+  // First check if job is completed using direct DB query
+  const job = await getJobById(jobId);
 
-  if (jobResponse.statusCode !== 200) {
-    throw new Error(`Failed to get job status: ${jobResponse.statusCode}`);
+  if (!job) {
+    throw new Error(`Job ${jobId} not found`);
   }
 
-  const jobData = JSON.parse(jobResponse.body);
-  const jobStatus = jobData.data?.job?.status;
+  const jobStatus = job.status;
 
   if (jobStatus === 'completed') {
     // Try to get JSON report
@@ -366,28 +305,14 @@ async function testGetReport(config: TestConfig, jobId: string): Promise<void> {
 
 async function testUnauthenticatedRequest(config: TestConfig): Promise<void> {
   const response = await makeRequest(`${config.apiUrl}/jobs`, {
-    method: 'GET',
+    method: 'POST',
     path: '/jobs',
+    body: JSON.stringify({ targetUrl: 'https://example.com' }),
     // No API key header
   });
 
   if (response.statusCode !== 401) {
     throw new Error(`Expected status 401 for unauthenticated request, got ${response.statusCode}`);
-  }
-}
-
-async function testInvalidJobId(config: TestConfig): Promise<void> {
-  const response = await makeRequest(`${config.apiUrl}/jobs/invalid-job-id-12345`, {
-    method: 'GET',
-    path: '/jobs/invalid-job-id-12345',
-    headers: {
-      'X-Api-Key': config.apiKey,
-    },
-  });
-
-  if (response.statusCode !== 404) {
-    const errorBody = JSON.parse(response.body);
-    throw new Error(`Expected status 404 for invalid job ID, got ${response.statusCode}: ${errorBody.error?.message || response.body}`);
   }
 }
 
@@ -423,13 +348,8 @@ async function main(): Promise<void> {
   });
 
   if (createdJobId) {
-    await runTest('Get Job Status', () => testGetJob(config, createdJobId!));
     await runTest('Get Report (if available)', () => testGetReport(config, createdJobId!));
   }
-
-  await runTest('List Jobs', () => testListJobs(config));
-
-  await runTest('Invalid Job ID (should fail)', () => testInvalidJobId(config));
 
   // Print summary
   printSummary();

@@ -7,7 +7,7 @@ This directory contains the frontend integration layer for the PropIntel backend
 The backend API client provides type-safe access to the PropIntel analysis service. It handles:
 
 - **Authentication**: Session token validation via NextAuth cookies
-- **Job Management**: Create, list, and monitor analysis jobs
+- **Job Management**: Create analysis jobs (listing and status via tRPC)
 - **Reports**: Fetch analysis reports in JSON or Markdown format
 - **Dashboard**: Get summary metrics, trends, and alerts
 
@@ -30,9 +30,6 @@ const { job } = await api.jobs.create({
   config: { maxPages: 50 },
 });
 
-// Get job status
-const { job } = await api.jobs.get(jobId);
-
 // Get report (JSON)
 const report = await api.jobs.getReport(jobId, "json");
 
@@ -46,16 +43,15 @@ const summary = await api.dashboard.getSummary();
 const trends = await api.dashboard.getTrends("example.com", 30);
 ```
 
+> **Note**: Job listing and status polling should use tRPC routes for better performance.
+
 ### React Hooks
 
-Use the provided React hooks for data fetching with automatic caching and polling:
+Use the provided React hooks for data fetching with automatic caching:
 
 ```typescript
-import { useJobQuery, useCreateJob, useJobReport } from "@/hooks/use-jobs";
+import { useCreateJob, useJobReport } from "@/hooks/use-jobs";
 import { useDashboardSummary, useScoreTrends } from "@/hooks/use-dashboard";
-
-// Poll job status (automatically stops when complete)
-const { data: job, isLoading } = useJobQuery(jobId);
 
 // Create a new job
 const createJob = useCreateJob();
@@ -71,23 +67,7 @@ const { data: summary } = useDashboardSummary();
 const { data: trends } = useScoreTrends("example.com", 30);
 ```
 
-### Manual Job Polling
-
-For more control over polling, use the `useJob` hook:
-
-```typescript
-import { useJob } from "@/hooks/use-job";
-
-const { job, loading, error, isTerminal } = useJob(jobId, {
-  interval: 3000, // Poll every 3 seconds
-  onComplete: (job) => {
-    console.log("Job completed:", job);
-  },
-  onError: (error) => {
-    console.error("Job error:", error);
-  },
-});
-```
+> **Note**: For job status polling, use the tRPC `api.job.get` query with `refetchInterval`.
 
 ## Error Handling
 
@@ -149,18 +129,32 @@ import type {
 ### Creating and Monitoring a Job
 
 ```typescript
-import { useCreateJob, useJobQuery } from "@/hooks/use-jobs";
+import { useCreateJob } from "@/hooks/use-jobs";
+import { api } from "@/trpc/react";
 
 function AnalyzeSite() {
   const createJob = useCreateJob();
-  const { data: job } = useJobQuery(createJob.data?.id ?? null);
+  const [jobId, setJobId] = useState<string | null>(null);
+
+  // Use tRPC for job status polling
+  const { data: job } = api.job.get.useQuery(
+    { id: jobId! },
+    {
+      enabled: !!jobId,
+      refetchInterval: (query) => {
+        const job = query.state.data;
+        if (!job || ["completed", "failed"].includes(job.status)) return false;
+        return 3000; // Poll every 3 seconds
+      },
+    }
+  );
 
   const handleSubmit = async (url: string) => {
     const result = await createJob.mutateAsync({
       targetUrl: url,
       config: { maxPages: 50 },
     });
-    // Job ID is now available in createJob.data
+    setJobId(result.id);
   };
 
   return (

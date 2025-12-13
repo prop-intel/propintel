@@ -184,8 +184,6 @@ AEO Visibility Score = (
 
 **Endpoints**:
 - `POST /jobs` - Create crawl job
-- `GET /jobs` - List jobs
-- `GET /jobs/{id}` - Get job status
 - `GET /jobs/{id}/report` - Get report
 - `GET /health` - Health check
 - `GET /dashboard/summary` - Dashboard metrics
