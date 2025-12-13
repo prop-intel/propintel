@@ -8,7 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { motion } from "motion/react";
-import { Rocket, Upload, CheckCircle2, Loader2, Link as LinkIcon, Briefcase } from "lucide-react";
+import { Rocket, CheckCircle2, Loader2, Link as LinkIcon, Briefcase } from "lucide-react";
 
 export function InterestForm() {
     const [isLoading, setIsLoading] = useState(false);
@@ -42,7 +42,7 @@ export function InterestForm() {
     };
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
+        if (e.target.files?.[0]) {
             setFormData({ ...formData, file: e.target.files[0] });
         }
     };

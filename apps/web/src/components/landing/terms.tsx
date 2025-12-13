@@ -20,14 +20,14 @@ export function TermsOfService() {
                 <section>
                     <h2 className="text-2xl font-semibold mb-4">1. Agreement to Terms</h2>
                     <p className="text-lg text-muted-foreground">
-                        These Terms of Service constitute a legally binding agreement made between you, whether personally or on behalf of an entity ("you") and PropIntel ("we," "us" or "our"), concerning your access to and use of the PropIntel website and application.
+                        These Terms of Service constitute a legally binding agreement made between you, whether personally or on behalf of an entity (&quot;you&quot;) and PropIntel (&quot;we,&quot; &quot;us&quot; or &quot;our&quot;), concerning your access to and use of the PropIntel website and application.
                     </p>
                 </section>
 
                 <section>
                     <h2 className="text-2xl font-semibold mb-4">2. Intellectual Property Rights</h2>
                     <p className="text-muted-foreground">
-                        Unless otherwise indicated, the Site is our proprietary property and all source code, databases, functionality, software, website designs, audio, video, text, photographs, and graphics on the Site (collectively, the "Content") and the trademarks, service marks, and logos contained therein (the "Marks") are owned or controlled by us or licensed to us, and are protected by copyright and trademark laws.
+                        Unless otherwise indicated, the Site is our proprietary property and all source code, databases, functionality, software, website designs, audio, video, text, photographs, and graphics on the Site (collectively, the &quot;Content&quot;) and the trademarks, service marks, and logos contained therein (the &quot;Marks&quot;) are owned or controlled by us or licensed to us, and are protected by copyright and trademark laws.
                     </p>
                 </section>
 

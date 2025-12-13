@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Bot, Loader2 } from "lucide-react";
+import { Bot } from "lucide-react";
 import { useSession } from "next-auth/react";
 
 export function Footer() {

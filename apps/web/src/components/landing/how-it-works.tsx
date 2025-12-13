@@ -10,8 +10,6 @@ import {
     Terminal,
     Code,
     ArrowRight,
-    CheckCircle2,
-    HelpCircle,
 } from "lucide-react";
 import {
     Accordion,

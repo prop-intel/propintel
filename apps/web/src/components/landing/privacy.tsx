@@ -20,7 +20,7 @@ export function PrivacyPolicy() {
                 <section>
                     <h2 className="text-2xl font-semibold mb-4">1. Introduction</h2>
                     <p className="text-lg text-muted-foreground">
-                        PropIntel ("we", "our", or "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you visit our website and use our SaaS application (the "Service").
+                        PropIntel (&quot;we&quot;, &quot;our&quot;, or &quot;us&quot;) is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you visit our website and use our SaaS application (the &quot;Service&quot;).
                     </p>
                 </section>
 
