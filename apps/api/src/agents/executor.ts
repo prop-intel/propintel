@@ -5,7 +5,7 @@
  * and error handling.
  */
 
-import { type ContextManager, type AgentContext } from "./context";
+import { type ContextManager } from "./context";
 import { getAgentMetadata, areDependenciesSatisfied } from "./registry";
 import { DISABLED_AGENTS } from "./orchestrator/plan-generator";
 import {
