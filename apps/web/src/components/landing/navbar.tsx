@@ -20,7 +20,7 @@ export function Navbar() {
           <div className="p-1.5 bg-primary rounded-lg text-primary-foreground">
             <Bot className="size-5" />
           </div>
-          PropIntel
+          BrandSight
         </Link>
 
         <nav className="hidden md:flex items-center gap-5 text-sm font-medium text-muted-foreground">

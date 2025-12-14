@@ -40,7 +40,7 @@ export function AuthForm({
             className="group mb-6 flex items-center justify-center gap-2 transition-all hover:opacity-80"
           >
             <ListChecks className="text-primary h-6 w-6" />
-            <span className="text-2xl font-bold">Capybara</span>
+            <span className="text-2xl font-bold">BrandSight</span>
           </Link>
           <h2 className="text-foreground text-center text-xl font-semibold">
             Log in or create account

@@ -162,7 +162,7 @@ export function Contact() {
                             </div>
                             <div>
                                 <h3 className="font-semibold mb-1">Email Support</h3>
-                                <p className="text-muted-foreground">support@propintel.ai</p>
+                                <p className="text-muted-foreground">support@brandsight.ai</p>
                                 <p className="text-sm text-muted-foreground mt-1">Response time: &lt; 24 hours</p>
                             </div>
                         </div>

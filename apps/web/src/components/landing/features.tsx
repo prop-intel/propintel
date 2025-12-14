@@ -1,13 +1,13 @@
 "use client";
 
 import { motion } from "motion/react";
-import { 
-  Bot, 
-  Code2, 
-  GitCompare, 
-  LineChart, 
-  Search, 
-  Target 
+import {
+  Bot,
+  Code2,
+  GitCompare,
+  LineChart,
+  Search,
+  Target
 } from "lucide-react";
 
 const features = [
@@ -24,7 +24,7 @@ const features = [
   {
     icon: GitCompare,
     title: "Competitor Benchmarking",
-    description: "Compare your content side-by-side with the domain that is winning the AI slot to see what you're missing."
+    description: "Compare your content side-by-side with top-performing domains to identify opportunities for growth."
   },
   {
     icon: Code2,
@@ -38,8 +38,8 @@ const features = [
   },
   {
     icon: LineChart,
-    title: "Rank Tracking",
-    description: "Monitor your AEO progress over time. See how content updates translate to more AI citations."
+    title: "Progress Tracking",
+    description: "Monitor your optimization journey over time. See how each improvement moves you closer to your goals."
   }
 ];
 
@@ -48,9 +48,9 @@ export function Features() {
     <section id="features" className="py-20 bg-muted/30">
       <div className="container mx-auto px-4">
         <div className="text-center max-w-3xl mx-auto mb-16">
-          <h2 className="text-3xl font-bold tracking-tight mb-4">From Analysis to Action</h2>
+          <h2 className="text-3xl font-bold tracking-tight mb-4">Your Path to Better Visibility</h2>
           <p className="text-muted-foreground text-lg">
-            Stop guessing what AI thinks of your site. PropIntel gives you the tools to measure, analyze, and improve your standing in the Answer Engine era.
+            Stop guessing what AI thinks of your site. BrandSight delivers clear insights into your brand&apos;s visibility, giving you the tools to measure, analyze, and improve your standing in the Answer Engine era.
           </p>
         </div>
 

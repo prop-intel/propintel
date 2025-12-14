@@ -99,7 +99,7 @@ const phases = [
         id: "analysis",
         badge: "Phase 3: Analysis",
         title: "The Scoring",
-        description: "We compare your content against the winners to find the exact gaps.",
+        description: "We compare your content against top performers to identify your next steps forward.",
         icon: BarChart,
         color: "amber",
         details: [
@@ -121,8 +121,8 @@ const phases = [
                     <div className="w-full bg-amber-500/20 h-16 rounded-t-lg relative group">
                         <div className="absolute bottom-0 w-full bg-amber-500 h-[45%] rounded-t-lg transition-all group-hover:h-[50%]" />
                         {/* Gap Indicator */}
-                        <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] text-red-500 font-bold animate-bounce hidden group-hover:block">
-                            GAP!
+                        <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] text-amber-600 font-bold animate-bounce hidden group-hover:block">
+                            OPPORTUNITY
                         </div>
                     </div>
                     <div className="font-bold text-sm">45/100</div>
@@ -134,7 +134,7 @@ const phases = [
         id: "action",
         badge: "Phase 4: Action",
         title: "The Fix",
-        description: "Insights are useless without action. We write the code to fix your ranking.",
+        description: "Insights are useless without action. We provide the roadmap for your next optimization step.",
         icon: Code,
         color: "green",
         details: [
@@ -168,7 +168,7 @@ const phases = [
 const faqs = [
     {
         question: "How is this different from traditional SEO?",
-        answer: "SEO is about ranking links on a page. AEO (Answer Engine Optimization) is about becoming the direct answer cited by AI. The metrics, strategies, and optimization techniques are completely different.",
+        answer: "SEO focuses on link positions on a page. AEO (Answer Engine Optimization) is about becoming the direct answer cited by AI. The metrics, strategies, and optimization journey are completely different.",
     },
     {
         question: "Do you support SearchGPT and Perplexity?",
@@ -198,8 +198,8 @@ export function HowItWorks() {
                         See the world through an <span className="text-primary">AI&apos;s eyes</span>
                     </h1>
                     <p className="text-xl text-muted-foreground leading-relaxed max-w-2xl mx-auto">
-                        Traditional SEO tools are blind to the new web. PropIntel simulates the AI browsing experience
-                        to show you exactly why you win—or lose—the answer slot.
+                        Traditional SEO tools are blind to the new web. BrandSight simulates the AI browsing experience
+                        to show you exactly where you stand—and how to move forward.
                     </p>
                 </div>
             </section>
@@ -287,7 +287,7 @@ export function HowItWorks() {
 
             {/* CTA */}
             <section className="py-24 container px-4 mx-auto text-center">
-                <h2 className="text-3xl font-bold mb-6">Ready to see your site clearly?</h2>
+                <h2 className="text-3xl font-bold mb-6">Ready to begin your optimization journey?</h2>
                 <Link href="/dashboard">
                     <Button size="lg" className="h-14 px-8 text-lg shadow-xl shadow-primary/20">
                         Start a Free Analysis
