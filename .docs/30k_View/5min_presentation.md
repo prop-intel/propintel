@@ -1,76 +1,147 @@
-# BrandSight: The AI Visibility Platform
-## 5-Minute Investor Pitch
+# 5min_pitch.md
+
+## Introduction (Host)  
+**Cisco (Host):**  
+Hello, my name is Francisco. These are my partners, Nataly and Eric.  
+And if you can give me 5 minutes of attention, I promise to get you into the conversation of the future.  
+
+**Time:** ~20 seconds  
+**Cue:** Slide 0 -- Title / Team introduction  
 
 ---
 
-### 1. The Shift (30 Seconds)
-**"The way the world searches has changed forever."**
+## Opening -- The Shift in Search (Host)  
+**Cisco (Host):**  
+The way the world searches has changed forever.  
 
-*   **Then:** Users searched Google → Clicked 10 blue links → Visited your site.
-*   **Now:** Users ask AI (Perplexity, SearchGPT, Gemini). **Even Google** now provides LLM-generated "AI Overviews" at the top of the page. The AI answers the user directly.
-*   **The Problem:** If AI Agents can't "read" or "understand" your business, you don't just lose a click—you cease to exist. You become **invisible**.
-*   **The Gap:** Traditional SEO tools (SEMrush, Ahrefs) optimize for *humans* and *keywords*. They do not optimize for *Agents* and *Context*.
+In the past, users searched Google, clicked ten blue links, and visited your site.  
+Now, users ask AI--ChatGPT, Gemini, Copilot, Perplexity, even Google itself.  
+Large language models generate answers at the top of the page.  
+The AI answers users directly.  
 
----
+If AI agents can't read or understand your business, you don't just lose a click.  
+You cease to exist. You become invisible to the conversation.  
 
-### 2. The Solution (1:30 - 2:30)
-
-**(Visual: Scroll to "How It Works" section on Landing Page)**
-
-"This is **PropIntel**. We've built the first complete **AEO Intelligence Platform**."
-
-"We don't just optimize meta tags. We simulate the entire AI journey:"
-
-1.  **Discovery**: "Our agents analyze your site exactly like an LLM—extracting entities, intent, and context."
-2.  **Research**: "We deploy agents to act like real users, querying Perplexity, SearchGPT, and Google in real-time."
-3.  **Analysis**: "We calculate your **Triple Score**:"
-    *   **(Visual: Scroll to "Features" section showing the scores)**
-    *   **AEO Score**: "How often are you the direct answer?"
-    *   **LLMEO Score**: "How well can an LLM parse your schema and context?"
-    *   **SEO Score**: "Are the technical fundamentals sound?"
-4.  **Action**: "Finally, we generate **Cursor Prompts**. One-click code generation to fix every issue we find."
-
-**(Visual: Show "Cursor Prompt" feature card)**
-
-"It's not a black box anymore. It's a solvable engineering problem."
+**Time:** ~45 seconds  
+**Cue:** Slide 1 -- "The Shift in Search" (visual: old Google vs. AI answers)  
 
 ---
 
-### 3. The Demo (2:30 - 3:30)
+## User Experience Demo -- Dashboard & Onboarding (Host)  
+**Cisco (Host):**  
+Let's look at the immediate user experience.  
 
-**(Visual: Switch to App Dashboard - "Analyze My Site" flow)**
+When you log in, the dashboard shows you two critical things:  
 
-"Let me show you."
+First, **Bot Traffic Analytics** -- which AI crawlers are visiting your site right now.  
+GPTBot, ClaudeBot, PerplexityBot -- we track them all.  
+You can see visit counts, top pages being crawled, and trends over time.  
 
-*(Walkthrough of the actual app)*
+Second, **Your AEO Score** -- how visible your brand is in AI answers.  
 
-1.  "I enter a domain—say, `stripe.com`."
-2.  "Our agents wake up. You can see them working in real-time."
-3.  "Here's the **Result**: A concrete visibility score. AEO, LLMEO, and SEO broken down."
-4.  "And here's the magic sauce: **The Recommendations**."
-    *   "We don't just say 'improve content'. We say: 'You're missing `Product` schema for this pricing tier'."
-    *   "I click 'Generate Prompt', paste it into Cursor, and the fix is live."
+Let me walk you through the analysis process:  
+
+- **Step 1 -- Discovery:** We crawl your site to understand its structure and content.  
+- **Step 2 -- Query Identification:** We identify what users and AI agents would ask about your site.  
+- **Step 3 -- Research:** Our agents search the web and probe LLMs directly to see where you appear.  
+- **Step 4 -- Analysis:** We compare you against competitors and calculate your visibility score.  
+- **Step 5 -- Recommendations:** We generate a clear action plan to improve your AEO presence.  
+- **Step 6 -- Cursor Prompts:** We give you copy-paste code to implement fixes using AI coding tools.  
+
+Now, while the product is running, I'll hand off to Eric to explain what's happening under the hood.  
+
+**Time:** ~1 minute 15 seconds  
+**Cue:** Play prerecorded demo video -- Dashboard onboarding flow  
 
 ---
 
-### 5.5. The Validation (30 Seconds)
-**"Proof that it works."**
+## How It Works (Eric)  
+**Eric:**  
+Traditional SEO tools were built for humans and keywords, not for AI agents.  
 
-*   **Step 4:** Switch the dashboard view to an active client site (e.g., `brand-sight.com`) with 30 days of data.
-*   **Action:** Show the **"Crawler Traffic"** chart trending upward.
-*   **Message:** "This is the payoff. After implementing our Cursor Prompts, we see a direct correlation: verified AI Agent visits increase, and 'Answer Share' goes up."
+Our platform runs 12 specialized AI agents across 4 phases:  
+
+1. **Discovery** -- We analyze your pages like an LLM would, extracting topics, intent, and entities.  
+2. **Research** -- We simulate real searches, query Perplexity, and even probe GPT-4 directly to test if it knows your brand.  
+3. **Analysis** -- We calculate your visibility score based on citation rate, ranking quality, and competitive position.  
+4. **Output** -- We generate prioritized recommendations and ready-to-use code.  
+
+We also show you what AI bots are allowed to see with our robots.txt and llms.txt analysis.  
+
+**Time:** ~45 seconds  
+**Cue:** Show agent pipeline visualization  
 
 ---
 
-### 6. The Closing (30 Seconds)
-**"The Future is Agentic."**
+## Processed Site Example (Host + Nat)  
+**Cisco (Host):**  
+Now let's switch to a site we've already processed.  
+Here you can see the after-analysis report.  
 
-The internet is moving from **Search** to **Answer**.
+**Nat:**  
+This is where the insights come alive:  
 
-Thousands of businesses are waking up today realizing their traffic is dropping, and they don't know why. Their traditional tools are blind to this shift.
+- **Scores**: Your AEO Visibility Score, broken down by component.  
+- **Key Findings**: What's working and what's not.  
+- **Competitor Landscape**: Who's beating you in AI answers.  
+- **Recommendations**: Specific, prioritized actions you can take today.  
+- **Cursor Prompts**: Copy-paste code for immediate implementation.  
 
-**BrandSight** gives them back their eyes.
+We even show you community engagement opportunities -- where to post on Reddit and X to boost your visibility.  
 
-We are building the standard for how business is done in the AI age. We invite you to join us in defining the next decade of digital discovery.
+**Time:** ~45 seconds  
+**Cue:** Switch to processed site dashboard -- show "Results" and "Recommendations" tabs  
 
-**Thank You.**
+---
+
+## Bot Traffic Dashboard (Host)  
+**Cisco (Host):**  
+Let's look at the bot traffic dashboard.  
+
+Here you can see exactly which AI crawlers are visiting your site:  
+- How many visits per crawler  
+- Which pages they're accessing  
+- Trends over time  
+
+We even analyze your robots.txt and llms.txt to show you what you're allowing or blocking.  
+
+This is the measurable payoff.  
+The visibility, the engagement, the momentum -- all tracked and proven.  
+
+**Time:** ~45 seconds  
+**Cue:** Switch to bot traffic dashboard -- highlight crawler chart and top pages  
+
+---
+
+## Closing -- The Future (Host)  
+**Cisco (Host):**  
+The future is agentic. The Internet is moving from search to answer.  
+
+Thousands of businesses are waking up today, realizing their traffic is dropping -- and they don't know why.  
+Traditional tools are blind to this shift.  
+
+BrandSight gives back their eyes.  
+We are building the standard for how business is done in the AI age.  
+
+We invite you to join us in defining the next decade of digital discovery.  
+Visit our site, try it out, and thank you for your time.  
+
+**Time:** ~1 minute  
+**Cue:** Switch to "About Us" page -- closing slide with call to action  
+
+---
+
+## Total Estimated Time: ~5 minutes
+
+---
+
+## Key Talking Points Summary
+
+| Topic | Key Message |
+|-------|-------------|
+| The Shift | SEO -> AEO/GEO: AI answers replace search results |
+| Bot Tracking | Know which AI crawlers visit your site |
+| Analysis Pipeline | 12 agents, 4 phases, comprehensive visibility scoring |
+| Actionable Output | Prioritized recommendations + Cursor prompts |
+| Competitive Intelligence | See who's beating you in AI answers |
+| Community Signals | Find engagement opportunities on Reddit/X |
