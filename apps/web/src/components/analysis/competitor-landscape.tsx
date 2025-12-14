@@ -3,7 +3,7 @@
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trophy } from "lucide-react";
+import { Trophy, ExternalLink } from "lucide-react";
 import { motion } from "motion/react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -131,12 +131,19 @@ export function CompetitorLandscape({
                   </span>
                 </div>
                 <div className="col-span-4 flex items-center gap-2">
-                  <span className={cn(
-                    "text-sm truncate",
-                    isYou && "font-semibold text-primary"
-                  )}>
+                  <a
+                    href={`https://${competitor.domain}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={cn(
+                      "text-sm truncate hover:underline inline-flex items-center gap-1 group",
+                      isYou ? "font-semibold text-primary" : "hover:text-blue-600"
+                    )}
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     {competitor.domain}
-                  </span>
+                    <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </a>
                   {isYou && (
                     <Badge variant="outline" className="text-xs bg-primary/10">
                       You
@@ -245,9 +252,14 @@ export function CompetitorLandscape({
               
               return (
                 <div key={competitor.domain} className="flex items-center gap-2">
-                  <span className="text-xs w-32 truncate text-right">
+                  <a
+                    href={`https://${competitor.domain}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs w-32 truncate text-right hover:text-blue-600 hover:underline"
+                  >
                     {competitor.domain}
-                  </span>
+                  </a>
                   <div className="flex-1 h-4 bg-muted rounded overflow-hidden">
                     <motion.div
                       className={cn(

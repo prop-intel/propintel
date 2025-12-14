@@ -316,19 +316,15 @@ export function RecommendationsCard({
                             </div>
                             <div className="p-3 rounded-md bg-background border">
                               <div className="flex items-center gap-2 mb-1">
-                                <span className="text-sm font-medium">
+                                <a
+                                  href={rec.competitorExample.url || `https://${rec.competitorExample.domain}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-sm font-medium text-blue-600 hover:underline inline-flex items-center gap-1"
+                                >
                                   {rec.competitorExample.domain}
-                                </span>
-                                {rec.competitorExample.url && (
-                                  <a
-                                    href={rec.competitorExample.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-blue-600 hover:underline"
-                                  >
-                                    <ExternalLink className="h-3 w-3" />
-                                  </a>
-                                )}
+                                  <ExternalLink className="h-3 w-3" />
+                                </a>
                               </div>
                               <p className="text-xs text-muted-foreground">
                                 {rec.competitorExample.whatTheyDoBetter}

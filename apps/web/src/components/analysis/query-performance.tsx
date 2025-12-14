@@ -9,7 +9,8 @@ import {
   AlertCircle,
   XCircle,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  ExternalLink,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useState } from "react";
@@ -210,27 +211,39 @@ export function QueryPerformance({ targetQueries, citations, className }: QueryP
                     >
                       <p className="text-xs text-muted-foreground font-medium">Top Results:</p>
                       {query.topResults.slice(0, 5).map((result, ridx) => (
-                        <div 
-                          key={ridx} 
+                        <a 
+                          key={ridx}
+                          href={result.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
                           className={cn(
-                            "flex items-center gap-2 text-xs py-1.5 px-2 rounded",
+                            "flex items-center gap-2 text-xs py-1.5 px-2 rounded hover:bg-muted/50 transition-colors group",
                             result.domain.includes("gauntlet") && "bg-emerald-500/10"
                           )}
                         >
                           <span className="font-mono text-muted-foreground w-6">#{result.rank}</span>
                           <span className={cn(
-                            "truncate flex-1",
+                            "truncate flex-1 group-hover:text-blue-600",
                             result.domain.includes("gauntlet") && "font-medium text-emerald-600"
                           )}>
                             {result.domain}
                           </span>
-                        </div>
+                          <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground" />
+                        </a>
                       ))}
                       {query.winningDomain && query.position === "absent" && (
                         <div className="pt-2 border-t border-muted mt-2">
                           <p className="text-xs">
                             <span className="text-muted-foreground">Winner: </span>
-                            <span className="font-medium">{query.winningDomain}</span>
+                            <a
+                              href={`https://${query.winningDomain}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-medium text-blue-600 hover:underline inline-flex items-center gap-1"
+                            >
+                              {query.winningDomain}
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
                           </p>
                           {query.winningReason && (
                             <p className="text-xs text-muted-foreground mt-1">

@@ -267,52 +267,64 @@ export function EngagementOpportunities({
                       setExpandedId(expandedId === uniqueId ? null : uniqueId)
                     }
                   >
-                    <CollapsibleTrigger asChild>
-                      <div className="w-full p-4 rounded-lg border bg-card hover:bg-accent/50 cursor-pointer transition-all hover:shadow-md">
-                        <div className="flex items-start gap-3">
-                          {/* Platform icon */}
-                          <div className="flex-shrink-0 mt-1">
-                            <PlatformIcon platform={opp.platform} />
-                          </div>
-
-                          {/* Content */}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                              <Badge
-                                variant="outline"
-                                className={cn(
-                                  "text-xs",
-                                  getOpportunityTypeColor(opp.opportunityType)
-                                )}
-                              >
-                                <TypeIcon className="h-3 w-3 mr-1" />
-                                {getOpportunityTypeLabel(opp.opportunityType)}
-                              </Badge>
-                              <span className="text-xs text-muted-foreground">
-                                {getPlatformName(opp.platform)}
-                              </span>
-                              <span className="text-xs text-muted-foreground">
-                                • {opp.relevanceScore}% match
-                              </span>
-                            </div>
-                            <p className="text-sm font-medium text-foreground line-clamp-2">
-                              {opp.title}
-                            </p>
-                            <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
-                              Related to: &quot;{opp.query}&quot;
-                            </p>
-                          </div>
-
-                          {/* Expand icon */}
-                          <ChevronDown
-                            className={cn(
-                              "h-5 w-5 text-muted-foreground transition-transform flex-shrink-0",
-                              expandedId === uniqueId && "rotate-180"
-                            )}
-                          />
+                    <div className="w-full p-4 rounded-lg border bg-card hover:bg-accent/50 transition-all hover:shadow-md">
+                      <div className="flex items-start gap-3">
+                        {/* Platform icon */}
+                        <div className="flex-shrink-0 mt-1">
+                          <PlatformIcon platform={opp.platform} />
                         </div>
+
+                        {/* Content */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                "text-xs",
+                                getOpportunityTypeColor(opp.opportunityType)
+                              )}
+                            >
+                              <TypeIcon className="h-3 w-3 mr-1" />
+                              {getOpportunityTypeLabel(opp.opportunityType)}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">
+                              {getPlatformName(opp.platform)}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              • {opp.relevanceScore}% match
+                            </span>
+                          </div>
+                          
+                          {/* Title as clickable link */}
+                          <a
+                            href={opp.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm font-medium text-foreground hover:text-blue-600 hover:underline line-clamp-2 block"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {opp.title}
+                            <ExternalLink className="h-3 w-3 inline ml-1.5 opacity-50" />
+                          </a>
+                          
+                          <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
+                            Related to: &quot;{opp.query}&quot;
+                          </p>
+                        </div>
+
+                        {/* Expand icon */}
+                        <CollapsibleTrigger asChild>
+                          <button className="p-1 hover:bg-muted rounded-md transition-colors flex-shrink-0">
+                            <ChevronDown
+                              className={cn(
+                                "h-5 w-5 text-muted-foreground transition-transform",
+                                expandedId === uniqueId && "rotate-180"
+                              )}
+                            />
+                          </button>
+                        </CollapsibleTrigger>
                       </div>
-                    </CollapsibleTrigger>
+                    </div>
                     <CollapsibleContent>
                       <motion.div
                         initial={{ opacity: 0 }}

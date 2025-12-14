@@ -144,7 +144,16 @@ export function ContentGaps({
                         </p>
                         <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
                           <span>Winner:</span>
-                          <span className="font-medium text-foreground">{gap.winningDomain}</span>
+                          <a
+                            href={gap.winningUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-medium text-blue-600 hover:underline inline-flex items-center gap-1"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {gap.winningDomain}
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
                         </div>
                       </div>
                       <ChevronDown className={cn(
