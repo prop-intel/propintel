@@ -10,6 +10,7 @@ type SearchParams = Promise<{
   success?: string;
   mode?: string;
   force?: string;
+  analyze_url?: string;
 }>;
 
 export default async function LoginPage({
@@ -23,18 +24,28 @@ export default async function LoginPage({
   const success = params?.success;
   const mode = params?.mode === "signup" ? "signup" : "login";
   const force = params?.force === "true";
+  const analyzeUrl = params?.analyze_url;
 
   // Redirect if already logged in (middleware also handles this, but good to have here too)
   // UNLESS force=true is set
   if (session && !force) {
-    redirect("/dashboard");
+    if (analyzeUrl) {
+      redirect(`/dashboard?analyze_url=${encodeURIComponent(analyzeUrl)}`);
+    } else {
+      redirect("/dashboard");
+    }
   }
 
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden">
       {/* Content */}
       <div className="relative z-10 flex flex-1 flex-col justify-center px-4 py-10 lg:px-6">
-        <AuthForm error={error} success={success} defaultTab={mode} />
+        <AuthForm
+          error={error}
+          success={success}
+          defaultTab={mode}
+          analyzeUrl={analyzeUrl}
+        />
       </div>
     </div>
   );

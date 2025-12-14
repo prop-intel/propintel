@@ -12,7 +12,7 @@ export function Hero() {
 
   const handleAnalyze = () => {
     if (!url) return;
-    window.location.href = `/dashboard?url=${encodeURIComponent(url)}`;
+    window.location.href = `/login?analyze_url=${encodeURIComponent(url)}`;
   };
   return (
     <section className="relative pt-32 pb-20 md:pt-48 md:pb-32 overflow-hidden">
@@ -41,8 +41,8 @@ export function Hero() {
             transition={{ duration: 0.5, delay: 0.1 }}
             className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight mb-6"
           >
-            Win the <span className="text-primary">AI Answer</span> Slot
-            <br className="hidden md:block" /> with AEO Agents
+            Your <span className="text-primary">AI Visibility</span> Journey
+            <br className="hidden md:block" /> Starts Here
           </motion.h1>
 
           <motion.p
@@ -51,7 +51,7 @@ export function Hero() {
             transition={{ duration: 0.5, delay: 0.2 }}
             className="text-xl text-muted-foreground mb-8 max-w-2xl leading-relaxed"
           >
-            PropIntel doesn&apos;t just track bots—it <strong>simulates</strong> them. Our agents actively search Perplexity, Google, and SearchGPT to see if you&apos;re cited, then write the code to fix your ranking.
+            BrandSight gives you <strong>clear visibility</strong> into the AI landscape. Our agents actively search Perplexity, Google, and SearchGPT to see exactly where your brand appears—and where it&apos;s missing.
           </motion.p>
 
           {/* URL Input */}
@@ -166,7 +166,7 @@ export function Hero() {
                       <div className="bg-card border rounded-lg p-4 shadow-sm">
                         <h3 className="font-semibold mb-2 flex items-center gap-2">
                           <CheckCircle2 className="size-4 text-green-500" />
-                          Winning Query
+                          On Track
                         </h3>
                         <p className="text-sm text-muted-foreground">&quot;Best payment processor for SaaS&quot;</p>
                         <div className="mt-3 text-xs bg-muted p-2 rounded border-l-2 border-green-500">
@@ -176,7 +176,7 @@ export function Hero() {
 
                       <div className="bg-card border rounded-lg p-4 shadow-sm relative overflow-hidden">
                         <div className="absolute top-0 left-0 w-1 h-full bg-red-500" />
-                        <h3 className="font-semibold mb-2 text-red-600 dark:text-red-400">Missed Opportunity</h3>
+                        <h3 className="font-semibold mb-2 text-red-600 dark:text-red-400">Room to Grow</h3>
                         <p className="text-sm text-muted-foreground mb-3">&quot;SaaS pricing models comparison&quot;</p>
 
                         <div className="bg-zinc-950 text-zinc-50 rounded-lg p-3 font-mono text-xs overflow-x-auto relative group">

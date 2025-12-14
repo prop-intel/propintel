@@ -20,7 +20,7 @@ export function TermsOfService() {
                 <section>
                     <h2 className="text-2xl font-semibold mb-4">1. Agreement to Terms</h2>
                     <p className="text-lg text-muted-foreground">
-                        These Terms of Service constitute a legally binding agreement made between you, whether personally or on behalf of an entity (&quot;you&quot;) and PropIntel (&quot;we,&quot; &quot;us&quot; or &quot;our&quot;), concerning your access to and use of the PropIntel website and application.
+                        These Terms of Service constitute a legally binding agreement made between you, whether personally or on behalf of an entity (&quot;you&quot;) and BrandSight (&quot;we,&quot; &quot;us&quot; or &quot;our&quot;), concerning your access to and use of the BrandSight website and application.
                     </p>
                 </section>
 
@@ -56,7 +56,7 @@ export function TermsOfService() {
                     <h2 className="text-2xl font-semibold mb-4">6. Contact Us</h2>
                     <p className="text-muted-foreground">
                         To resolve a complaint regarding the Site or to receive further information regarding use of the Site, please contact us at: <br />
-                        <a href="mailto:support@propintel.ai" className="text-primary hover:underline">support@propintel.ai</a>
+                        <a href="mailto:support@brand-sight.com" className="text-primary hover:underline">support@brand-sight.com</a>
                     </p>
                 </section>
             </div>

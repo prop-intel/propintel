@@ -15,10 +15,10 @@ export function Footer() {
               <div className="p-1.5 bg-primary rounded-lg text-primary-foreground">
                 <Bot className="size-5" />
               </div>
-              PropIntel
+              BrandSight
             </Link>
             <p className="text-sm text-muted-foreground">
-              Empowering webmasters with insights into the AI agent ecosystem.
+              Clear insights for brand visibility.
             </p>
           </div>
 
@@ -51,7 +51,7 @@ export function Footer() {
         </div>
 
         <div className="mt-12 pt-8 border-t text-center text-sm text-muted-foreground">
-          © {new Date().getFullYear()} PropIntel. All rights reserved.
+          © {new Date().getFullYear()} BrandSight. All rights reserved.
         </div>
       </div>
     </footer>

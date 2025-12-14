@@ -8,10 +8,7 @@ import {
 import {
   createJob as createJobInDb,
   getJob,
-  listJobs,
-  listJobsBySite,
   getActiveJobCount,
-  getDailyJobCount,
   updateJob,
   findRecentJobForUrl,
 } from '../lib/db';
@@ -191,63 +188,6 @@ export const create: APIGatewayProxyHandlerV2 = async (event): Promise<APIGatewa
   const job = await getJob(userId, jobId);
 
   return jsonResponse(201, { job });
-};
-
-export const get: APIGatewayProxyHandlerV2 = async (event): Promise<APIGatewayProxyResultV2> => {
-  const authResult = await authenticateRequest(event);
-  if (!authResult.success) {
-    return jsonResponse(401, undefined, authResult.error);
-  }
-
-  const { userId } = authResult.context;
-  const jobId = event.pathParameters?.id;
-
-  if (!jobId) {
-    return jsonResponse(400, undefined, {
-      code: 'MISSING_PARAMETER',
-      message: 'Job ID is required',
-    });
-  }
-
-  const job = await getJob(userId, jobId);
-
-  if (!job) {
-    return jsonResponse(404, undefined, {
-      code: 'NOT_FOUND',
-      message: 'Job not found',
-    });
-  }
-
-  return jsonResponse(200, { job });
-};
-
-export const list: APIGatewayProxyHandlerV2 = async (event): Promise<APIGatewayProxyResultV2> => {
-  const authResult = await authenticateRequest(event);
-  if (!authResult.success) {
-    return jsonResponse(401, undefined, authResult.error);
-  }
-
-  const { userId } = authResult.context;
-
-  const limit = Math.min(
-    parseInt(event.queryStringParameters?.limit || '20', 10),
-    100
-  );
-  const offset = parseInt(event.queryStringParameters?.offset || '0', 10);
-  const siteId = event.queryStringParameters?.siteId;
-
-  const result = siteId
-    ? await listJobsBySite(userId, siteId, limit, offset)
-    : await listJobs(userId, limit, offset);
-
-  return jsonResponse(200, {
-    jobs: result.jobs,
-    pagination: {
-      limit,
-      offset,
-      hasMore: result.hasMore,
-    },
-  });
 };
 
 export const getReport: APIGatewayProxyHandlerV2 = async (event): Promise<APIGatewayProxyResultV2> => {

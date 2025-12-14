@@ -97,15 +97,15 @@ export default function AgentAnalysisPage() {
     {
       enabled: !!selectedJobId,
       refetchInterval: (query) => {
-        // Poll every 2 seconds if job is running or completed but no summary yet
+        // Poll every 3 seconds if job is running or completed but no summary yet
         const data = query.state.data;
         if (data) {
           if (data.status === "crawling" || data.status === "analyzing") {
-            return 2000;
+            return 3000;
           }
           // Keep polling if completed but no summary yet
           if (data.status === "completed" && !data.summary) {
-            return 2000;
+            return 3000;
           }
         }
         return false;

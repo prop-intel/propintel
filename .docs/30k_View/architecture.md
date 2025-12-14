@@ -59,7 +59,7 @@ PropIntel uses a multi-agent system to simulate an AI search engine's perspectiv
 | :--- | :--- | :--- | :--- |
 | **Orchestrator** | Manages the entire lifecycle, creates execution plans, and reasons over results to decide next steps. | Job ID, Target URL | `ExecutionPlan`, Final Report |
 | **Discovery** | Analyzes the crawled page to understand its "DNA" (Topic, Intent, Entities) and predicts what users *should* be asking to find it. | Raw HTML/Text | `PageAnalysis`, `TargetQuery[]` (How-to, What-is, Best-of queries) |
-| **Research** | Simulates a real user searching for those queries using the **Tavily API**. Tracks where the target site appears vs. competitors. Also tracks community signals (Reddit, HN). | `TargetQuery[]` | `TavilySearchResult[]`, `QueryCitation[]`, `CommunitySignals` |
+| **Research** | Simulates a real user searching for those queries using the **Tavily API**. Tracks where the target site appears vs. competitors. Also tracks community signals (Reddit, HN) and probes LLMs directly. | `TargetQuery[]` | `TavilySearchResult[]`, `QueryCitation[]`, `CommunitySignals` |
 | **Analysis** | The "Brain". Compares content against top competitors, identifies content gaps, and calculates the **AEO Visibility Score**. | Citation Data, Competitor Content | `VisibilityScore` (0-100), `ContentGap[]`, `CompetitorVisibility[]` |
 | **Output** | Translates raw data into actionable insights, generates valid Cursor/LLM prompts for the user to fix issues, and compiles the final report. | Analysis Data | `AEORecommendation[]`, `CursorPrompt`, `AEOReport` |
 

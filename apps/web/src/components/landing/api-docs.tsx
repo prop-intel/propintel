@@ -22,10 +22,10 @@ export function ApiDocs() {
                         <Terminal className="size-4" />
                         <span>Developer Platform</span>
                     </div>
-                    <h1 className="text-4xl md:text-5xl font-bold mb-6">PropIntel API</h1>
+                    <h1 className="text-4xl md:text-5xl font-bold mb-6">BrandSight API</h1>
                     <p className="text-xl text-muted-foreground leading-relaxed">
                         Integrate our AEO simulation engine directly into your workflows.
-                        Build custom dashboards, automate rankings checks, and white-label our data.
+                        Build custom dashboards, automate visibility tracking, and white-label our data.
                     </p>
                     <div className="mt-8 flex gap-4">
                         <Button size="lg" disabled>
@@ -69,7 +69,7 @@ export function ApiDocs() {
                                         <h3 className="text-lg font-semibold mb-2">Analyze URL</h3>
                                         <p className="text-muted-foreground mb-4">Start an analysis job for a specific URL.</p>
                                         <div className="bg-zinc-950 text-zinc-50 p-4 rounded-lg font-mono text-sm overflow-x-auto">
-                                            <span className="text-green-400">POST</span> https://api.propintel.ai/v1/analyze <br />
+                                            <span className="text-green-400">POST</span> https://api.brand-sight.com/v1/analyze <br />
                                             Authorization: Bearer sk_live_... <br />
                                             <br />
                                             {`{

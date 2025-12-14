@@ -1,8 +1,8 @@
-import { createOpenAI } from '@ai-sdk/openai';
 import { generateText, generateObject } from 'ai';
 import { z } from 'zod';
-import { Langfuse } from 'langfuse';
 import { type CrawledPage, type LLMEOAnalysis, type SEOAnalysis, type Recommendation } from '../types';
+import { openai } from './openai';
+import { createTrace, flushLangfuse } from './langfuse';
 
 // ===================
 // Timeout Configuration
@@ -10,42 +10,6 @@ import { type CrawledPage, type LLMEOAnalysis, type SEOAnalysis, type Recommenda
 
 // 60 second timeout for LLM API calls to prevent indefinite hangs
 const LLM_TIMEOUT_MS = 60_000;
-
-// ===================
-// Client Initialization
-// ===================
-
-const openai = createOpenAI({
-  apiKey: process.env.OPENAI_API_KEY || '',
-});
-
-// Only initialize Langfuse if credentials are configured
-const langfuse = process.env.LANGFUSE_PUBLIC_KEY && process.env.LANGFUSE_SECRET_KEY
-  ? new Langfuse({
-      publicKey: process.env.LANGFUSE_PUBLIC_KEY,
-      secretKey: process.env.LANGFUSE_SECRET_KEY,
-      baseUrl: process.env.LANGFUSE_BASE_URL || 'https://us.cloud.langfuse.com',
-    })
-  : null;
-
-// Helper to create a no-op trace when Langfuse is not configured
-const createTrace = (config: { name: string; userId: string; metadata?: Record<string, unknown> }) => {
-  if (langfuse) {
-    return langfuse.trace(config);
-  }
-  // Return a no-op trace object
-  return {
-    generation: () => ({
-      end: () => { /* no-op when Langfuse not configured */ },
-    }),
-  };
-};
-
-const flushLangfuse = async () => {
-  if (langfuse) {
-    await langfuse.flushAsync();
-  }
-};
 
 // ===================
 // Schema Definitions

@@ -5,10 +5,10 @@
  * for measuring how well content appears in AI search results.
  */
 
-import { Langfuse } from 'langfuse';
 import { type QueryCitation, type CompetitorVisibility, type AEOAnalysis, type PageAnalysis, type TargetQuery, type TavilySearchResult, type QueryGap, type CommunityEngagementResult } from '../../types';
 import { type CitationAnalysisResult } from './citation-analysis';
 import { type ContentComparisonResult } from './content-comparison';
+import { createTrace, flushLangfuse } from '../../lib/langfuse';
 
 // ===================
 // Configuration
@@ -47,16 +47,6 @@ function safeNumber(value: number | undefined | null): number {
 }
 
 // ===================
-// Client Initialization
-// ===================
-
-const langfuse = new Langfuse({
-  publicKey: process.env.LANGFUSE_PUBLIC_KEY || '',
-  secretKey: process.env.LANGFUSE_SECRET_KEY || '',
-  baseUrl: process.env.LANGFUSE_BASE_URL || 'https://us.cloud.langfuse.com',
-});
-
-// ===================
 // Main Function
 // ===================
 
@@ -79,7 +69,7 @@ export async function calculateVisibilityScore(
   grade: string;
   summary: string;
 }> {
-  const trace = langfuse.trace({
+  const trace = createTrace({
     name: 'aeo-visibility-scoring',
     userId: tenantId,
     metadata: { jobId, includesGeo: geoScore !== undefined },
@@ -161,7 +151,7 @@ export async function calculateVisibilityScore(
       output: { score: finalScore, grade, geoIncluded: geoScore !== undefined },
     });
 
-    await langfuse.flushAsync();
+    await flushLangfuse();
 
     return {
       score: finalScore,
@@ -174,7 +164,7 @@ export async function calculateVisibilityScore(
       level: 'ERROR',
       statusMessage: (error as Error).message,
     });
-    await langfuse.flushAsync();
+    await flushLangfuse();
     throw error;
   }
 }

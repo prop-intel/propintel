@@ -7,18 +7,8 @@
  * TODO: Implement API integration or UI scraping
  */
 
-import { Langfuse } from 'langfuse';
 import { type TargetQuery, type PerplexityResult } from '../../types';
-
-// ===================
-// Client Initialization
-// ===================
-
-const langfuse = new Langfuse({
-  publicKey: process.env.LANGFUSE_PUBLIC_KEY || '',
-  secretKey: process.env.LANGFUSE_SECRET_KEY || '',
-  baseUrl: process.env.LANGFUSE_BASE_URL || 'https://us.cloud.langfuse.com',
-});
+import { createTrace, flushLangfuse } from '../../lib/langfuse';
 
 // ===================
 // Main Function
@@ -36,7 +26,7 @@ export async function searchPerplexity(
   tenantId: string,
   jobId: string
 ): Promise<PerplexityResult[]> {
-  const trace = langfuse.trace({
+  const trace = createTrace({
     name: 'perplexity-research',
     userId: tenantId,
     metadata: { jobId, queryCount: queries.length, targetDomain },
@@ -69,7 +59,7 @@ export async function searchPerplexity(
       },
     });
 
-    await langfuse.flushAsync();
+    await flushLangfuse();
 
     return results;
   } catch (error) {
@@ -77,7 +67,7 @@ export async function searchPerplexity(
       level: 'ERROR',
       statusMessage: (error as Error).message,
     });
-    await langfuse.flushAsync();
+    await flushLangfuse();
     throw error;
   }
 }

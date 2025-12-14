@@ -1,5 +1,7 @@
 import { cookies } from "next/headers";
 import { api } from "@/trpc/server";
+import { auth } from "@/server/auth";
+import { redirect } from "next/navigation";
 import {
   DashboardContent,
   DashboardEmpty,
@@ -24,6 +26,7 @@ interface DashboardPageProps {
     tf?: string;
     source?: string;
     companies?: string;
+    analyze_url?: string;
   }>;
 }
 
@@ -36,6 +39,14 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     : "30d";
   const source = params.source as "pixel" | "middleware" | undefined;
   const companies = params.companies ? params.companies.split(",").filter(Boolean) : undefined;
+  const analyzeUrl = params.analyze_url;
+
+  const session = await auth();
+  if (analyzeUrl && session?.user?.id) {
+    if (analyzeUrl && session?.user?.id) {
+      redirect(`/api/auth/setup-analysis?url=${encodeURIComponent(analyzeUrl)}`);
+    }
+  }
 
   const timeFrameConfig = TIME_FRAME_CONFIG[timeFrame];
 
@@ -87,6 +98,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         trackingStatus,
       }}
       timeFrameLabel={timeFrameConfig.label}
+      userRole={session?.user?.role ?? "user"}
     />
   );
 }

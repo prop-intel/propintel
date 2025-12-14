@@ -6,8 +6,8 @@ import { Geist } from "next/font/google";
 import { TRPCReactProvider } from "@/trpc/react";
 
 export const metadata: Metadata = {
-  title: "Capybara",
-  description: "Capybara is a platform for finding your dream home.",
+  title: "BrandSight",
+  description: "Clear insights for brand visibility.",
   icons: [{ rel: "icon", url: "/favicon.ico" }],
 };
 

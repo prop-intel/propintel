@@ -20,7 +20,7 @@ export function PrivacyPolicy() {
                 <section>
                     <h2 className="text-2xl font-semibold mb-4">1. Introduction</h2>
                     <p className="text-lg text-muted-foreground">
-                        PropIntel (&quot;we&quot;, &quot;our&quot;, or &quot;us&quot;) is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you visit our website and use our SaaS application (the &quot;Service&quot;).
+                        BrandSight (&quot;we&quot;, &quot;our&quot;, or &quot;us&quot;) is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you visit our website and use our SaaS application (the &quot;Service&quot;).
                     </p>
                 </section>
 
@@ -56,7 +56,7 @@ export function PrivacyPolicy() {
                     <h2 className="text-2xl font-semibold mb-4">5. Contact Us</h2>
                     <p className="text-muted-foreground">
                         If you have questions or comments about this Privacy Policy, please contact us at: <br />
-                        <a href="mailto:support@propintel.ai" className="text-primary hover:underline">support@propintel.ai</a>
+                        <a href="mailto:support@brand-sight.com" className="text-primary hover:underline">support@brand-sight.com</a>
                     </p>
                 </section>
             </div>

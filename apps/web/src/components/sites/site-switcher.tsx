@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ChevronsUpDown, Globe } from "lucide-react";
+import { ChevronsUpDown, Globe, Trash2 } from "lucide-react";
 import { useSite } from "@/contexts/site-context";
 import { AddSiteDialog } from "./add-site-dialog";
+import { api } from "@/trpc/react";
+import { useRouter } from "next/navigation";
 
 import {
   DropdownMenu,
@@ -20,15 +22,56 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 export function SiteSwitcher() {
   const { isMobile } = useSidebar();
   const { activeSite, setActiveSite, sites, isLoading } = useSite();
   const [mounted, setMounted] = useState(false);
+  const router = useRouter();
+  const utils = api.useUtils();
+
+  const deleteSiteMutation = api.site.delete.useMutation({
+    onSuccess: async () => {
+      await utils.site.list.invalidate();
+      router.refresh();
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  const handleDelete = async (e: React.MouseEvent, siteId: string) => {
+    e.stopPropagation();
+
+    if (!confirm("Are you sure you want to delete this site? This action cannot be undone.")) {
+      return;
+    }
+
+    // Calculate new active site if we're deleting the current one
+    let nextSite = activeSite;
+    if (activeSite?.id === siteId) {
+      const remainingSites = sites.filter((s) => s.id !== siteId);
+      nextSite = remainingSites.length > 0 ? (remainingSites[0] ?? null) : null;
+    }
+
+    try {
+      await deleteSiteMutation.mutateAsync({ id: siteId });
+
+      if (activeSite?.id === siteId) {
+        setActiveSite(nextSite);
+      }
+
+      toast.success("Site deleted successfully");
+    } catch {
+      // Error handled in mutation callback
+    }
+  };
 
   if (!mounted || isLoading) {
     return (
@@ -84,12 +127,22 @@ export function SiteSwitcher() {
               <DropdownMenuItem
                 key={site.id}
                 onClick={() => setActiveSite(site)}
-                className="gap-2 p-2"
+                className="gap-2 p-2 group justify-between cursor-pointer"
               >
-                <div className="flex size-6 items-center justify-center rounded-md border">
-                  <Globe className="size-3.5 shrink-0" />
+                <div className="flex items-center gap-2 overflow-hidden">
+                  <div className="flex size-6 shrink-0 items-center justify-center rounded-md border">
+                    <Globe className="size-3.5 shrink-0" />
+                  </div>
+                  <span className="truncate text-sm">{site.name ?? site.domain}</span>
                 </div>
-                <span className="truncate">{site.name ?? site.domain}</span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/10 hover:text-destructive shrink-0"
+                  onClick={(e) => handleDelete(e, site.id)}
+                >
+                  <Trash2 className="size-3.5" />
+                </Button>
               </DropdownMenuItem>
             ))}
             <DropdownMenuSeparator />

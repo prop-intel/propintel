@@ -1,8 +1,8 @@
 "use server";
 
 import { db } from "@/server/db";
-import { users, sessions, accounts } from "@propintel/database";
-import { eq } from "drizzle-orm";
+import { users, sessions, accounts, sites } from "@propintel/database";
+import { eq, and } from "drizzle-orm";
 import * as bcrypt from "bcryptjs";
 import { redirect } from "next/navigation";
 import { randomBytes } from "crypto";
@@ -24,9 +24,55 @@ async function createDatabaseSession(userId: string) {
   return sessionToken;
 }
 
+export async function handleAnalyzeUrl(userId: string, urlStr: string) {
+  try {
+    let url = urlStr;
+    if (!url.startsWith("http")) {
+      url = `https://${url}`;
+    }
+    const urlObj = new URL(url);
+    const domain = urlObj.hostname;
+
+    // Check if site exists
+    let [site] = await db
+      .select()
+      .from(sites)
+      .where(and(eq(sites.userId, userId), eq(sites.domain, domain)))
+      .limit(1);
+
+    if (!site) {
+      [site] = await db
+        .insert(sites)
+        .values({
+          userId,
+          domain,
+          name: domain,
+          trackingId: randomBytes(16).toString("hex"),
+        })
+        .returning();
+    }
+
+    if (site) {
+      const cookieStore = await cookies();
+      cookieStore.set("activeSiteId", site.id, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: 30 * 24 * 60 * 60, // 30 days
+      });
+      return true;
+    }
+  } catch (error) {
+    console.error("Error handling analyze URL:", error);
+  }
+  return false;
+}
+
 export async function loginAction(formData: FormData) {
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
+  const analyzeUrl = formData.get("analyze_url") as string;
 
   if (!email || !password) {
     redirect("/login?error=Email and password are required");
@@ -44,7 +90,7 @@ export async function loginAction(formData: FormData) {
   }
 
   // Verify password
-   
+
   const isValidPassword: boolean = await bcrypt.compare(
     password,
     user.password,
@@ -66,6 +112,14 @@ export async function loginAction(formData: FormData) {
     maxAge: 30 * 24 * 60 * 60, // 30 days
   });
 
+  // Handle analyze URL if present
+  if (analyzeUrl) {
+    const handled = await handleAnalyzeUrl(user.id, analyzeUrl);
+    if (handled) {
+      redirect("/dashboard/agent-analysis");
+    }
+  }
+
   // Redirect to dashboard
   redirect("/dashboard");
 }
@@ -75,6 +129,7 @@ export async function signupAction(formData: FormData) {
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
   const confirmPassword = formData.get("confirm-password") as string;
+  const analyzeUrl = formData.get("analyze_url") as string;
 
   // Validation
   if (!name || !email || !password || !confirmPassword) {
@@ -103,7 +158,7 @@ export async function signupAction(formData: FormData) {
   }
 
   // Hash password - password is guaranteed to be a string at this point
-   
+
   const hashedPassword: string = await bcrypt.hash(password, 10);
 
   // Create user
@@ -153,6 +208,14 @@ export async function signupAction(formData: FormData) {
     path: "/",
     maxAge: 30 * 24 * 60 * 60, // 30 days
   });
+
+  // Handle analyze URL if present
+  if (analyzeUrl && newUser) {
+    const handled = await handleAnalyzeUrl(newUser.id, analyzeUrl);
+    if (handled) {
+      redirect("/dashboard/agent-analysis");
+    }
+  }
 
   // Redirect to dashboard
   redirect("/dashboard");

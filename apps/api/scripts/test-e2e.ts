@@ -2,13 +2,13 @@
 
 /**
  * PropIntel API End-to-End Test Suite
- * 
+ *
  * Tests the complete job lifecycle:
  * - Creates a job
- * - Polls for completion
+ * - Polls for completion (via direct DB query)
  * - Validates report structure
  * - Verifies all expected data is present
- * 
+ *
  * Usage:
  *   npm run test:e2e                    # Test against local serverless-offline
  *   npm run test:e2e -- --url <url>     # Test against deployed API
@@ -17,6 +17,7 @@
 
 import * as https from 'https';
 import * as http from 'http';
+import { getJobById } from '../src/lib/db';
 
 // ===================
 // Configuration
@@ -256,28 +257,16 @@ async function createJob(config: TestConfig): Promise<string> {
   return jobId;
 }
 
-async function getJobStatus(config: TestConfig, jobId: string): Promise<{ status: string; job: any }> {
-  const response = await makeRequest(`${config.apiUrl}/jobs/${jobId}`, {
-    method: 'GET',
-    path: `/jobs/${jobId}`,
-    headers: {
-      'X-Api-Key': config.apiKey,
-    },
-  });
+async function getJobStatus(_config: TestConfig, jobId: string): Promise<{ status: string; job: any }> {
+  const job = await getJobById(jobId);
 
-  if (response.statusCode !== 200) {
-    const errorBody = JSON.parse(response.body);
-    throw new Error(`Failed to get job status: ${response.statusCode}: ${errorBody.error?.message || response.body}`);
-  }
-
-  const data = JSON.parse(response.body);
-  if (!data.success || !data.data?.job) {
-    throw new Error('Job retrieval response missing job data');
+  if (!job) {
+    throw new Error(`Job ${jobId} not found`);
   }
 
   return {
-    status: data.data.job.status,
-    job: data.data.job,
+    status: job.status,
+    job: job,
   };
 }
 
@@ -326,8 +315,8 @@ async function waitForJobCompletion(config: TestConfig, jobId: string): Promise<
       const elapsed = Math.floor((Date.now() - startTime) / 1000);
       console.error(`   [${elapsed}s] Error checking job status:`, error instanceof Error ? error.message : error);
       // Continue polling unless it's a critical error
-      if (error instanceof Error && error.message.includes('Failed to get job status')) {
-        // If we can't reach the API, wait a bit longer before retrying
+      if (error instanceof Error && error.message.includes('not found')) {
+        // Job not found yet, wait a bit longer before retrying
         await sleep(POLL_INTERVAL * 2);
         continue;
       }
@@ -639,7 +628,6 @@ async function main(): Promise<void> {
     console.error('\n❌ E2E test failed:', error instanceof Error ? error.message : String(error));
     if (jobId) {
       console.error(`\nJob ID: ${jobId}`);
-      console.error(`Check job status: ${config.apiUrl}/jobs/${jobId}`);
     }
     process.exit(1);
   }

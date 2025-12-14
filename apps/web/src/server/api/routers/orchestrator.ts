@@ -2,6 +2,8 @@ import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { api } from "@/lib/api/client";
 import { TRPCError } from "@trpc/server";
+import { jobs } from "@propintel/database";
+import { and, eq } from "drizzle-orm";
 
 // Type for job progress data from the API
 interface JobProgress {
@@ -54,43 +56,22 @@ export const orchestratorRouter = createTRPCRouter({
     .input(z.object({ jobId: z.string() }))
     .query(async ({ input, ctx }) => {
       try {
-        const cookie = getCookieFromHeaders(ctx.headers);
-        
-        // Try to get the job, with retry logic in case it was just created
-        let result;
-        let attempts = 0;
-        const maxAttempts = 3;
-        
-        while (attempts < maxAttempts) {
-          try {
-            result = await api.jobs.get(input.jobId, cookie);
-            break; // Success, exit retry loop
-          } catch (error: unknown) {
-            attempts++;
-            // If it's a 404 and we haven't exhausted retries, wait and retry
-            const errMsg = getErrorMessage(error);
-            if (errMsg.includes("404") || errMsg.includes("not found")) {
-              if (attempts < maxAttempts) {
-                // Wait a bit before retrying (job might be propagating)
-                await new Promise(resolve => setTimeout(resolve, 500 * attempts));
-                continue;
-              }
-            }
-            // Re-throw if it's not a 404 or we've exhausted retries
-            throw error;
-          }
-        }
-        
-        if (!result) {
+        // Query job directly from database (faster than HTTP API call)
+        const job = await ctx.db.query.jobs.findFirst({
+          where: and(
+            eq(jobs.id, input.jobId),
+            eq(jobs.userId, ctx.session.user.id)
+          ),
+        });
+
+        if (!job) {
           throw new TRPCError({
             code: "NOT_FOUND",
-            message: "Job not found after retries",
+            message: "Job not found",
           });
         }
-        
-        // Extract orchestrator-related data from job
-        // The orchestrator context is stored in the job's progress/metadata
-        const job = result.job;
+
+        const cookie = getCookieFromHeaders(ctx.headers);
         
         // Extract orchestrator data from job progress
         // Note: Orchestrator context may be stored in S3, but we extract what's available from job
@@ -176,34 +157,33 @@ export const orchestratorRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ input, ctx }) => {
-      try {
-        const cookie = getCookieFromHeaders(ctx.headers);
-        // For now, orchestration is triggered automatically when a job is created
-        // This endpoint can be used to re-trigger or check status
-        const result = await api.jobs.get(input.jobId, cookie);
-        
-        if (result.job.status === "completed" || result.job.status === "failed") {
-          throw new TRPCError({
-            code: "PRECONDITION_FAILED",
-            message: "Job is already in a terminal state",
-          });
-        }
+      // Query job directly from database
+      const job = await ctx.db.query.jobs.findFirst({
+        where: and(
+          eq(jobs.id, input.jobId),
+          eq(jobs.userId, ctx.session.user.id)
+        ),
+      });
 
-        return {
-          success: true,
-          jobId: input.jobId,
-          status: result.job.status,
-          message: "Orchestration is running or will start automatically",
-        };
-      } catch (error) {
-        if (error instanceof TRPCError) {
-          throw error;
-        }
+      if (!job) {
         throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message:
-            error instanceof Error ? error.message : "Failed to trigger orchestration",
+          code: "NOT_FOUND",
+          message: "Job not found",
         });
       }
+
+      if (job.status === "completed" || job.status === "failed") {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "Job is already in a terminal state",
+        });
+      }
+
+      return {
+        success: true,
+        jobId: input.jobId,
+        status: job.status,
+        message: "Orchestration is running or will start automatically",
+      };
     }),
 });

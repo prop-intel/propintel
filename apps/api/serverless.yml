@@ -129,20 +129,6 @@ functions:
           path: /jobs
           method: post
 
-  getJob:
-    handler: src/handlers/job.get
-    events:
-      - httpApi:
-          path: /jobs/{id}
-          method: get
-
-  listJobs:
-    handler: src/handlers/job.list
-    events:
-      - httpApi:
-          path: /jobs
-          method: get
-
   getReport:
     handler: src/handlers/job.getReport
     events:

@@ -127,7 +127,7 @@ export function InterestForm() {
             </div>
 
             <div className="space-y-2">
-                <Label htmlFor="interest">Why PropIntel?</Label>
+                <Label htmlFor="interest">Why BrandSight?</Label>
                 <Textarea
                     id="interest"
                     placeholder="Tell us what excites you about the shift from SEO to AEO..."
@@ -193,8 +193,8 @@ export function Careers() {
                                 We are moving from a web of 10 blue links to a web of single, synthesized answers.
                             </p>
                             <p>
-                                PropIntel is at the forefront of this shift. We are building the tools that help
-                                creators, brands, and developers understand how AI agents perceive their content.
+                                BrandSight is at the forefront of this shift. We are building the tools that bring
+                                clarity to how AI agents perceive your content—giving brands clear visibility in an opaque landscape.
                             </p>
                             <p className="text-foreground font-medium">
                                 We don&apos;t have traditional job listings because we don&apos;t want traditional employees.

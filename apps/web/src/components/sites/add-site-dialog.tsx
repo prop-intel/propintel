@@ -5,7 +5,9 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Plus } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { api } from "@/trpc/react";
+import { setActiveSiteCookie } from "@/lib/cookies";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -37,6 +39,7 @@ type FormValues = z.infer<typeof formSchema>;
 export function AddSiteDialog() {
   const [open, setOpen] = useState(false);
   const utils = api.useUtils();
+  const router = useRouter();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -44,10 +47,17 @@ export function AddSiteDialog() {
   });
 
   const createSite = api.site.create.useMutation({
-    onSuccess: async () => {
+    onSuccess: async (newSite) => {
       await utils.site.list.invalidate();
       setOpen(false);
       form.reset();
+
+      // Set the new site as active and navigate to agent analysis
+      if (newSite) {
+        setActiveSiteCookie(newSite.id);
+        router.push("/dashboard/agent-analysis");
+        router.refresh();
+      }
     },
   });
 

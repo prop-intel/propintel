@@ -12,7 +12,6 @@ import type {
   ScoreTrends,
   Alert,
   CreateJobRequest,
-  PaginatedResponse,
 } from "./types";
 
 const API_URL = process.env.API_URL;
@@ -160,48 +159,6 @@ export const api = {
         null,
         cookie
       );
-    },
-
-    /**
-     * Get job status by ID
-     * @param cookie Optional cookie string for server-side calls
-     */
-    get: async (id: string, cookie?: string | null): Promise<{ job: Job }> => {
-      return apiRequest<{ job: Job }>(`/jobs/${id}`, {}, null, cookie);
-    },
-
-    /**
-     * List jobs with pagination
-     * @param siteId Optional site ID to filter jobs by
-     * @param cookie Optional cookie string for server-side calls
-     */
-    list: async (
-      limit = 20,
-      offset = 0,
-      cookie?: string | null,
-      siteId?: string
-    ): Promise<PaginatedResponse<Job>> => {
-      const params = new URLSearchParams({
-        limit: limit.toString(),
-        offset: offset.toString(),
-      });
-      if (siteId) {
-        params.set("siteId", siteId);
-      }
-
-      const response = await apiRequest<{
-        jobs: Job[];
-        pagination: {
-          limit: number;
-          offset: number;
-          hasMore: boolean;
-        };
-      }>(`/jobs?${params.toString()}`, {}, null, cookie);
-
-      return {
-        items: response.jobs,
-        pagination: response.pagination,
-      };
     },
 
     /**

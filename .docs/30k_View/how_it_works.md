@@ -16,7 +16,7 @@ Generate a comprehensive, visually engaging, and technically accurate "How It Wo
 
 2.  **Phase 2: Research (The Simulation)**
     *   **What happens:** We act like a real user.
-    *   **Agents:** `tavily-research` (live web search), `google-aio`, `perplexity-agent` (checking AI citations).
+    *   **Agents:** `tavily-research` (live web search), `llm-brand-probe` (direct LLM knowledge), `perplexity-agent` (checking AI citations).
     *   **User Benefit:** "We don't guess—we simulate real AI searches to see if you win the answer slot."
 
 3.  **Phase 3: Analysis (The Scoring)**

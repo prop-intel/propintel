@@ -48,36 +48,6 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
-  /jobs/{id}:
-    get:
-      summary: Get job status
-      operationId: getJob
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      responses:
-        '200':
-          description: Job details
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    example: true
-                  data:
-                    type: object
-                    properties:
-                      job:
-                        $ref: '#/components/schemas/Job'
-        '404':
-          $ref: '#/components/responses/NotFound'
-
   /jobs/{id}/report:
     get:
       summary: Get analysis report

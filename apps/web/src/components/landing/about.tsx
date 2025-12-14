@@ -11,43 +11,42 @@ export function About() {
           {/* Desktop Content (>= 768px) */}
           <div className="hidden md:block space-y-6 text-lg text-muted-foreground">
             <p>
-              The way people find answers has changed. Consumers aren’t searching anymore—they’re asking AI.
+              The way people find answers has changed. Consumers aren&apos;t searching anymore—they&apos;re asking AI.
               Decisions are being made before a website is ever visited, and the first impression of your brand now
               lives inside an AI-driven response.
             </p>
             <p>
-              That shift has created a new, unmapped ocean in marketing. Brands are either part of the
-              conversation—visible, trusted, and sailing forward—or they’re invisible and sinking.
+              This shift has created a blind spot in marketing. Most brands have no visibility into how AI
+              perceives them—whether they&apos;re seen as the answer or completely overlooked.
             </p>
             <p>
-              Our mission is to help every client, across every vertical, navigate these waters with confidence. By
-              unifying AEO, LLMEO, and SEO strategies, we provide the map and tools to maximize your presence in
-              AI-driven journeys.
+              Our mission is to bring clarity to this new landscape. By unifying AEO, LLMEO, and SEO strategies,
+              we give you clear insights into your brand&apos;s presence across every AI-driven journey.
             </p>
             <p>
-              This isn’t about resisting change. It’s about showing up where it matters most. Join us, and let’s chart
-              your course together.
+              This isn&apos;t about resisting change. It&apos;s about seeing clearly where it matters most. Join us, and
+              let&apos;s bring your brand into focus.
             </p>
           </div>
 
           {/* Mobile Content (< 768px) */}
           <div className="md:hidden space-y-6 text-lg text-muted-foreground">
             <p>
-              Consumers aren’t searching anymore—they’re asking AI. Decisions happen before a site is ever visited.
+              Consumers aren&apos;t searching anymore—they&apos;re asking AI. Decisions happen before a site is ever visited.
             </p>
             <p>
-              Brands are either part of the AI conversation—visible and sailing—or invisible and sinking.
+              Most brands have no visibility into how AI perceives them—seen as the answer, or completely overlooked.
             </p>
             <p>
-              We help every client navigate this new ocean with unified AEO, LLMEO, and SEO strategies. Show up
-              where it matters most. Join us and chart your course.
+              We bring clarity to this new landscape with unified AEO, LLMEO, and SEO strategies. See clearly
+              where it matters most. Join us and bring your brand into focus.
             </p>
           </div>
 
           <div className="pt-4">
             <Link href="/contact">
               <Button size="lg" className="h-12 px-8 text-base">
-                Chart Your Course <span className="ml-2">→</span> Contact Us
+                See Clearly <span className="ml-2">→</span> Contact Us
               </Button>
             </Link>
           </div>

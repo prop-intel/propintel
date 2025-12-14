@@ -5,13 +5,13 @@
  * Analyzes the URL and context to create a dynamic execution plan.
  */
 
-import { createOpenAI } from '@ai-sdk/openai';
 import { generateObject } from 'ai';
 import { z } from 'zod';
 import { type ExecutionPlan, type ExecutionPhase } from '../../types';
 import { type AgentContext } from '../context';
 import { createTrace, safeFlush } from '../../lib/langfuse';
 import { getAgentMetadata } from '../registry';
+import { openai } from '../../lib/openai';
 
 // ===================
 // Timeout Configuration
@@ -19,14 +19,6 @@ import { getAgentMetadata } from '../registry';
 
 // 60 second timeout for LLM API calls to prevent indefinite hangs
 const LLM_TIMEOUT_MS = 60_000;
-
-// ===================
-// Client Initialization
-// ===================
-
-const openai = createOpenAI({
-  apiKey: process.env.OPENAI_API_KEY || '',
-});
 
 // ===================
 // Schema Definition
