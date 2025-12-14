@@ -123,6 +123,17 @@ export async function search(
 }
 
 /**
+ * Progress callback for batch operations
+ */
+export type BatchProgressCallback = (progress: {
+  completed: number;
+  total: number;
+  currentBatch: number;
+  totalBatches: number;
+  lastQuery?: string;
+}) => void;
+
+/**
  * Search Tavily for multiple queries in parallel
  */
 export async function searchBatch(
@@ -133,19 +144,28 @@ export async function searchBatch(
     includeDomains?: string[];
     excludeDomains?: string[];
     concurrency?: number;
+    onProgress?: BatchProgressCallback;
   } = {}
 ): Promise<TavilySearchResult[]> {
-  const { concurrency = 3, ...searchOptions } = options;
+  const { concurrency = 3, onProgress, ...searchOptions } = options;
+
+  console.log(`[Tavily] Starting batch search: ${queries.length} queries, concurrency: ${concurrency}`);
 
   // Process in batches to avoid rate limiting
   const results: TavilySearchResult[] = [];
+  const totalBatches = Math.ceil(queries.length / concurrency);
 
   for (let i = 0; i < queries.length; i += concurrency) {
+    const batchNum = Math.floor(i / concurrency) + 1;
     const batch = queries.slice(i, i + concurrency);
+    
+    console.log(`[Tavily] Batch ${batchNum}/${totalBatches}: searching ${batch.length} queries...`);
+    const batchStartTime = Date.now();
+    
     const batchResults = await Promise.all(
       batch.map((query) =>
         search(query, searchOptions).catch((error) => {
-          console.error(`Tavily search failed for query "${query}":`, error);
+          console.error(`[Tavily] Search failed for query "${query}":`, error);
           // Return empty result on error
           return {
             query,
@@ -156,6 +176,19 @@ export async function searchBatch(
       )
     );
     results.push(...batchResults);
+    
+    console.log(`[Tavily] Batch ${batchNum}/${totalBatches} completed in ${Date.now() - batchStartTime}ms`);
+
+    // Report progress after each batch
+    if (onProgress) {
+      onProgress({
+        completed: Math.min(i + concurrency, queries.length),
+        total: queries.length,
+        currentBatch: batchNum,
+        totalBatches,
+        lastQuery: batch[batch.length - 1],
+      });
+    }
 
     // Small delay between batches to be respectful of rate limits
     if (i + concurrency < queries.length) {
@@ -163,6 +196,7 @@ export async function searchBatch(
     }
   }
 
+  console.log(`[Tavily] Batch search complete: ${results.length} results`);
   return results;
 }
 

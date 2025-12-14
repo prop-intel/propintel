@@ -11,6 +11,9 @@ import { z } from 'zod';
 import { type AEOAnalysis, type AEORecommendation, type CursorPrompt, type PageAnalysis } from '../../types';
 import { createTrace, safeFlush } from '../../lib/langfuse';
 
+// Agent name for logging
+const AGENT_NAME = 'Cursor Prompt Agent';
+
 // ===================
 // Timeout Configuration
 // ===================
@@ -70,6 +73,13 @@ export async function generateCursorPrompt(
   jobId: string,
   model = 'gpt-4o-mini'
 ): Promise<CursorPrompt> {
+  console.log(`[${AGENT_NAME}] Starting cursor prompt generation`);
+  console.log(`[${AGENT_NAME}] Input data:`);
+  console.log(`[${AGENT_NAME}]   - Domain: ${domain}`);
+  console.log(`[${AGENT_NAME}]   - Page Topic: ${pageAnalysis.topic}`);
+  console.log(`[${AGENT_NAME}]   - Recommendations: ${recommendations.length}`);
+  console.log(`[${AGENT_NAME}]   - Model: ${model}`);
+
   const trace = createTrace({
     name: 'aeo-cursor-prompt',
     userId: tenantId,
@@ -86,6 +96,10 @@ export async function generateCursorPrompt(
     const highPriorityRecs = recommendations
       .filter(r => r.priority === 'high')
       .slice(0, 5);
+    
+    console.log(`[${AGENT_NAME}] High priority recommendations to include: ${highPriorityRecs.length}`);
+    console.log(`[${AGENT_NAME}] Calling LLM (timeout: ${LLM_TIMEOUT_MS / 1000}s)...`);
+    const startTime = Date.now();
 
     const systemPrompt = `You are an expert at creating actionable prompts for AI coding assistants like Cursor.
 
@@ -132,6 +146,10 @@ Create a prompt that will help improve visibility for these target queries.`;
       abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
     });
 
+    const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+    console.log(`[${AGENT_NAME}] LLM call completed in ${duration}s`);
+    console.log(`[${AGENT_NAME}] Token usage: ${result.usage?.promptTokens} prompt, ${result.usage?.completionTokens} completion`);
+
     generation.end({
       output: result.object,
       usage: {
@@ -144,6 +162,9 @@ Create a prompt that will help improve visibility for these target queries.`;
     void safeFlush();
 
     const normalized = normalizeCursorPrompt(result.object);
+    console.log(`[${AGENT_NAME}] ✅ Complete! Generated prompt with ${normalized.sections.length} sections`);
+    console.log(`[${AGENT_NAME}]   - Prompt length: ${normalized.prompt.length} chars`);
+    
     return {
       prompt: normalized.prompt,
       sections: normalized.sections,
@@ -151,10 +172,18 @@ Create a prompt that will help improve visibility for these target queries.`;
       generatedAt: new Date().toISOString(),
     };
   } catch (error) {
+    const errorMessage = (error as Error).message;
+    console.error(`[${AGENT_NAME}] ❌ Error: ${errorMessage}`);
+    
+    // Check for timeout
+    if (errorMessage.includes('abort') || errorMessage.includes('timeout')) {
+      console.error(`[${AGENT_NAME}] LLM call timed out after ${LLM_TIMEOUT_MS / 1000}s`);
+    }
+    
     generation.end({
       output: null,
       level: 'ERROR',
-      statusMessage: (error as Error).message,
+      statusMessage: errorMessage,
     });
     // Non-blocking flush - still try to log errors
     void safeFlush();

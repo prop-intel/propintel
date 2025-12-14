@@ -14,8 +14,11 @@
  */
 
 import { type TargetQuery } from '../../types';
-import { searchBatch, isConfigured } from '../../lib/tavily';
+import { searchBatch, isConfigured, type BatchProgressCallback } from '../../lib/tavily';
 import { createTrace, safeFlush } from '../../lib/langfuse';
+
+// Agent name for logging
+const AGENT_NAME = 'Community Agent';
 
 // ===================
 // Types
@@ -88,9 +91,11 @@ export async function searchCommunitySignals(
   jobId: string
 ): Promise<CommunityEngagementResult> {
   if (!isConfigured()) {
-    console.warn('[Community Agent] Tavily not configured, returning empty results');
+    console.warn(`[${AGENT_NAME}] Tavily not configured, returning empty results`);
     return createEmptyResult();
   }
+
+  console.log(`[${AGENT_NAME}] Starting community engagement search for ${targetDomain}`);
 
   const trace = createTrace({
     name: 'community-engagement-search',
@@ -106,7 +111,18 @@ export async function searchCommunitySignals(
   try {
     // Build platform-specific search queries from target queries
     const searchQueries = buildSearchQueries(queries);
-    console.log(`[Community Agent] Built ${searchQueries.length} search queries from ${queries.length} target queries`);
+    console.log(`[${AGENT_NAME}] Built ${searchQueries.length} search queries from ${queries.length} target queries`);
+    console.log(`[${AGENT_NAME}] Platforms: ${PLATFORMS.map(p => p.name).join(', ')}`);
+    console.log(`[${AGENT_NAME}] Concurrency: ${SEARCH_CONCURRENCY}, Max results per query: ${MAX_RESULTS_PER_QUERY}`);
+
+    // Progress callback for visibility
+    const onProgress: BatchProgressCallback = ({ completed, total, currentBatch, totalBatches }) => {
+      const percent = Math.round((completed / total) * 100);
+      console.log(`[${AGENT_NAME}] Progress: ${completed}/${total} queries (${percent}%) - Batch ${currentBatch}/${totalBatches}`);
+    };
+
+    console.log(`[${AGENT_NAME}] Starting search across community platforms...`);
+    const startTime = Date.now();
 
     // Execute searches
     const searchResults = await searchBatch(
@@ -115,17 +131,24 @@ export async function searchCommunitySignals(
         maxResults: MAX_RESULTS_PER_QUERY,
         searchDepth: 'basic',
         concurrency: SEARCH_CONCURRENCY,
+        onProgress,
       }
     );
 
+    const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+    console.log(`[${AGENT_NAME}] Search complete in ${duration}s - Processing results...`);
+
     // Process results into engagement opportunities
     const allOpportunities: EngagementOpportunity[] = [];
+    let totalResultsProcessed = 0;
 
     for (let i = 0; i < searchResults.length; i++) {
       const result = searchResults[i];
       const queryInfo = searchQueries[i];
 
       if (!result || !queryInfo) continue;
+
+      totalResultsProcessed += result.results.length;
 
       for (const item of result.results) {
         const opportunity = processResult(item, queryInfo);
@@ -135,8 +158,11 @@ export async function searchCommunitySignals(
       }
     }
 
+    console.log(`[${AGENT_NAME}] Processed ${totalResultsProcessed} raw results into ${allOpportunities.length} potential opportunities`);
+
     // Deduplicate by URL
     const uniqueOpportunities = deduplicateByUrl(allOpportunities);
+    console.log(`[${AGENT_NAME}] After deduplication: ${uniqueOpportunities.length} unique opportunities`);
 
     // Sort by relevance
     uniqueOpportunities.sort((a, b) => b.relevanceScore - a.relevanceScore);
@@ -167,9 +193,15 @@ export async function searchCommunitySignals(
     // Non-blocking flush - observability should never block business logic
     void safeFlush();
 
-    console.log(`[Community Agent] Found ${result.totalOpportunities} engagement opportunities`);
+    console.log(`[${AGENT_NAME}] ✅ Complete! Found ${result.totalOpportunities} engagement opportunities`);
+    console.log(`[${AGENT_NAME}]   - Reddit: ${platforms.reddit.length}`);
+    console.log(`[${AGENT_NAME}]   - Twitter/X: ${platforms.twitter.length}`);
+    console.log(`[${AGENT_NAME}]   - HackerNews: ${platforms.hackernews.length}`);
+    console.log(`[${AGENT_NAME}]   - Other: ${platforms.other.length}`);
+    
     return result;
   } catch (error) {
+    console.error(`[${AGENT_NAME}] ❌ Error during search:`, (error as Error).message);
     span.end({
       level: 'ERROR',
       statusMessage: (error as Error).message,

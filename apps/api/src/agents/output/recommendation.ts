@@ -12,6 +12,9 @@ import { type AEOAnalysis, type AEORecommendation, type QueryGap, type Competito
 import { type ContentComparisonResult } from '../analysis/content-comparison';
 import { createTrace, safeFlush } from '../../lib/langfuse';
 
+// Agent name for logging
+const AGENT_NAME = 'Recommendations Agent';
+
 // ===================
 // Timeout Configuration
 // ===================
@@ -73,6 +76,15 @@ export async function generateAEORecommendations(
   jobId: string,
   model = 'gpt-4o-mini'
 ): Promise<AEORecommendation[]> {
+  console.log(`[${AGENT_NAME}] Starting recommendation generation`);
+  console.log(`[${AGENT_NAME}] Input data:`);
+  console.log(`[${AGENT_NAME}]   - Visibility Score: ${aeoAnalysis.visibilityScore}/100`);
+  console.log(`[${AGENT_NAME}]   - Citation Rate: ${Math.round(aeoAnalysis.citationRate)}%`);
+  console.log(`[${AGENT_NAME}]   - Queries Analyzed: ${aeoAnalysis.queriesAnalyzed}`);
+  console.log(`[${AGENT_NAME}]   - Content Gaps: ${contentComparison.contentGaps.length}`);
+  console.log(`[${AGENT_NAME}]   - Competitors: ${aeoAnalysis.competitors.length}`);
+  console.log(`[${AGENT_NAME}]   - Model: ${model}`);
+
   const trace = createTrace({
     name: 'aeo-recommendations',
     userId: tenantId,
@@ -87,6 +99,9 @@ export async function generateAEORecommendations(
   try {
     // Build context for LLM (used for logging/debugging if needed)
     buildRecommendationContext(aeoAnalysis, contentComparison);
+
+    console.log(`[${AGENT_NAME}] Calling LLM (timeout: ${LLM_TIMEOUT_MS / 1000}s)...`);
+    const startTime = Date.now();
 
     const systemPrompt = `You are an expert AEO (Answer Engine Optimization) consultant.
 Generate specific, actionable recommendations to improve visibility in AI search results.
@@ -133,6 +148,11 @@ Generate 5-8 specific, prioritized recommendations.`;
       abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
     });
 
+    const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+    console.log(`[${AGENT_NAME}] LLM call completed in ${duration}s`);
+    console.log(`[${AGENT_NAME}] Generated ${result.object.recommendations.length} recommendations`);
+    console.log(`[${AGENT_NAME}] Token usage: ${result.usage?.promptTokens} prompt, ${result.usage?.completionTokens} completion`);
+
     generation.end({
       output: result.object,
       usage: {
@@ -145,6 +165,7 @@ Generate 5-8 specific, prioritized recommendations.`;
     void safeFlush();
 
     // Add IDs and competitor examples, normalize enum values
+    console.log(`[${AGENT_NAME}] Processing and normalizing recommendations...`);
     const recommendations: AEORecommendation[] = result.object.recommendations.map((rec, index) => {
       const normalized = normalizeRecommendation(rec);
       return {
@@ -160,12 +181,28 @@ Generate 5-8 specific, prioritized recommendations.`;
       return priorityOrder[a.priority] - priorityOrder[b.priority];
     });
 
+    console.log(`[${AGENT_NAME}] ✅ Complete! Returning ${recommendations.length} prioritized recommendations`);
+    const highPriority = recommendations.filter(r => r.priority === 'high').length;
+    const mediumPriority = recommendations.filter(r => r.priority === 'medium').length;
+    const lowPriority = recommendations.filter(r => r.priority === 'low').length;
+    console.log(`[${AGENT_NAME}]   - High priority: ${highPriority}`);
+    console.log(`[${AGENT_NAME}]   - Medium priority: ${mediumPriority}`);
+    console.log(`[${AGENT_NAME}]   - Low priority: ${lowPriority}`);
+
     return recommendations;
   } catch (error) {
+    const errorMessage = (error as Error).message;
+    console.error(`[${AGENT_NAME}] ❌ Error: ${errorMessage}`);
+    
+    // Check for timeout
+    if (errorMessage.includes('abort') || errorMessage.includes('timeout')) {
+      console.error(`[${AGENT_NAME}] LLM call timed out after ${LLM_TIMEOUT_MS / 1000}s`);
+    }
+    
     generation.end({
       output: null,
       level: 'ERROR',
-      statusMessage: (error as Error).message,
+      statusMessage: errorMessage,
     });
     // Non-blocking flush - still try to log errors
     void safeFlush();

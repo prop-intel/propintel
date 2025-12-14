@@ -138,6 +138,9 @@ export async function discoverCompetitors(
 ): Promise<CompetitorVisibility[]> {
   const { maxCompetitors = MAX_COMPETITORS, searchResults, businessContext } = options;
 
+  console.log(`[Competitor Discovery] Starting for ${targetDomain} with ${queries.length} queries`);
+  console.log(`[Competitor Discovery] Has existing search results: ${!!searchResults}, Has business context: ${!!businessContext}`);
+
   const trace = createTrace({
     name: 'aeo-competitor-discovery',
     userId: tenantId,
@@ -150,19 +153,31 @@ export async function discoverCompetitors(
 
   try {
     // Get search results (reuse if provided, otherwise fetch)
-    const results = searchResults || await searchBatch(
-      queries.map(q => q.query),
-      {
-        maxResults: 10,
-        searchDepth: 'basic',
-      }
-    );
+    let results: TavilySearchResult[];
+    if (searchResults) {
+      console.log(`[Competitor Discovery] Reusing ${searchResults.length} existing search results`);
+      results = searchResults;
+    } else {
+      console.log(`[Competitor Discovery] Fetching search results via Tavily for ${queries.length} queries...`);
+      const startTime = Date.now();
+      results = await searchBatch(
+        queries.map(q => q.query),
+        {
+          maxResults: 10,
+          searchDepth: 'basic',
+        }
+      );
+      console.log(`[Competitor Discovery] Tavily search completed in ${Date.now() - startTime}ms, got ${results.length} results`);
+    }
 
     // Analyze domain frequency across all results
+    console.log(`[Competitor Discovery] Analyzing domain stats...`);
     const domainStats = analyzeDomainStats(results, targetDomain);
+    console.log(`[Competitor Discovery] Found ${domainStats.size} unique domains`);
 
     // STEP 1: Filter out obvious content platforms
     const filteredStats = filterContentPlatforms(domainStats);
+    console.log(`[Competitor Discovery] After filtering content platforms: ${filteredStats.size} domains (removed ${domainStats.size - filteredStats.size})`);
 
     // STEP 2: Build initial competitor list
     let competitors = buildCompetitorList(
@@ -171,19 +186,24 @@ export async function discoverCompetitors(
       queries.length,
       maxCompetitors * 2 // Get more candidates for LLM filtering
     );
+    console.log(`[Competitor Discovery] Built initial competitor list: ${competitors.length} candidates`);
 
     // STEP 3: If we have business context, use LLM to validate real competitors
     if (businessContext && competitors.length > 0) {
+      console.log(`[Competitor Discovery] Validating competitors with LLM...`);
+      const startTime = Date.now();
       competitors = await validateCompetitorsWithLLM(
         competitors,
         businessContext,
         tenantId,
         trace
       );
+      console.log(`[Competitor Discovery] LLM validation completed in ${Date.now() - startTime}ms, ${competitors.length} validated`);
     }
 
     // Limit to requested max
     competitors = competitors.slice(0, maxCompetitors);
+    console.log(`[Competitor Discovery] Complete! Found ${competitors.length} competitors: ${competitors.map(c => c.domain).join(', ')}`);
 
     span.end({
       output: {
@@ -198,6 +218,7 @@ export async function discoverCompetitors(
 
     return competitors;
   } catch (error) {
+    console.error(`[Competitor Discovery] ERROR:`, error);
     span.end({
       level: 'ERROR',
       statusMessage: (error as Error).message,
@@ -241,6 +262,9 @@ async function validateCompetitorsWithLLM(
   tenantId: string,
   trace: ReturnType<typeof createTrace>
 ): Promise<CompetitorVisibility[]> {
+  console.log(`[Competitor Discovery] LLM validation starting for ${candidates.length} candidates`);
+  console.log(`[Competitor Discovery] Business context: ${businessContext.companyName} (${businessContext.businessCategory})`);
+  
   const generation = trace.generation({
     name: 'competitor-validation',
     model: 'gpt-4o-mini',
@@ -276,6 +300,9 @@ ${candidates.map(c => `- ${c.domain} (appeared in ${c.citationCount} queries)`).
 
 For each domain, determine if it's a REAL business competitor or just a content/visibility competitor.`;
 
+    console.log(`[Competitor Discovery] Calling OpenAI gpt-4o-mini for validation (timeout: ${LLM_TIMEOUT_MS}ms)...`);
+    const llmStartTime = Date.now();
+    
     const result = await generateObject({
       model: openai('gpt-4o-mini'),
       schema: CompetitorValidationSchema,
@@ -284,6 +311,8 @@ For each domain, determine if it's a REAL business competitor or just a content/
       temperature: 0,
       abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
     });
+
+    console.log(`[Competitor Discovery] OpenAI response received in ${Date.now() - llmStartTime}ms`);
 
     generation.end({
       output: result.object,
