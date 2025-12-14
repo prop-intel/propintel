@@ -12,13 +12,25 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 const BUCKET_NAME = process.env.S3_BUCKET || 'propintel-api-dev-storage';
-const IS_LOCAL = process.env.IS_OFFLINE === 'true' || !process.env.S3_BUCKET;
+const IS_LOCAL = !process.env.S3_BUCKET || process.env.USE_LOCAL_STORAGE === 'true';
 const LOCAL_STORAGE_DIR = path.join(process.cwd(), '.local-storage');
 
 // Only create S3 client if we have credentials configured
 let s3Client: S3Client | null = null;
 if (!IS_LOCAL) {
-  s3Client = new S3Client({});
+  const clientConfig: ConstructorParameters<typeof S3Client>[0] = {
+    region: process.env.AWS_REGION || 'us-west-2',
+  };
+
+  // Explicitly use credentials from env vars if provided
+  if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) {
+    clientConfig.credentials = {
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    };
+  }
+
+  s3Client = new S3Client(clientConfig);
 }
 
 // ===================
