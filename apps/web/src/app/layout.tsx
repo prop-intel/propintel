@@ -39,21 +39,31 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "en_US",
-    url: "https://brandsight.com",
+    url: "https://brand-sight.com",
     title: "BrandSight - AI Crawler Analytics Dashboard",
     description:
       "Track and analyze AI crawler visits to your website. Monitor search engines, AI training bots, and research crawlers with real-time analytics.",
     siteName: "BrandSight",
+    images: [
+      {
+        url: "/opengraph-image.png",
+        width: 1200,
+        height: 630,
+        alt: "BrandSight - AI Crawler Analytics Dashboard",
+        type: "image/png",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "BrandSight - AI Crawler Analytics Dashboard",
     description:
       "Track and analyze AI crawler visits to your website. Monitor search engines, AI training bots, and research crawlers with real-time analytics.",
+    images: ["/opengraph-image.png"],
     creator: "@brandsight",
   },
   icons: [{ rel: "icon", url: "/favicon.ico" }],
-  metadataBase: new URL("https://brandsight.com"),
+  metadataBase: new URL("https://brand-sight.com"),
   alternates: {
     canonical: "/",
   },
