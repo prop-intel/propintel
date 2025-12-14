@@ -16,7 +16,12 @@ export { ContentGaps } from "./content-gaps";
 export { KeyFindings } from "./key-findings";
 
 export { EngagementOpportunities } from "./engagement-opportunities";
-export type { EngagementOpportunity, EngagementOpportunitiesProps } from "./engagement-opportunities";
+export type {
+  EngagementOpportunity,
+  EngagementOpportunitiesProps,
+  PlatformOpportunities,
+  QueryBreakdown,
+} from "./engagement-opportunities";
 
 export { RecommendationsCard } from "./recommendations-card";
 export type { AEORecommendation, RecommendationsCardProps } from "./recommendations-card";

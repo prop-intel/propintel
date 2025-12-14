@@ -458,6 +458,12 @@ export default function AgentAnalysisPage() {
                 Results
               </TabsTrigger>
               <TabsTrigger
+                value="recommendations"
+                disabled={status?.status !== "completed"}
+              >
+                Recommendations
+              </TabsTrigger>
+              <TabsTrigger
                 value="details"
                 disabled={status?.status !== "completed"}
               >
@@ -538,24 +544,6 @@ export default function AgentAnalysisPage() {
               />
             )}
 
-            {/* AEO Recommendations */}
-            {aeoRecommendations.length > 0 && (
-              <RecommendationsCard recommendations={aeoRecommendations} />
-            )}
-
-            {/* Cursor Prompt - Copy-paste for implementation */}
-            {cursorPrompt?.prompt && (
-              <CursorPromptCard cursorPrompt={cursorPrompt} />
-            )}
-
-            {/* Community Engagement Opportunities */}
-            {aeoAnalysis?.communityEngagement?.topOpportunities &&
-              aeoAnalysis.communityEngagement.topOpportunities.length > 0 && (
-                <EngagementOpportunities
-                  opportunities={aeoAnalysis.communityEngagement.topOpportunities}
-                />
-              )}
-
             {aeoAnalysis?.citations && aeoAnalysis.citations.length > 0 && (
               <CitationChart
                 citations={aeoAnalysis.citations}
@@ -577,6 +565,39 @@ export default function AgentAnalysisPage() {
                     0,
                   )}
               />
+            )}
+          </TabsContent>
+
+          {/* Recommendations Tab - Actionable items */}
+          <TabsContent value="recommendations" className="space-y-6">
+            {/* AEO Recommendations */}
+            {aeoRecommendations.length > 0 && (
+              <RecommendationsCard recommendations={aeoRecommendations} />
+            )}
+
+            {/* Cursor Prompt - Copy-paste for implementation */}
+            {cursorPrompt?.prompt && (
+              <CursorPromptCard cursorPrompt={cursorPrompt} />
+            )}
+
+            {/* Community Engagement Opportunities */}
+            {aeoAnalysis?.communityEngagement && (
+              <EngagementOpportunities
+                opportunities={aeoAnalysis.communityEngagement.topOpportunities ?? []}
+                platforms={aeoAnalysis.communityEngagement.platforms}
+                queryBreakdown={aeoAnalysis.communityEngagement.queryBreakdown}
+              />
+            )}
+
+            {/* Empty state */}
+            {aeoRecommendations.length === 0 && !cursorPrompt?.prompt && !aeoAnalysis?.communityEngagement && (
+              <Card>
+                <CardContent className="py-12 text-center">
+                  <AlertCircle className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                  <p className="text-muted-foreground">No recommendations available yet.</p>
+                  <p className="text-sm text-muted-foreground mt-1">Run an analysis to get actionable recommendations.</p>
+                </CardContent>
+              </Card>
             )}
           </TabsContent>
 
