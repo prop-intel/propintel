@@ -1,34 +1,30 @@
 # User Flow Documentation
 
-## Primary Workflow: AEO Analysis
+## Primary Workflows
 
-The core value of PropIntel is providing actionable AEO (Answer Engine Optimization) analysis.
+BrandSight provides two core value propositions:
+1. **Bot Traffic Analytics** - Track how AI crawlers are accessing your site
+2. **AEO Analysis** - Analyze and improve your visibility in AI answer engines
 
 ```mermaid
 journey
-    title User Journey: Creating and Viewing an Analysis
+    title User Journey: Site Setup and Analysis
     section Authentication
       User logs in: 5: User
       Redirected to Dashboard: 5: System
-    section Job Creation
-      User clicks "New Analysis": 4: User
-      User enters Target URL: 4: User
-      User clicks "Start Analysis": 5: User
-      System validates URL & limits: 5: System
-      System queues Job: 5: System
-      User sees "Queued/Crawling" status: 4: User
-    section Processing (Background)
-      System crawls website: 3: System
-      System detects SPA (optional): 3: System
-      System identifies Target Queries: 3: System
-      System performs Competitor Research: 3: System
-      System computes Visibility Score: 3: System
-      System generates Report: 5: System
-    section Results
-      User receives Notification (optional): 3: User
-      User views Job Details: 5: User
-      User examines AEO Report: 5: User
-      User downloads Markdown/PDF: 4: User
+    section Site Setup
+      User adds a site: 4: User
+      User configures tracking: 4: User
+      System starts collecting data: 5: System
+    section AEO Analysis
+      User navigates to Agent Analysis: 4: User
+      User clicks Start Analysis: 5: User
+      System crawls and analyzes site: 3: System
+      User views results and recommendations: 5: User
+    section Bot Tracking
+      User views Dashboard: 5: User
+      User sees crawler activity: 5: User
+      User analyzes robots.txt: 4: User
 ```
 
 ## Detailed Steps
@@ -38,37 +34,87 @@ journey
 - Authenticates via NextAuth (Email/Password or Social Provider).
 - Upon success, lands on `/dashboard`.
 
-### 2. Dashboard & Job Management (`/dashboard`)
-- Displays list of recent jobs with statuses (`Completed`, `Crawling`, `Failed`).
-- Shows key metrics (e.g., Credits remaining, Total analyses).
+### 2. Dashboard - Bot Traffic Analytics (`/dashboard`)
+The main dashboard focuses on tracking AI bot traffic to your site:
 
-### 3. Creating a Job
-- **Input**: User provides valid URL (e.g., `https://example.com`).
-- **Options**:
-    - Select Region (US, UK, etc. - *if implemented*).
-    - Select Mode (Fast/Deep).
-- **Validation**: Backend checks rate limits and URL validity.
-- **Feedback**: Immediate confirmation that job is queued.
+- **Summary Cards**: Total visits, unique URLs crawled, unique crawlers, visits today
+- **Crawler Chart**: Breakdown of which AI bots are visiting (GPTBot, ClaudeBot, etc.)
+- **Timeline**: Activity over time (hourly/daily aggregation)
+- **Top Pages**: Most frequently crawled pages with trend data
+- **Tracking Status**: Shows if pixel/middleware tracking is configured
 
-### 4. Analysis Pipeline (System)
-- The job moves through several states visible to the user:
-    1.  **Queued**: Waiting for worker availability.
-    2.  **Crawling**: Fetching pages (Simple or ECS/SPA).
-    3.  **Analyzing**: The multi-agent system executes in phases:
-        - *Discovery*: Identifying what the page is about.
-        - *Research*: Searching the web for validation.
-        - *Analysis*: Computing scores and checking competitors.
-    4.  **Completed**: Report is ready.
+**Filters Available**:
+- Time frame: 12h, 24h, 3d, 7d, 30d, 90d
+- Source: pixel or middleware
+- Companies: Filter by specific AI companies
 
-### 5. Viewing Results (`/dashboard/agent-analysis`)
-- **Overview**: High-level scores (AEO Visibility Score, SEO Score).
-- **Key Findings**: Top 3-5 critical insights.
-- **Recommendations**: Actionable steps to improve visibility.
-- **Detailed Data**:
-    - **Target Queries**: What users are asking.
-    - **Competitors**: Who is ranking above the target.
-    - **Citations**: Where the brand is mentioned.
+### 3. Site Management
+- Users can manage multiple sites
+- Each site has a unique tracking ID
+- Active site can be switched via the sidebar
+- Site context is preserved via cookies
 
-### 6. Export
-- User can download the report in **Markdown** format for easy sharing or editing.
-- User can copy "Cursor Prompts" to help fix issues using AI code editors.
+### 4. Robots Analysis (`/dashboard/robots`)
+Analyze how your site communicates with AI crawlers:
+
+- **Permission Matrix**: Visual overview of what each AI bot is allowed to access
+- **robots.txt Viewer**: View and analyze your robots.txt rules
+- **llms.txt Viewer**: View and analyze your llms.txt file (if present)
+
+### 5. AEO Analysis (`/dashboard/agent-analysis`)
+
+#### Starting an Analysis
+- User selects a site (required)
+- User clicks "Start New Analysis"
+- System validates the URL and rate limits
+- System queues the job for processing
+
+#### Job Processing States
+Jobs move through the following statuses:
+1. **Pending**: Job created, waiting to be queued
+2. **Queued**: Job sent to SQS, waiting for worker
+3. **Crawling**: Fetching pages (HTTP-based, with optional ECS/SPA rendering)
+4. **Analyzing**: Multi-agent pipeline is executing
+5. **Completed**: Report is ready
+6. **Failed**: Processing error occurred
+7. **Blocked**: Site blocked access (CAPTCHA, 403, etc.)
+
+#### Pipeline Visualization
+The analysis page shows real-time progress through 4 phases:
+- **Discovery**: Page analysis, query generation, competitor discovery
+- **Research**: Tavily search, Perplexity citations, community signals, LLM brand probe
+- **Analysis**: Citation analysis, content comparison, visibility scoring
+- **Output**: Recommendations, cursor prompt, report generation
+
+#### Viewing Results (Tabs)
+1. **Pipeline Tab**: Real-time progress visualization with agent status
+2. **Results Tab**:
+   - Score Dashboard (AEO, SEO, LLMEO scores)
+   - Key Findings (strengths, weaknesses, opportunities)
+   - Citation Chart (visibility across queries)
+   - Competitor Landscape (how you compare)
+3. **Recommendations Tab**:
+   - Prioritized action items (High/Medium/Low impact)
+   - Cursor Prompt (copy-paste code for AI-assisted fixes)
+   - Community Engagement Opportunities (Reddit, X, etc.)
+4. **Details Tab**:
+   - Page Analysis breakdown
+   - Query Performance metrics
+   - Content Gaps analysis
+   - Full JSON report (for debugging)
+
+### 6. Export Options
+- Download report in **Markdown** format
+- Download report in **JSON** format
+- Copy "Cursor Prompts" for AI-assisted implementation
+- Webhook delivery (if configured)
+
+## Key Entities
+
+| Entity | Description |
+|--------|-------------|
+| **User** | Authenticated user account |
+| **Site** | A website domain being tracked/analyzed |
+| **Job** | A single analysis run for a site |
+| **Analysis** | Summary of analysis results (stored in DB for fast queries) |
+| **Report** | Full analysis report (stored in S3) |

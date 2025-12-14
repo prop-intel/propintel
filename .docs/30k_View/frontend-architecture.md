@@ -1,6 +1,6 @@
 # Frontend Architecture
 
-> AI Agent Quick Reference - PropIntel Web Application (`apps/web`)
+> AI Agent Quick Reference - BrandSight Web Application (`apps/web`)
 
 ## Quick Navigation
 

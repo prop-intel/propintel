@@ -1,6 +1,6 @@
 # Deep Agents Architecture Comparison
 
-This document compares PropIntel's current agent architecture against the "Deep Agents" pattern popularized by LangChain and seen in tools like Claude Code, Manus, and Deep Research.
+This document compares BrandSight's current agent architecture against the "Deep Agents" pattern popularized by LangChain and seen in tools like Claude Code, Manus, and Deep Research.
 
 ## What Are Deep Agents?
 
@@ -8,7 +8,7 @@ Deep Agents are an advanced architecture for handling complex, multi-step tasks 
 
 ## The Four Pillars of Deep Agents
 
-| Pillar | Description | PropIntel Status |
+| Pillar | Description | BrandSight Status |
 |--------|-------------|------------------|
 | **Detailed Prompts** | Long, complex system prompts with examples and behavioral instructions | Partial - each agent has prompts but not extensively documented |
 | **Planning Tool** | Built-in task/todo tool for breaking down complex tasks and tracking progress | Yes - `createExecutionPlan()` uses LLM to generate execution plans |
@@ -29,18 +29,18 @@ Agent receives task
   → Can spawn more agents if needed
 ```
 
-### PropIntel Pattern (Pipeline)
+### BrandSight Pattern (Pipeline)
 ```
 Orchestrator receives job
   → LLM generates execution plan
   → Phase 1: page-analysis → query-generation → competitor-discovery (sequential)
-  → Phase 2: tavily-research, llm-brand-probe, perplexity-agent, community-agent (parallel)
+  → Phase 2: tavily-research, perplexity, community-signals, llm-brand-probe (parallel)
   → Phase 3: citation-analysis, content-comparison → visibility-scoring
   → Phase 4: recommendations → cursor-prompt → report-generator
   → LLM reasons after each phase (can stop early)
 ```
 
-## What PropIntel Has
+## What BrandSight Has
 
 - **LLM-driven planning**: Orchestrator uses OpenAI to generate execution plans
 - **Inter-phase reasoning**: After each phase, LLM evaluates results and can stop/adjust
@@ -48,7 +48,7 @@ Orchestrator receives job
 - **Specialized agents**: 12 purpose-built agents for specific tasks
 - **Parallel execution**: Research agents run concurrently
 
-## What PropIntel Lacks (vs Deep Agents)
+## What BrandSight Lacks (vs Deep Agents)
 
 1. **Dynamic agent spawning**: Cannot create new agents at runtime based on discovered complexity
 2. **Recursive delegation**: Agents cannot spawn sub-agents themselves
@@ -63,13 +63,13 @@ A true Deep Agent could:
 - Each sub-agent could spawn its own `query-generation` agent
 - Results aggregate back up the chain
 
-PropIntel instead:
+BrandSight instead:
 - Runs single `page-analysis` agent for all content
 - Fixed pipeline regardless of content complexity
 
 ## Assessment
 
-**PropIntel is ~60% Deep Agent compliant.**
+**BrandSight is ~60% Deep Agent compliant.**
 
 | Capability | Score |
 |------------|-------|
