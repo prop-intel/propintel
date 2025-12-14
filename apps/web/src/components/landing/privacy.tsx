@@ -56,7 +56,7 @@ export function PrivacyPolicy() {
                     <h2 className="text-2xl font-semibold mb-4">5. Contact Us</h2>
                     <p className="text-muted-foreground">
                         If you have questions or comments about this Privacy Policy, please contact us at: <br />
-                        <a href="mailto:support@brandsight.ai" className="text-primary hover:underline">support@brandsight.ai</a>
+                        <a href="mailto:support@brand-sight.com" className="text-primary hover:underline">support@brand-sight.com</a>
                     </p>
                 </section>
             </div>

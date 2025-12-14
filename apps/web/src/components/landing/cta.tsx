@@ -37,7 +37,7 @@ export function CTA() {
                   Analyze My Site Free
                 </Button>
               </Link>
-              <Link href="mailto:contact@brandsight.ai">
+              <Link href="mailto:contact@brand-sight.com">
                 <Button size="lg" variant="outline" className="h-12 px-8 text-base bg-transparent border-primary-foreground/20 text-primary-foreground hover:bg-primary-foreground/10 w-full sm:w-auto">
                   Contact Sales
                   <ArrowRight className="ml-2 size-4" />

@@ -56,7 +56,7 @@ export function TermsOfService() {
                     <h2 className="text-2xl font-semibold mb-4">6. Contact Us</h2>
                     <p className="text-muted-foreground">
                         To resolve a complaint regarding the Site or to receive further information regarding use of the Site, please contact us at: <br />
-                        <a href="mailto:support@brandsight.ai" className="text-primary hover:underline">support@brandsight.ai</a>
+                        <a href="mailto:support@brand-sight.com" className="text-primary hover:underline">support@brand-sight.com</a>
                     </p>
                 </section>
             </div>

@@ -69,7 +69,7 @@ export function ApiDocs() {
                                         <h3 className="text-lg font-semibold mb-2">Analyze URL</h3>
                                         <p className="text-muted-foreground mb-4">Start an analysis job for a specific URL.</p>
                                         <div className="bg-zinc-950 text-zinc-50 p-4 rounded-lg font-mono text-sm overflow-x-auto">
-                                            <span className="text-green-400">POST</span> https://api.brandsight.ai/v1/analyze <br />
+                                            <span className="text-green-400">POST</span> https://api.brand-sight.com/v1/analyze <br />
                                             Authorization: Bearer sk_live_... <br />
                                             <br />
                                             {`{

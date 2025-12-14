@@ -34,7 +34,7 @@ Agent receives task
 Orchestrator receives job
   → LLM generates execution plan
   → Phase 1: page-analysis → query-generation → competitor-discovery (sequential)
-  → Phase 2: tavily-research, google-aio-agent, perplexity-agent, community-agent (parallel)
+  → Phase 2: tavily-research, llm-brand-probe, perplexity-agent, community-agent (parallel)
   → Phase 3: citation-analysis, content-comparison → visibility-scoring
   → Phase 4: recommendations → cursor-prompt → report-generator
   → LLM reasons after each phase (can stop early)

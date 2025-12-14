@@ -61,7 +61,7 @@ Breadth-first crawl starting from `targetUrl`. Discovers internal links and craw
 | Agent | Purpose |
 |-------|---------|
 | `tavily-research` | Performs live web searches for each target query |
-| `google-aio-agent` | Scrapes Google AI Overviews for citation data |
+| `llm-brand-probe` | Probes generic LLMs (GPT-4) for direct brand knowledge |
 | `perplexity-agent` | Queries Perplexity for AI-generated citations |
 | `community-agent` | Scans Reddit, HackerNews, GitHub for brand mentions |
 
