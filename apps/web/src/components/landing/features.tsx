@@ -18,13 +18,13 @@ const features = [
   },
   {
     icon: Target,
-    title: "AEO Scoring",
-    description: "Get a concrete 'Visibility Score' that measures how often you are cited compared to your competitors."
+    title: "Triple Score System",
+    description: "We present distinct AEO, LLMEO, and SEO scores for a holistic view of your brand's total AI visibility."
   },
   {
     icon: GitCompare,
     title: "Competitor Benchmarking",
-    description: "Compare your content side-by-side with top-performing domains to identify opportunities for growth."
+    description: "Compare your scores side-by-side with top performers to identify exact gaps."
   },
   {
     icon: Code2,

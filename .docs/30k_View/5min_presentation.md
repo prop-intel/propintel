@@ -13,61 +13,43 @@
 
 ---
 
-### 2. The Solution: BrandSight (1 Minute)
-**"We are the first platform dedicated to AEO (Answer Engine Optimization) & LLMEO."**
+### 2. The Solution (1:30 - 2:30)
 
-BrandSight is the "X-Ray" for the AI Web. We don't just track rankings; we simulate the AI Agents themselves to see exactly how your brand is perceived by the machines that now control discovery.
+**(Visual: Scroll to "How It Works" section on Landing Page)**
 
-*   **Visibility, Not Just Ranking:** We show you if you are Cited, Recommended, or Ignored.
-*   **Agent-First Analysis:** Our proprietary **4-Phase Pipeline** (Discovery, Research, Analysis, Output) mimics Perplexity, OpenAI, and Google's SGE to test your site's "Machine Readability."
-*   **Actionable Fixes:** We don't just list problems. We generate **Cursor Prompts**—ready-to-run code blocks that developers can drop into their IDE to fix the issues instantly.
+"This is **PropIntel**. We've built the first complete **AEO Intelligence Platform**."
 
----
+"We don't just optimize meta tags. We simulate the entire AI journey:"
 
-### 3. Key Features (1 Minute)
-**"A Complete Operating System for the AI Age."**
+1.  **Discovery**: "Our agents analyze your site exactly like an LLM—extracting entities, intent, and context."
+2.  **Research**: "We deploy agents to act like real users, querying Perplexity, SearchGPT, and Google in real-time."
+3.  **Analysis**: "We calculate your **Triple Score**:"
+    *   **(Visual: Scroll to "Features" section showing the scores)**
+    *   **AEO Score**: "How often are you the direct answer?"
+    *   **LLMEO Score**: "How well can an LLM parse your schema and context?"
+    *   **SEO Score**: "Are the technical fundamentals sound?"
+4.  **Action**: "Finally, we generate **Cursor Prompts**. One-click code generation to fix every issue we find."
 
-1.  **Multi-Agent Simulation:**
-    *   Simulate queries on Perplexity, SearchGPT, and Google.
-    *   See your brand through the "eyes" of an LLM.
+**(Visual: Show "Cursor Prompt" feature card)**
 
-2.  **The Triple Score System:**
-    *   **AEO Score:** How often are you the direct answer?
-    *   **LLMEO Score:** How well can an LLM parse your schema and context?
-    *   **SEO Score:** Are the technical fundamentals sound?
-
-3.  **Competitor Benchmarking:**
-    *   "Why is Stripe recommended over us?"
-    *   Side-by-side gap analysis of your competitors' AI visibility.
-
-4.  **One-Click Optimization:**
-    *   **Cursor Prompts:** Copy-paste code generation to add missing Schema, fix semantic structure, and optimize for vector search.
+"It's not a black box anymore. It's a solvable engineering problem."
 
 ---
 
-### 4. How It Works (30 Seconds)
-**"From URL to Optimized in Minutes."**
+### 3. The Demo (2:30 - 3:30)
 
-1.  **Input:** User enters their URL (e.g., `brand-sight.com`).
-2.  **Crawl & Research:** Our Orchestrator dispatches "Research Agents" to crawl the site and simultaneously query live AI search engines.
-3.  **Analyze:** We compare the site's content against the AI's answers.
-4.  **Report:** We generate a comprehensive dashboard showing Gaps, Opportunities, and a prioritized list of fixes.
+**(Visual: Switch to App Dashboard - "Analyze My Site" flow)**
 
----
+"Let me show you."
 
-### 5. The Demo (1 Minute 30 Seconds)
-**"Seeing is Believing."**
+*(Walkthrough of the actual app)*
 
-**[Presenter Note: Use the Interactive Demo on the Landing Page]**
-
-*   **Step 1:** Enter a prospect's URL (e.g., `stripe.com`) into the main input on the homepage.
-*   **Step 2:** Click "Analyze" and let them watch the **Agents Active** animation (simulating the 4-Phase Pipeline).
-*   **Step 3:** Scroll down to the **"Dashboard Preview"**:
-    *   *Highlight:* The "Room to Grow" card (visualizing the gap analysis).
-    *   *Highlight:* The **"Cursor Prompt Ready"** button.
-    *   *Action:* Explain that this is how we bridge the gap between "Analyst" (Report) and "Engineer" (Fix).
-
-*(Note: The live `/dashboard` currently focuses on Crawler Analytics & Traffic Tracking, while the Analysis Engine runs via API.)*
+1.  "I enter a domain—say, `stripe.com`."
+2.  "Our agents wake up. You can see them working in real-time."
+3.  "Here's the **Result**: A concrete visibility score. AEO, LLMEO, and SEO broken down."
+4.  "And here's the magic sauce: **The Recommendations**."
+    *   "We don't just say 'improve content'. We say: 'You're missing `Product` schema for this pricing tier'."
+    *   "I click 'Generate Prompt', paste it into Cursor, and the fix is live."
 
 ---
 
