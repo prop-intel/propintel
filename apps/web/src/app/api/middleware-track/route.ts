@@ -1,8 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { db } from "@/server/db";
-import { sites, siteUrls, crawlerVisits } from "@/server/db/schema";
-import { eq, and } from "drizzle-orm";
-import { detectCrawler } from "@/lib/crawler-detection";
+import { trackVisit } from "@/lib/track-visit";
 
 interface TrackRequest {
   trackingId: string;
@@ -33,63 +30,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const site = await db.query.sites.findFirst({
-      where: eq(sites.trackingId, trackingId),
-    });
-
-    if (!site) {
-      return NextResponse.json(
-        { tracked: false, error: "Invalid tracking ID" },
-        { status: 404, headers: CORS_HEADERS }
-      );
-    }
-
-    const crawlerId = detectCrawler(userAgent);
-
-    if (!crawlerId) {
-      return NextResponse.json({ tracked: false }, { headers: CORS_HEADERS });
-    }
-
-    // Find or create URL record
-    let urlRecord = await db.query.siteUrls.findFirst({
-      where: and(eq(siteUrls.siteId, site.id), eq(siteUrls.path, path || "/")),
-    });
-
-    if (!urlRecord) {
-      const [newUrl] = await db
-        .insert(siteUrls)
-        .values({
-          siteId: site.id,
-          path: path || "/",
-        })
-        .returning();
-      urlRecord = newUrl;
-    }
-
-    // Update URL crawl stats
-    if (urlRecord) {
-      await db
-        .update(siteUrls)
-        .set({
-          lastCrawled: new Date(),
-          crawlCount: (urlRecord.crawlCount ?? 0) + 1,
-        })
-        .where(eq(siteUrls.id, urlRecord.id));
-    }
-
-    // Record the visit
-    await db.insert(crawlerVisits).values({
-      siteId: site.id,
-      urlId: urlRecord?.id,
-      crawlerId,
+    const result = await trackVisit({
+      trackingId,
       userAgent,
       path: path || "/",
       ipAddress: ip || null,
       source: "middleware",
     });
 
+    if (!result.siteId) {
+      return NextResponse.json(
+        { tracked: false, error: "Invalid tracking ID" },
+        { status: 404, headers: CORS_HEADERS }
+      );
+    }
+
     return NextResponse.json(
-      { tracked: true, crawlerId },
+      { tracked: result.tracked, crawlerId: result.crawlerId },
       { headers: CORS_HEADERS }
     );
   } catch (error) {

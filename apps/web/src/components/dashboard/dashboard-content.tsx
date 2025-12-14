@@ -11,6 +11,8 @@ import {
   TrackingSetupDialog,
   TrackingEmptyState,
 } from "@/components/dashboard/tracking-status";
+import { UnmatchedUserAgents } from "@/components/dashboard/unmatched-user-agents";
+import type { UserRole } from "@/server/auth/config";
 
 type Site = {
   id: string;
@@ -60,12 +62,14 @@ interface DashboardContentProps {
     };
   };
   timeFrameLabel: string;
+  userRole: UserRole;
 }
 
 export function DashboardContent({
   site,
   initialData,
   timeFrameLabel,
+  userRole,
 }: DashboardContentProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
 
@@ -129,6 +133,8 @@ export function DashboardContent({
         open={dialogOpen}
         onOpenChange={setDialogOpen}
       />
+
+      {userRole === "admin" && <UnmatchedUserAgents />}
     </div>
   );
 }

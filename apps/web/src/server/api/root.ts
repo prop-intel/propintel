@@ -1,3 +1,4 @@
+import { adminRouter } from "@/server/api/routers/admin";
 import { analyticsRouter } from "@/server/api/routers/analytics";
 import { dashboardRouter } from "@/server/api/routers/dashboard";
 import { jobRouter } from "@/server/api/routers/job";
@@ -15,6 +16,7 @@ import { createCallerFactory, createTRPCRouter } from "@/server/api/trpc";
  * All routers added in /api/routers should be manually added here.
  */
 export const appRouter = createTRPCRouter({
+  admin: adminRouter,
   analytics: analyticsRouter,
   dashboard: dashboardRouter,
   job: jobRouter,

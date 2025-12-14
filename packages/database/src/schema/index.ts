@@ -37,6 +37,8 @@ export {
   crawlers,
   crawlerVisits,
   crawlerVisitsRelations,
+  unmatchedUserAgents,
+  unmatchedUserAgentsRelations,
 } from "./sites";
 
 export type {
@@ -48,6 +50,8 @@ export type {
   NewCrawler,
   CrawlerVisit,
   NewCrawlerVisit,
+  UnmatchedUserAgent,
+  NewUnmatchedUserAgent,
 } from "./sites";
 
 // Job schemas

@@ -131,6 +131,43 @@ export const crawlerVisitsRelations = relations(crawlerVisits, ({ one }) => ({
   }),
 }));
 
+export const unmatchedUserAgents = createTable(
+  "unmatched_user_agents",
+  (d) => ({
+    id: d
+      .varchar("id", { length: 255 })
+      .notNull()
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    siteId: d
+      .varchar("site_id", { length: 255 })
+      .notNull()
+      .references(() => sites.id, { onDelete: "cascade" }),
+    userAgent: d.text("user_agent").notNull(),
+    path: d.text("path").notNull(),
+    ipAddress: d.varchar("ip_address", { length: 45 }),
+    source: d.varchar("source", { length: 20 }).notNull().default("pixel"),
+    createdAt: d
+      .timestamp("created_at", { mode: "date", withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  }),
+  (t) => [
+    index("unmatched_user_agents_site_id_idx").on(t.siteId),
+    index("unmatched_user_agents_created_at_idx").on(t.createdAt),
+  ]
+);
+
+export const unmatchedUserAgentsRelations = relations(
+  unmatchedUserAgents,
+  ({ one }) => ({
+    site: one(sites, {
+      fields: [unmatchedUserAgents.siteId],
+      references: [sites.id],
+    }),
+  })
+);
+
 export type Site = typeof sites.$inferSelect;
 export type NewSite = typeof sites.$inferInsert;
 export type SiteUrl = typeof siteUrls.$inferSelect;
@@ -139,3 +176,5 @@ export type Crawler = typeof crawlers.$inferSelect;
 export type NewCrawler = typeof crawlers.$inferInsert;
 export type CrawlerVisit = typeof crawlerVisits.$inferSelect;
 export type NewCrawlerVisit = typeof crawlerVisits.$inferInsert;
+export type UnmatchedUserAgent = typeof unmatchedUserAgents.$inferSelect;
+export type NewUnmatchedUserAgent = typeof unmatchedUserAgents.$inferInsert;

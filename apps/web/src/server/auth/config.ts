@@ -11,6 +11,8 @@ import {
 } from "@propintel/database";
 import { env } from "@/env";
 
+export type UserRole = "user" | "admin";
+
 /**
  * Module augmentation for `next-auth` types. Allows us to add custom properties to the `session`
  * object and keep type safety.
@@ -21,15 +23,13 @@ declare module "next-auth" {
   interface Session extends DefaultSession {
     user: {
       id: string;
-      // ...other properties
-      // role: UserRole;
+      role: UserRole;
     } & DefaultSession["user"];
   }
 
-  // interface User {
-  //   // ...other properties
-  //   // role: UserRole;
-  // }
+  interface User {
+    role?: string | null;
+  }
 }
 
 /**
@@ -51,12 +51,22 @@ export const authConfig = {
     verificationTokensTable: verificationTokens,
   }),
   callbacks: {
-    session: ({ session, user }) => ({
-      ...session,
-      user: {
-        ...session.user,
-        id: user.id,
-      },
-    }),
+    session: ({ session, user }) => {
+      if (process.env.NODE_ENV === "development") {
+        console.log("[Auth] User session:", {
+          id: user.id,
+          email: session.user.email,
+          role: user.role ?? "user",
+        });
+      }
+      return {
+        ...session,
+        user: {
+          ...session.user,
+          id: user.id,
+          role: (user.role as UserRole) ?? "user",
+        },
+      };
+    },
   },
 } satisfies NextAuthConfig;

@@ -68,7 +68,7 @@ export function SiteSwitcher() {
       }
 
       toast.success("Site deleted successfully");
-    } catch (error) {
+    } catch {
       // Error handled in mutation callback
     }
   };

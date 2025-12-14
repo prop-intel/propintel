@@ -98,6 +98,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         trackingStatus,
       }}
       timeFrameLabel={timeFrameConfig.label}
+      userRole={session?.user?.role ?? "user"}
     />
   );
 }
