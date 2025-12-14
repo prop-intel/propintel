@@ -138,13 +138,13 @@ function analyzeMetadata(pages: CrawledPage[]): SEOAnalysis['metadata'] {
   });
 
   // Find duplicates
-  titleMap.forEach((urls, title) => {
+  titleMap.forEach((urls, _title) => {
     if (urls.length > 1) {
       duplicateTitles.push(...urls);
     }
   });
 
-  descriptionMap.forEach((urls, desc) => {
+  descriptionMap.forEach((urls, _desc) => {
     if (urls.length > 1) {
       duplicateDescriptions.push(...urls);
     }

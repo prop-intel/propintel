@@ -127,8 +127,8 @@ export async function compareContent(
         output: { skipped: true, reason: 'No competitor content available for comparison' },
       });
       // Non-blocking flush - observability should never block business logic
-      safeFlush();
-      
+      void safeFlush();
+
       return {
         competitorInsights: [],
         contentGaps: [{
@@ -188,7 +188,7 @@ Analyze what competitors are doing better and what content gaps exist.`;
     });
 
     // Non-blocking flush - observability should never block business logic
-    safeFlush();
+    void safeFlush();
 
     // Transform to our format
     const comparisonResult: ContentComparisonResult = {
@@ -214,7 +214,7 @@ Analyze what competitors are doing better and what content gaps exist.`;
       statusMessage: (error as Error).message,
     });
     // Non-blocking flush - still try to log errors
-    safeFlush();
+    void safeFlush();
     throw error;
   }
 }

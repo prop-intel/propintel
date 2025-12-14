@@ -47,7 +47,7 @@ import {
   CursorPromptCard,
 } from "@/components/analysis";
 import type { AgentStatus, PipelinePhase } from "@/components/analysis";
-import type { AgentSummary } from "@/types/agent-analysis";
+import type { AgentSummary, AEORecommendation, CursorPrompt } from "@/types/agent-analysis";
 import { isFullSummary } from "@/types/agent-analysis";
 
 export default function AgentAnalysisPage() {
@@ -337,10 +337,8 @@ export default function AgentAnalysisPage() {
   const domain = fullReport?.meta?.domain ?? activeSite?.domain ?? "";
   
   // Extract recommendations and cursor prompt from full report
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const aeoRecommendations = (fullReport as any)?.aeoRecommendations ?? [];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const cursorPrompt = (fullReport as any)?.cursorPrompt;
+  const aeoRecommendations: AEORecommendation[] = fullReport?.aeoRecommendations ?? [];
+  const cursorPrompt: CursorPrompt | undefined = fullReport?.cursorPrompt;
 
   return (
     <div className="space-y-6 p-6">
@@ -541,12 +539,12 @@ export default function AgentAnalysisPage() {
             )}
 
             {/* AEO Recommendations */}
-            {aeoRecommendations && aeoRecommendations.length > 0 && (
+            {aeoRecommendations.length > 0 && (
               <RecommendationsCard recommendations={aeoRecommendations} />
             )}
 
             {/* Cursor Prompt - Copy-paste for implementation */}
-            {cursorPrompt && cursorPrompt.prompt && (
+            {cursorPrompt?.prompt && (
               <CursorPromptCard cursorPrompt={cursorPrompt} />
             )}
 

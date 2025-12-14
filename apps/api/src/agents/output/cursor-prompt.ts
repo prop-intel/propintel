@@ -141,7 +141,7 @@ Create a prompt that will help improve visibility for these target queries.`;
     });
 
     // Non-blocking flush - observability should never block business logic
-    safeFlush();
+    void safeFlush();
 
     const normalized = normalizeCursorPrompt(result.object);
     return {
@@ -157,7 +157,7 @@ Create a prompt that will help improve visibility for these target queries.`;
       statusMessage: (error as Error).message,
     });
     // Non-blocking flush - still try to log errors
-    safeFlush();
+    void safeFlush();
     throw error;
   }
 }

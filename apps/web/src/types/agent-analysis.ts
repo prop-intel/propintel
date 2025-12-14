@@ -97,6 +97,33 @@ export interface AEOAnalysis {
   communityEngagement?: CommunityEngagement;
 }
 
+export interface AEORecommendation {
+  id: string;
+  priority: "high" | "medium" | "low";
+  category: "visibility" | "content" | "structure" | "authority";
+  title: string;
+  description: string;
+  impact: string;
+  effort: "low" | "medium" | "high";
+  targetQueries?: string[];
+  competitorExample?: {
+    domain: string;
+    url: string;
+    whatTheyDoBetter: string;
+  };
+}
+
+export interface CursorPrompt {
+  prompt: string;
+  sections: Array<{
+    name: string;
+    action: "add" | "modify" | "remove";
+    content: string;
+  }>;
+  version: string;
+  generatedAt?: string;
+}
+
 export interface FullSummary {
   scores?: SummaryScores;
   strengths?: string[];
@@ -106,6 +133,8 @@ export interface FullSummary {
   recommendations?: Recommendation[];
   fullReport?: {
     aeoAnalysis?: AEOAnalysis;
+    aeoRecommendations?: AEORecommendation[];
+    cursorPrompt?: CursorPrompt;
     meta?: {
       domain?: string;
     };

@@ -65,7 +65,7 @@ export function useDashboardFilters() {
         }
       }
 
-      if (updates.source !== undefined) {
+      if ("source" in updates) {
         if (updates.source) {
           params.set("source", updates.source);
         } else {

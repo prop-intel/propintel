@@ -1,4 +1,4 @@
-import puppeteer, { type Browser, Page } from 'puppeteer-core';
+import puppeteer, { type Browser } from 'puppeteer-core';
 import chromium from '@sparticuz/chromium';
 import * as cheerio from 'cheerio';
 import robotsParser from 'robots-parser';
@@ -451,7 +451,7 @@ function detectLanguageFromContent($: cheerio.CheerioAPI): string | undefined {
 
 async function fetchRobotsTxt(
   origin: string,
-  userAgent: string
+  _userAgent: string
 ): Promise<ReturnType<typeof robotsParser> | null> {
   try {
     const response = await fetch(`${origin}/robots.txt`);

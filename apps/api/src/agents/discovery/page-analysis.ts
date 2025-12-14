@@ -164,7 +164,7 @@ Extract:
     });
 
     // Non-blocking flush - observability should never block business logic
-    safeFlush();
+    void safeFlush();
 
     return normalized as PageAnalysis;
   } catch (error) {
@@ -174,7 +174,7 @@ Extract:
       statusMessage: (error as Error).message,
     });
     // Non-blocking flush - still try to log errors
-    safeFlush();
+    void safeFlush();
     throw error;
   }
 }

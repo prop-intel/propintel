@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { SummaryCards } from "@/components/dashboard/summary-cards";
 import { CrawlerChart } from "@/components/dashboard/crawler-chart";
-import { TimelineChart } from "@/components/dashboard/timeline-chart";
+import { TimelineTabs } from "@/components/dashboard/timeline-tabs";
 import { TopPagesTable } from "@/components/dashboard/top-pages-table";
+import { CrawlerHeatmap } from "@/components/dashboard/crawler-heatmap";
 import { DashboardFilters } from "@/components/dashboard/dashboard-filters";
 import {
   TrackingStatusBadge,
@@ -47,12 +48,10 @@ interface DashboardContentProps {
     };
     topPages: Array<{
       id: string;
-      siteId: string;
-      path: string | null;
-      title: string | null;
-      firstSeen: Date;
+      path: string;
+      crawlCount: number;
       lastCrawled: Date | null;
-      crawlCount: number | null;
+      trend: number[];
     }>;
     trackingStatus: {
       hasPixel: boolean;
@@ -91,6 +90,7 @@ export function DashboardContent({
     path: page.path ?? "/",
     crawlCount: page.crawlCount,
     lastCrawled: page.lastCrawled,
+    trend: page.trend,
   }));
 
   return (
@@ -113,16 +113,19 @@ export function DashboardContent({
         <>
           <SummaryCards data={initialData.summary} isLoading={false} />
 
-          <div className="grid gap-6 md:grid-cols-2">
+          <div className="grid gap-6 lg:grid-cols-2">
             <CrawlerChart data={crawlerChartData} isLoading={false} />
-            <TimelineChart
-              data={initialData.timeline}
-              isLoading={false}
+            <TimelineTabs
+              siteId={site.id}
               timeFrameLabel={timeFrameLabel}
+              initialData={initialData.timeline}
             />
           </div>
 
-          <TopPagesTable data={topPagesData} isLoading={false} />
+          <div className="grid gap-6 lg:grid-cols-2">
+            <TopPagesTable data={topPagesData} isLoading={false} />
+            <CrawlerHeatmap siteId={site.id} />
+          </div>
         </>
       ) : (
         <TrackingEmptyState onSetupClick={() => setDialogOpen(true)} />

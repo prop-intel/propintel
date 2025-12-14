@@ -143,7 +143,7 @@ Assign relevance scores based on how well the page content answers each query.`;
     });
 
     // Non-blocking flush - observability should never block business logic
-    safeFlush();
+    void safeFlush();
 
     // Sort by relevance score descending
     const queries = normalized.queries as TargetQuery[];
@@ -157,7 +157,7 @@ Assign relevance scores based on how well the page content answers each query.`;
       statusMessage: (error as Error).message,
     });
     // Non-blocking flush - still try to log errors
-    safeFlush();
+    void safeFlush();
     throw error;
   }
 }
@@ -238,7 +238,7 @@ These queries should be answerable by the page content.`;
     });
 
     // Non-blocking flush - observability should never block business logic
-    safeFlush();
+    void safeFlush();
 
     return normalized.queries as TargetQuery[];
   } catch (error) {
@@ -248,7 +248,7 @@ These queries should be answerable by the page content.`;
       statusMessage: (error as Error).message,
     });
     // Non-blocking flush - still try to log errors
-    safeFlush();
+    void safeFlush();
     throw error;
   }
 }

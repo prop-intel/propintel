@@ -85,8 +85,8 @@ export async function generateAEORecommendations(
   });
 
   try {
-    // Build context for LLM
-    const context = buildRecommendationContext(aeoAnalysis, contentComparison);
+    // Build context for LLM (used for logging/debugging if needed)
+    buildRecommendationContext(aeoAnalysis, contentComparison);
 
     const systemPrompt = `You are an expert AEO (Answer Engine Optimization) consultant.
 Generate specific, actionable recommendations to improve visibility in AI search results.
@@ -142,7 +142,7 @@ Generate 5-8 specific, prioritized recommendations.`;
     });
 
     // Non-blocking flush - observability should never block business logic
-    safeFlush();
+    void safeFlush();
 
     // Add IDs and competitor examples, normalize enum values
     const recommendations: AEORecommendation[] = result.object.recommendations.map((rec, index) => {
@@ -168,7 +168,7 @@ Generate 5-8 specific, prioritized recommendations.`;
       statusMessage: (error as Error).message,
     });
     // Non-blocking flush - still try to log errors
-    safeFlush();
+    void safeFlush();
     throw error;
   }
 }

@@ -203,7 +203,7 @@ function identifyContentGaps(
  */
 function identifyKeywordGaps(
   queryGaps: QueryGap[],
-  competitorPages: Map<string, CrawledPage[]>
+  _competitorPages: Map<string, CrawledPage[]>
 ): KeywordGap[] {
   return queryGaps.slice(0, 10).map(gap => ({
     keyword: gap.query,

@@ -93,8 +93,8 @@ export async function safeFlush(): Promise<void> {
  */
 export function fireAndForgetFlush(): void {
   if (!langfuse) return;
-  langfuse.flushAsync().catch((err) => {
-    console.warn("[Langfuse] Background flush error:", err.message);
+  langfuse.flushAsync().catch((err: unknown) => {
+    console.warn("[Langfuse] Background flush error:", (err as Error).message);
   });
 }
 

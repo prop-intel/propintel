@@ -1,8 +1,9 @@
 "use client";
 
 import { Activity, Bot, FileText, TrendingUp } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Separator } from "@/components/ui/separator";
 
 interface SummaryCardsProps {
   data: {
@@ -15,66 +16,70 @@ interface SummaryCardsProps {
 }
 
 export function SummaryCards({ data, isLoading }: SummaryCardsProps) {
-  const cards = [
+  const stats = [
     {
-      title: "Total Crawler Visits",
+      title: "Total Visits",
       value: data?.totalVisits ?? 0,
       icon: Activity,
-      description: "All time",
     },
     {
-      title: "Unique Crawlers",
+      title: "Crawlers",
       value: data?.uniqueCrawlers ?? 0,
       icon: Bot,
-      description: "Detected AI bots",
     },
     {
-      title: "Pages Tracked",
+      title: "Pages",
       value: data?.totalUrls ?? 0,
       icon: FileText,
-      description: "URLs discovered",
     },
     {
-      title: "Visits Today",
+      title: "Today",
       value: data?.visitsToday ?? 0,
       icon: TrendingUp,
-      description: "Last 24 hours",
     },
   ];
 
   if (isLoading) {
     return (
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {cards.map((_, i) => (
-          <Card key={i}>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <Skeleton className="h-4 w-24" />
+      <Card className="p-4">
+        <div className="flex items-center gap-6 overflow-x-auto">
+          {stats.map((_, i) => (
+            <div key={i} className="flex items-center gap-3 min-w-fit">
               <Skeleton className="h-4 w-4" />
-            </CardHeader>
-            <CardContent>
-              <Skeleton className="h-8 w-16" />
-              <Skeleton className="h-3 w-20 mt-1" />
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+              <div className="flex flex-col gap-1">
+                <Skeleton className="h-3 w-16" />
+                <Skeleton className="h-5 w-12" />
+              </div>
+              {i < stats.length - 1 && (
+                <Separator orientation="vertical" className="h-8 ml-6" />
+              )}
+            </div>
+          ))}
+        </div>
+      </Card>
     );
   }
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-      {cards.map((card) => (
-        <Card key={card.title}>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">{card.title}</CardTitle>
-            <card.icon className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{card.value.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">{card.description}</p>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
+    <Card className="p-4">
+      <div className="flex items-center gap-4 overflow-x-auto sm:gap-6">
+        {stats.map((stat, index) => (
+          <div key={stat.title} className="flex items-center gap-3 min-w-fit">
+            <stat.icon className="h-4 w-4 text-muted-foreground shrink-0" />
+            <div className="flex flex-col">
+              <span className="text-xs text-muted-foreground whitespace-nowrap">
+                {stat.title}
+              </span>
+              <span className="text-lg font-bold tabular-nums">
+                {stat.value.toLocaleString()}
+              </span>
+            </div>
+            {index < stats.length - 1 && (
+              <Separator orientation="vertical" className="h-8 ml-2 sm:ml-4" />
+            )}
+          </div>
+        ))}
+      </div>
+    </Card>
   );
 }

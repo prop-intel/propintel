@@ -14,7 +14,7 @@
  */
 
 import { type TargetQuery } from '../../types';
-import { search, searchBatch, isConfigured } from '../../lib/tavily';
+import { searchBatch, isConfigured } from '../../lib/tavily';
 import { createTrace, safeFlush } from '../../lib/langfuse';
 
 // ===================
@@ -165,7 +165,7 @@ export async function searchCommunitySignals(
     });
 
     // Non-blocking flush - observability should never block business logic
-    safeFlush();
+    void safeFlush();
 
     console.log(`[Community Agent] Found ${result.totalOpportunities} engagement opportunities`);
     return result;
@@ -174,7 +174,7 @@ export async function searchCommunitySignals(
       level: 'ERROR',
       statusMessage: (error as Error).message,
     });
-    safeFlush();
+    void safeFlush();
     throw error;
   }
 }

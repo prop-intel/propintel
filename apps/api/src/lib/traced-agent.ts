@@ -22,6 +22,7 @@
  * ```
  */
 
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { langfuse, safeFlush, createTrace } from "./langfuse";
 
 // ===================
@@ -48,7 +49,7 @@ interface NoOpTrace {
  * Context passed to traced agent functions
  */
 export interface TraceContext {
-  trace: ReturnType<typeof createTrace>;
+  trace: ReturnType<typeof createTrace> | NoOpTrace;
   generation: NoOpGeneration | ReturnType<ReturnType<NonNullable<typeof langfuse>["trace"]>["generation"]>;
 }
 
@@ -130,7 +131,7 @@ export function withTracing<TInput, TOutput>(
       generation.end({ output: result, level: "DEFAULT" });
 
       // Non-blocking flush - don't await in critical path
-      safeFlush();
+      void safeFlush();
 
       return result;
     } catch (error) {
@@ -142,7 +143,7 @@ export function withTracing<TInput, TOutput>(
       });
 
       // Still try to flush errors, but don't block
-      safeFlush();
+      void safeFlush();
 
       throw error;
     }

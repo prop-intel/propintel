@@ -423,8 +423,8 @@ const TEMPLATE_RULES: Record<TemplateType, TemplateRules> = {
  */
 export function calculateTemplateScore(
   page: CrawledPage,
-  llmeoAnalysis?: LLMEOAnalysis,
-  seoAnalysis?: SEOAnalysis
+  _llmeoAnalysis?: LLMEOAnalysis,
+  _seoAnalysis?: SEOAnalysis
 ): TemplateScore {
   const detection = detectTemplate(page);
   const rules = TEMPLATE_RULES[detection.type];

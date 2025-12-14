@@ -356,7 +356,6 @@ function analyzeContent(page: CrawledPage): Map<TemplateType, number> {
 
   // Heading structure signals
   const h2Count = page.headings.h2.length;
-  const h3Count = page.headings.h3.length;
 
   if (h2Count >= 5) {
     scores.set('blog', (scores.get('blog') || 0) + 10);

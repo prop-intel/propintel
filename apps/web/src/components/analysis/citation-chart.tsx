@@ -10,7 +10,6 @@ import {
   XCircle,
   ExternalLink,
   ChevronDown,
-  Trophy,
   Link2,
 } from "lucide-react";
 import { motion } from "motion/react";

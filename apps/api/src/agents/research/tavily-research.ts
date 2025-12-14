@@ -6,9 +6,13 @@
  * Also includes community signal tracking (Reddit, HN, GitHub, Twitter).
  */
 
-import { type TargetQuery, type TavilySearchResult, type QueryCitation } from '../../types';
-import { search, searchBatch, isConfigured } from '../../lib/tavily';
-import { createTrace, safeFlush } from '../../lib/langfuse';
+import {
+  type TargetQuery,
+  type TavilySearchResult,
+  type QueryCitation,
+} from "../../types";
+import { searchBatch, isConfigured } from "../../lib/tavily";
+import { createTrace, safeFlush } from "../../lib/langfuse";
 
 // ===================
 // Configuration
@@ -30,14 +34,14 @@ export async function researchQueries(
   jobId: string,
   options: {
     resultsPerQuery?: number;
-  } = {}
+  } = {},
 ): Promise<TavilySearchResult[]> {
   const { resultsPerQuery = DEFAULT_RESULTS_PER_QUERY } = options;
 
   // Check if Tavily is configured
   if (!isConfigured()) {
-    console.warn('Tavily API key not configured, skipping research phase');
-    return queries.map(q => ({
+    console.warn("Tavily API key not configured, skipping research phase");
+    return queries.map((q) => ({
       query: q.query,
       results: [],
       searchedAt: new Date().toISOString(),
@@ -45,23 +49,23 @@ export async function researchQueries(
   }
 
   const trace = createTrace({
-    name: 'aeo-tavily-research',
+    name: "aeo-tavily-research",
     userId: tenantId,
     metadata: { jobId, queryCount: queries.length },
   });
 
   const span = trace.span({
-    name: 'research-queries',
+    name: "research-queries",
   });
 
   try {
     // Extract query strings
-    const queryStrings = queries.map(q => q.query);
+    const queryStrings = queries.map((q) => q.query);
 
     // Search all queries
     const results = await searchBatch(queryStrings, {
       maxResults: resultsPerQuery,
-      searchDepth: 'basic',
+      searchDepth: "basic",
       concurrency: SEARCH_CONCURRENCY,
     });
 
@@ -73,16 +77,16 @@ export async function researchQueries(
     });
 
     // Non-blocking flush - observability should never block business logic
-    safeFlush();
+    void safeFlush();
 
     return results;
   } catch (error) {
     span.end({
-      level: 'ERROR',
+      level: "ERROR",
       statusMessage: (error as Error).message,
     });
     // Non-blocking flush - still try to log errors
-    safeFlush();
+    void safeFlush();
     throw error;
   }
 }
@@ -92,7 +96,7 @@ export async function researchQueries(
  */
 export function analyzeCitations(
   searchResults: TavilySearchResult[],
-  targetDomain: string
+  targetDomain: string,
 ): QueryCitation[] {
   const citations: QueryCitation[] = [];
 
@@ -109,16 +113,16 @@ export function analyzeCitations(
  */
 function analyzeQueryCitation(
   searchResult: TavilySearchResult,
-  targetDomain: string
+  targetDomain: string,
 ): QueryCitation {
   // Find target domain in results
-  let yourPosition: 'cited' | 'mentioned' | 'absent' = 'absent';
+  let yourPosition: "cited" | "mentioned" | "absent" = "absent";
   let yourRank: number | undefined;
 
   for (let i = 0; i < searchResult.results.length; i++) {
     const item = searchResult.results[i];
     if (item && domainMatches(item.domain, targetDomain)) {
-      yourPosition = i < 3 ? 'cited' : 'mentioned';
+      yourPosition = i < 3 ? "cited" : "mentioned";
       yourRank = i + 1;
       break;
     }
@@ -137,7 +141,7 @@ function analyzeQueryCitation(
 
   const firstTopResult = topResults[0];
   const firstResult = searchResult.results[0];
-  if (yourPosition === 'absent' && firstTopResult && firstResult) {
+  if (yourPosition === "absent" && firstTopResult && firstResult) {
     winningDomain = firstTopResult.domain;
     winningReason = determineWinningReason(firstResult, searchResult.query);
   }
@@ -155,9 +159,7 @@ function analyzeQueryCitation(
 /**
  * Calculate overall visibility metrics from citations
  */
-export function calculateVisibilityMetrics(
-  citations: QueryCitation[]
-): {
+export function calculateVisibilityMetrics(citations: QueryCitation[]): {
   totalQueries: number;
   citedCount: number;
   mentionedCount: number;
@@ -174,13 +176,13 @@ export function calculateVisibilityMetrics(
 
   for (const citation of citations) {
     switch (citation.yourPosition) {
-      case 'cited':
+      case "cited":
         citedCount++;
         break;
-      case 'mentioned':
+      case "mentioned":
         mentionedCount++;
         break;
-      case 'absent':
+      case "absent":
         absentCount++;
         break;
     }
@@ -196,7 +198,10 @@ export function calculateVisibilityMetrics(
     citedCount,
     mentionedCount,
     absentCount,
-    citationRate: totalQueries > 0 ? ((citedCount + mentionedCount) / totalQueries) * 100 : 0,
+    citationRate:
+      totalQueries > 0
+        ? ((citedCount + mentionedCount) / totalQueries) * 100
+        : 0,
     averageRank: rankedCount > 0 ? totalRank / rankedCount : 0,
   };
 }
@@ -207,7 +212,7 @@ export function calculateVisibilityMetrics(
 export function getFrequentDomains(
   searchResults: TavilySearchResult[],
   targetDomain: string,
-  limit = 10
+  limit = 10,
 ): Map<string, number> {
   const domainCounts = new Map<string, number>();
 
@@ -236,7 +241,7 @@ export function getFrequentDomains(
  * Check if two domains match (handles www prefix and subdomains)
  */
 function domainMatches(domain1: string, domain2: string): boolean {
-  const normalize = (d: string) => d.replace(/^www\./, '').toLowerCase();
+  const normalize = (d: string) => d.replace(/^www\./, "").toLowerCase();
   const d1 = normalize(domain1);
   const d2 = normalize(domain2);
 
@@ -247,40 +252,48 @@ function domainMatches(domain1: string, domain2: string): boolean {
  * Determine why a competitor might be winning for a query
  */
 function determineWinningReason(
-  topResult: TavilySearchResult['results'][0],
-  query: string
+  topResult: TavilySearchResult["results"][0],
+  query: string,
 ): string {
   const reasons: string[] = [];
 
   // Check title relevance
-  const queryTerms = query.toLowerCase().split(' ').filter(t => t.length > 3);
+  const queryTerms = query
+    .toLowerCase()
+    .split(" ")
+    .filter((t) => t.length > 3);
   const titleLower = topResult.title.toLowerCase();
-  const matchingTerms = queryTerms.filter(t => titleLower.includes(t));
+  const matchingTerms = queryTerms.filter((t) => titleLower.includes(t));
 
   if (matchingTerms.length >= queryTerms.length * 0.5) {
-    reasons.push('Title closely matches query');
+    reasons.push("Title closely matches query");
   }
 
   // Check content length (if substantial snippet)
   if (topResult.content.length > 300) {
-    reasons.push('Comprehensive content');
+    reasons.push("Comprehensive content");
   }
 
   // Check for authoritative domains
   const authoritativeDomains = [
-    'wikipedia.org', 'github.com', 'stackoverflow.com',
-    'microsoft.com', 'google.com', 'amazon.com', 'aws.amazon.com',
+    "wikipedia.org",
+    "github.com",
+    "stackoverflow.com",
+    "microsoft.com",
+    "google.com",
+    "amazon.com",
+    "aws.amazon.com",
   ];
-  if (authoritativeDomains.some(d => topResult.domain.includes(d))) {
-    reasons.push('High domain authority');
+  if (authoritativeDomains.some((d) => topResult.domain.includes(d))) {
+    reasons.push("High domain authority");
   }
 
   // Default reason
   if (reasons.length === 0) {
-    reasons.push('Better content relevance');
+    reasons.push("Better content relevance");
   }
 
-  return reasons.join('; ');
+  return reasons.join("; ");
 }
 
 // ===================
@@ -288,7 +301,7 @@ function determineWinningReason(
 // ===================
 
 export interface CommunitySignal {
-  platform: 'reddit' | 'hackernews' | 'github' | 'twitter' | 'other';
+  platform: "reddit" | "hackernews" | "github" | "twitter" | "other";
   url: string;
   title: string;
   snippet: string;
@@ -297,7 +310,7 @@ export interface CommunitySignal {
     comments?: number;
     stars?: number;
   };
-  sentiment: 'positive' | 'neutral' | 'negative' | 'unknown';
+  sentiment: "positive" | "neutral" | "negative" | "unknown";
   relevance: number; // 0-100
   foundAt: string;
 }
@@ -328,20 +341,20 @@ export async function searchCommunitySignals(
   domain: string,
   brandName: string,
   tenantId: string,
-  jobId: string
+  jobId: string,
 ): Promise<CommunitySignalsResult> {
   if (!isConfigured()) {
     return createEmptyCommunityResult();
   }
 
   const trace = createTrace({
-    name: 'aeo-community-signals',
+    name: "aeo-community-signals",
     userId: tenantId,
     metadata: { jobId, domain, brandName },
   });
 
   const span = trace.span({
-    name: 'search-community-signals',
+    name: "search-community-signals",
   });
 
   try {
@@ -357,7 +370,7 @@ export async function searchCommunitySignals(
     // Search all queries
     const searchResults = await searchBatch(queries, {
       maxResults: 10,
-      searchDepth: 'basic',
+      searchDepth: "basic",
     });
 
     // Process and categorize results
@@ -400,7 +413,7 @@ export async function searchCommunitySignals(
     });
 
     // Non-blocking flush - observability should never block business logic
-    safeFlush();
+    void safeFlush();
 
     return {
       totalMentions: allSignals.length,
@@ -412,11 +425,11 @@ export async function searchCommunitySignals(
     };
   } catch (error) {
     span.end({
-      level: 'ERROR',
+      level: "ERROR",
       statusMessage: (error as Error).message,
     });
     // Non-blocking flush - still try to log errors
-    safeFlush();
+    void safeFlush();
     throw error;
   }
 }
@@ -425,8 +438,8 @@ export async function searchCommunitySignals(
  * Process a search result into a community signal
  */
 function processSearchResult(
-  result: TavilySearchResult['results'][0],
-  query: string
+  result: TavilySearchResult["results"][0],
+  query: string,
 ): CommunitySignal {
   const platform = detectPlatform(result.url);
   const sentiment = detectSentiment(result.content, result.title);
@@ -446,25 +459,54 @@ function processSearchResult(
 /**
  * Detect platform from URL
  */
-function detectPlatform(url: string): CommunitySignal['platform'] {
+function detectPlatform(url: string): CommunitySignal["platform"] {
   const urlLower = url.toLowerCase();
 
-  if (urlLower.includes('reddit.com')) return 'reddit';
-  if (urlLower.includes('news.ycombinator.com') || urlLower.includes('hn.algolia.com')) return 'hackernews';
-  if (urlLower.includes('github.com')) return 'github';
-  if (urlLower.includes('twitter.com') || urlLower.includes('x.com')) return 'twitter';
+  if (urlLower.includes("reddit.com")) return "reddit";
+  if (
+    urlLower.includes("news.ycombinator.com") ||
+    urlLower.includes("hn.algolia.com")
+  )
+    return "hackernews";
+  if (urlLower.includes("github.com")) return "github";
+  if (urlLower.includes("twitter.com") || urlLower.includes("x.com"))
+    return "twitter";
 
-  return 'other';
+  return "other";
 }
 
 /**
  * Simple sentiment detection from text
  */
-function detectSentiment(content: string, title: string): CommunitySignal['sentiment'] {
+function detectSentiment(
+  content: string,
+  title: string,
+): CommunitySignal["sentiment"] {
   const text = `${title} ${content}`.toLowerCase();
 
-  const positiveWords = ['great', 'awesome', 'excellent', 'love', 'best', 'amazing', 'recommend', 'helpful', 'useful'];
-  const negativeWords = ['bad', 'terrible', 'awful', 'hate', 'worst', 'avoid', 'problem', 'issue', 'broken', 'bug'];
+  const positiveWords = [
+    "great",
+    "awesome",
+    "excellent",
+    "love",
+    "best",
+    "amazing",
+    "recommend",
+    "helpful",
+    "useful",
+  ];
+  const negativeWords = [
+    "bad",
+    "terrible",
+    "awful",
+    "hate",
+    "worst",
+    "avoid",
+    "problem",
+    "issue",
+    "broken",
+    "bug",
+  ];
 
   let positiveCount = 0;
   let negativeCount = 0;
@@ -477,25 +519,25 @@ function detectSentiment(content: string, title: string): CommunitySignal['senti
     if (text.includes(word)) negativeCount++;
   }
 
-  if (positiveCount > negativeCount + 1) return 'positive';
-  if (negativeCount > positiveCount + 1) return 'negative';
-  if (positiveCount > 0 || negativeCount > 0) return 'neutral';
+  if (positiveCount > negativeCount + 1) return "positive";
+  if (negativeCount > positiveCount + 1) return "negative";
+  if (positiveCount > 0 || negativeCount > 0) return "neutral";
 
-  return 'unknown';
+  return "unknown";
 }
 
 /**
  * Calculate relevance score
  */
 function calculateRelevance(
-  result: TavilySearchResult['results'][0],
-  query: string
+  result: TavilySearchResult["results"][0],
+  _query: string,
 ): number {
   let score = result.score * 100;
 
   // Boost for community platforms
   const platform = detectPlatform(result.url);
-  if (platform !== 'other') {
+  if (platform !== "other") {
     score += 10;
   }
 
@@ -506,8 +548,10 @@ function calculateRelevance(
 /**
  * Categorize signals by platform
  */
-function categorizeByPlatform(signals: CommunitySignal[]): CommunitySignalsResult['platforms'] {
-  const platforms: CommunitySignalsResult['platforms'] = {
+function categorizeByPlatform(
+  signals: CommunitySignal[],
+): CommunitySignalsResult["platforms"] {
+  const platforms: CommunitySignalsResult["platforms"] = {
     reddit: [],
     hackernews: [],
     github: [],
@@ -532,11 +576,13 @@ function calculateEngagementScore(signals: CommunitySignal[]): number {
   let score = Math.min(50, signals.length * 5);
 
   // Bonus for platform diversity
-  const platforms = new Set(signals.map(s => s.platform));
+  const platforms = new Set(signals.map((s) => s.platform));
   score += platforms.size * 10;
 
   // Bonus for positive sentiment
-  const positiveCount = signals.filter(s => s.sentiment === 'positive').length;
+  const positiveCount = signals.filter(
+    (s) => s.sentiment === "positive",
+  ).length;
   score += (positiveCount / signals.length) * 20;
 
   return Math.min(100, Math.round(score));
@@ -545,13 +591,18 @@ function calculateEngagementScore(signals: CommunitySignal[]): number {
 /**
  * Analyze sentiment distribution
  */
-function analyzeSentiment(signals: CommunitySignal[]): CommunitySignalsResult['sentimentBreakdown'] {
+function analyzeSentiment(
+  signals: CommunitySignal[],
+): CommunitySignalsResult["sentimentBreakdown"] {
   const total = signals.length || 1;
 
   return {
-    positive: signals.filter(s => s.sentiment === 'positive').length / total,
-    neutral: signals.filter(s => s.sentiment === 'neutral' || s.sentiment === 'unknown').length / total,
-    negative: signals.filter(s => s.sentiment === 'negative').length / total,
+    positive: signals.filter((s) => s.sentiment === "positive").length / total,
+    neutral:
+      signals.filter(
+        (s) => s.sentiment === "neutral" || s.sentiment === "unknown",
+      ).length / total,
+    negative: signals.filter((s) => s.sentiment === "negative").length / total,
   };
 }
 
@@ -562,26 +613,28 @@ function identifyTrainingDataIndicators(signals: CommunitySignal[]): string[] {
   const indicators: string[] = [];
 
   // High-engagement Reddit posts often make it into training data
-  const redditSignals = signals.filter(s => s.platform === 'reddit');
+  const redditSignals = signals.filter((s) => s.platform === "reddit");
   if (redditSignals.length >= 5) {
-    indicators.push('Multiple Reddit discussions may influence LLM knowledge');
+    indicators.push("Multiple Reddit discussions may influence LLM knowledge");
   }
 
   // HN discussions are often in training data
-  const hnSignals = signals.filter(s => s.platform === 'hackernews');
+  const hnSignals = signals.filter((s) => s.platform === "hackernews");
   if (hnSignals.length >= 2) {
-    indicators.push('Hacker News mentions likely in LLM training corpus');
+    indicators.push("Hacker News mentions likely in LLM training corpus");
   }
 
   // GitHub presence indicates technical credibility
-  const githubSignals = signals.filter(s => s.platform === 'github');
+  const githubSignals = signals.filter((s) => s.platform === "github");
   if (githubSignals.length >= 3) {
-    indicators.push('Strong GitHub presence - likely recognized by AI');
+    indicators.push("Strong GitHub presence - likely recognized by AI");
   }
 
   // High total mentions
   if (signals.length >= 15) {
-    indicators.push('High community presence increases LLM recognition probability');
+    indicators.push(
+      "High community presence increases LLM recognition probability",
+    );
   }
 
   return indicators;
@@ -603,7 +656,8 @@ function createEmptyCommunityResult(): CommunitySignalsResult {
     engagementScore: 0,
     sentimentBreakdown: { positive: 0, neutral: 0, negative: 0 },
     topMentions: [],
-    trainingDataIndicators: ['Tavily API not configured - community signals unavailable'],
+    trainingDataIndicators: [
+      "Tavily API not configured - community signals unavailable",
+    ],
   };
 }
-

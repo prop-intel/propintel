@@ -5,8 +5,6 @@
  * and goal-setting in AEO/SEO optimization.
  */
 
-import type { TemplateType } from './template-detector';
-
 // ===================
 // Types
 // ===================

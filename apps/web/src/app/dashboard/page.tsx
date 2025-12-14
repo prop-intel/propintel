@@ -82,7 +82,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     api.analytics.getSummary(queryParams),
     api.analytics.getCrawlerStats(queryParams),
     api.analytics.getVisitTimeline(queryParams),
-    api.analytics.getTopPages({ ...queryParams, limit: 10 }),
+    api.analytics.getTopPagesWithTrend({ ...queryParams, limit: 10 }),
     api.tracking.getTrackingStatus({ siteId: activeSite.id }),
   ]);
 

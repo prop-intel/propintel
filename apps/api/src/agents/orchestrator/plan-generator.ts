@@ -339,7 +339,7 @@ Generate a plan that:
     });
 
     // Non-blocking flush - observability should never block business logic
-    safeFlush();
+    void safeFlush();
 
     return finalPlan;
   } catch (error) {
@@ -349,7 +349,7 @@ Generate a plan that:
       statusMessage: (error as Error).message,
     });
     // Non-blocking flush - still try to log errors
-    safeFlush();
+    void safeFlush();
     throw error;
   }
 }

@@ -194,7 +194,7 @@ export async function discoverCompetitors(
     });
 
     // Non-blocking flush - observability should never block business logic
-    safeFlush();
+    void safeFlush();
 
     return competitors;
   } catch (error) {
@@ -203,7 +203,7 @@ export async function discoverCompetitors(
       statusMessage: (error as Error).message,
     });
     // Non-blocking flush - still try to log errors
-    safeFlush();
+    void safeFlush();
     throw error;
   }
 }

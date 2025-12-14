@@ -34,7 +34,8 @@ const WEIGHTS_WITH_GEO = {
 };
 
 // Default to legacy weights (GEO is optional)
-const WEIGHTS = WEIGHTS_LEGACY;
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const _WEIGHTS = WEIGHTS_LEGACY;
 
 /**
  * Helper to ensure numbers are valid (returns 0 for NaN/undefined/null)

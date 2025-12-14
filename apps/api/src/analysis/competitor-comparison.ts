@@ -432,8 +432,8 @@ function analyzeCompetitivePosition(
  */
 function generatePriorityActions(
   position: ComparisonReport['competitivePosition'],
-  contentComparison: ComparisonReport['contentComparison'],
-  templateComparison: ComparisonReport['templateComparison']
+  _contentComparison: ComparisonReport['contentComparison'],
+  _templateComparison: ComparisonReport['templateComparison']
 ): CompetitiveAction[] {
   const actions: CompetitiveAction[] = [];
 

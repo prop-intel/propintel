@@ -34,7 +34,7 @@ export interface AEORecommendation {
   description: string;
   impact: string;
   effort: "low" | "medium" | "high";
-  targetQueries: string[];
+  targetQueries?: string[];
   competitorExample?: {
     domain: string;
     url: string;

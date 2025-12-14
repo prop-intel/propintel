@@ -43,7 +43,7 @@ export interface HistoricalData {
  */
 export function calculateReproducibilityScore(
   diffReports: DiffReport[],
-  currentPages: CrawledPage[]
+  _currentPages: CrawledPage[]
 ): ReproducibilityScore {
   if (diffReports.length === 0) {
     return {

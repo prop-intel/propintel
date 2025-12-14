@@ -40,7 +40,6 @@ export async function enqueueJob(message: CrawlJobMessage): Promise<string> {
             awsRegion: 'local',
           }],
         };
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
         const result = handler(mockSQSEvent as SQSEvent, {} as Context, (() => { /* callback unused */ }) as Callback);
         Promise.resolve(result).catch((error: unknown) => {
           console.error('[SQS-LOCAL] Error processing job:', {

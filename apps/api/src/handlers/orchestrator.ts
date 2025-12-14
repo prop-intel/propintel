@@ -304,8 +304,8 @@ async function runAEOPipelineWithOrchestrator(
     });
   });
 
-  // Retrieve results from context
-  const finalContext = orchestrator.getContext();
+  // Retrieve results from context (orchestrator context available for debugging)
+  orchestrator.getContext();
 
   // Extract all results needed for report generation
   const pageAnalysis = await contextManager.getAgentResult<PageAnalysis>('page-analysis');
@@ -321,7 +321,8 @@ async function runAEOPipelineWithOrchestrator(
   
   const competitors = await contextManager.getAgentResult<CompetitorVisibility[]>('competitor-discovery');
   let citationAnalysis = await contextManager.getAgentResult<CitationAnalysisResult>('citation-analysis');
-  const contentComparison = await contextManager.getAgentResult('content-comparison');
+  // Content comparison result stored in context for downstream agents
+  await contextManager.getAgentResult('content-comparison');
   const visibilityScoreResult = await contextManager.getAgentResult<{ score: number }>('visibility-scoring');
   const aeoRecommendations = await contextManager.getAgentResult<AEORecommendation[]>('recommendations');
   const cursorPrompt = await contextManager.getAgentResult<CursorPrompt>('cursor-prompt');
@@ -471,7 +472,7 @@ async function runAEOPipeline(
   );
 
   // Calculate visibility score
-  const { score: visibilityScore, breakdown, grade, summary } = await calculateVisibilityScore(
+  const { score: visibilityScore, breakdown: _breakdown, grade, summary: _summary } = await calculateVisibilityScore(
     citationAnalysis,
     competitors,
     contentComparison,
@@ -549,7 +550,8 @@ async function runAEOPipeline(
 // Legacy Analysis (for backward compatibility)
 // ===================
 
-async function runLegacyAnalysis(job: Job, pages: CrawledPageType[]): Promise<Report> {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+async function _runLegacyAnalysis(job: Job, pages: CrawledPageType[]): Promise<Report> {
   const domain = new URL(job.targetUrl).hostname;
   const userId = job.userId;
   const llmModel = job.llmModel || 'gpt-4o-mini';
@@ -764,7 +766,8 @@ async function saveAnalysisToDatabase(
 // ECS Task Launch (for future phases)
 // ===================
 
-async function launchECSTask(job: Job): Promise<string> {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+async function _launchECSTask(job: Job): Promise<string> {
   const response = await ecsClient.send(
     new RunTaskCommand({
       cluster: ECS_CLUSTER_ARN,
@@ -801,7 +804,8 @@ async function launchECSTask(job: Job): Promise<string> {
   return taskArn;
 }
 
-async function waitForECSTask(taskArn: string): Promise<void> {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+async function _waitForECSTask(taskArn: string): Promise<void> {
   let attempts = 0;
   const maxAttempts = 60;
 

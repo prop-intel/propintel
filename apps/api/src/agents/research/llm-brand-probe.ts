@@ -17,7 +17,6 @@ import { openai } from "../../lib/openai";
 import {
   type PageAnalysis,
   type TargetQuery,
-  type CompetitorVisibility,
 } from "../../types";
 
 // ===================
@@ -436,8 +435,8 @@ async function probeSinglePrompt(
   probePrompt: ProbePrompt,
   brand: LLMBrandProbeInput["brand"],
   competitors: string[],
-  tenantId: string,
-  jobId: string,
+  _tenantId: string,
+  _jobId: string,
 ): Promise<LLMProbeResult> {
   try {
     // Step 1: Get response from LLM
@@ -668,7 +667,6 @@ function aggregateProbeResults(
   const competitorComparison: LLMBrandProbeAggregate["competitorComparison"] =
     competitors.map((competitor) => {
       let theirMentions = 0;
-      let yourMentions = 0;
       let headToHeadWins = 0;
       let headToHeadLosses = 0;
 
@@ -678,7 +676,6 @@ function aggregateProbeResults(
         );
 
         if (competitorMention?.mentioned) theirMentions++;
-        if (result.brandMentioned) yourMentions++;
 
         // Head to head: both mentioned, compare positions
         if (result.brandMentioned && competitorMention?.mentioned) {

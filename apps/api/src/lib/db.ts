@@ -1,6 +1,6 @@
 import { eq, and, desc, sql, inArray } from 'drizzle-orm';
 import { db, jobs, crawledPages, reports, analyses, authUser } from '../server/db';
-import type { Job, NewJob, CrawledPage as CrawledPageRecord, NewCrawledPage, Analysis, NewAnalysis } from '@propintel/database';
+import type { Job, NewJob, Analysis } from '@propintel/database';
 import type { CrawledPage as CrawledPageType, JobStatus } from '../types';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

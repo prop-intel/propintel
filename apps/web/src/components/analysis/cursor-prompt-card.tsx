@@ -35,7 +35,7 @@ export interface CursorPrompt {
   targetFile?: string;
   sections?: CursorPromptSection[];
   version: string;
-  generatedAt: string;
+  generatedAt?: string;
 }
 
 export interface CursorPromptCardProps {
@@ -247,9 +247,11 @@ export function CursorPromptCard({
         )}
 
         {/* Timestamp */}
-        <div className="text-xs text-muted-foreground text-center pt-2">
-          Generated {new Date(cursorPrompt.generatedAt).toLocaleString()}
-        </div>
+        {cursorPrompt.generatedAt && (
+          <div className="text-xs text-muted-foreground text-center pt-2">
+            Generated {new Date(cursorPrompt.generatedAt).toLocaleString()}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

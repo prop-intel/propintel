@@ -131,7 +131,7 @@ Generate a structured summary with key findings, metrics, and status.`;
     });
 
     // Non-blocking flush - observability should never block business logic
-    safeFlush();
+    void safeFlush();
 
     return normalized;
   } catch (error) {
@@ -140,7 +140,7 @@ Generate a structured summary with key findings, metrics, and status.`;
       level: 'ERROR',
       statusMessage: (error as Error).message,
     });
-    safeFlush();
+    void safeFlush();
     throw error;
   }
 }
@@ -189,7 +189,7 @@ export async function generateBriefSummary(
       output: result.object,
     });
 
-    safeFlush();
+    void safeFlush();
 
     return result.object.summary;
   } catch (error) {
@@ -198,7 +198,7 @@ export async function generateBriefSummary(
       level: 'ERROR',
       statusMessage: (error as Error).message,
     });
-    safeFlush();
+    void safeFlush();
     throw error;
   }
 }
