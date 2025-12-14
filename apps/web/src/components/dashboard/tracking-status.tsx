@@ -37,10 +37,13 @@ interface TrackingStatusBadgeProps {
   onClick?: () => void;
 }
 
-export function TrackingStatusBadge({ siteId, onClick }: TrackingStatusBadgeProps) {
+export function TrackingStatusBadge({
+  siteId,
+  onClick,
+}: TrackingStatusBadgeProps) {
   const { data: status, isLoading } = api.tracking.getTrackingStatus.useQuery(
     { siteId },
-    { enabled: !!siteId }
+    { enabled: !!siteId },
   );
 
   if (isLoading) {
@@ -96,12 +99,16 @@ interface TrackingSetupDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-export function TrackingSetupDialog({ siteId, open, onOpenChange }: TrackingSetupDialogProps) {
+export function TrackingSetupDialog({
+  siteId,
+  open,
+  onOpenChange,
+}: TrackingSetupDialogProps) {
   const [copied, setCopied] = useState<string | null>(null);
 
   const { data: scriptData } = api.tracking.getScript.useQuery(
     { siteId },
-    { enabled: !!siteId && open }
+    { enabled: !!siteId && open },
   );
 
   const testPixelMutation = api.tracking.testInstallation.useMutation();
@@ -115,7 +122,7 @@ export function TrackingSetupDialog({ siteId, open, onOpenChange }: TrackingSetu
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Install Tracking</DialogTitle>
           <DialogDescription>
@@ -125,20 +132,26 @@ export function TrackingSetupDialog({ siteId, open, onOpenChange }: TrackingSetu
 
         <Tabs defaultValue="pixel" className="mt-2">
           <TabsList className="w-full">
-            <TabsTrigger value="pixel" className="flex-1">Pixel</TabsTrigger>
-            <TabsTrigger value="middleware" className="flex-1">Middleware</TabsTrigger>
+            <TabsTrigger value="pixel" className="flex-1">
+              Pixel
+            </TabsTrigger>
+            <TabsTrigger value="middleware" className="flex-1">
+              Middleware
+            </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="pixel" className="space-y-3 mt-4">
+          <TabsContent value="pixel" className="mt-4 space-y-3">
             <div className="relative">
-              <pre className="bg-muted p-3 pr-12 rounded-md text-sm whitespace-pre-wrap break-all">
+              <pre className="bg-muted whitespace-pre-wrap break-all rounded-md p-3 pr-12 text-sm">
                 <code>{scriptData?.pixelSnippet}</code>
               </pre>
               <Button
                 size="icon"
                 variant="ghost"
-                className="absolute top-1.5 right-1.5 h-7 w-7"
-                onClick={() => copyToClipboard(scriptData?.pixelSnippet ?? "", "pixel")}
+                className="absolute right-1.5 top-1.5 h-7 w-7"
+                onClick={() =>
+                  copyToClipboard(scriptData?.pixelSnippet ?? "", "pixel")
+                }
               >
                 {copied === "pixel" ? (
                   <Check className="h-3.5 w-3.5" />
@@ -147,7 +160,7 @@ export function TrackingSetupDialog({ siteId, open, onOpenChange }: TrackingSetu
                 )}
               </Button>
             </div>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-muted-foreground text-sm">
               Add to your HTML body. Works without JavaScript.
             </p>
             <div className="flex items-center gap-2">
@@ -158,14 +171,18 @@ export function TrackingSetupDialog({ siteId, open, onOpenChange }: TrackingSetu
                 disabled={testPixelMutation.isPending}
               >
                 {testPixelMutation.isPending ? (
-                  <RefreshCw className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                  <RefreshCw className="mr-1.5 h-3.5 w-3.5 animate-spin" />
                 ) : (
-                  <TestTube className="h-3.5 w-3.5 mr-1.5" />
+                  <TestTube className="mr-1.5 h-3.5 w-3.5" />
                 )}
                 Test
               </Button>
               {testPixelMutation.data && (
-                <Badge variant={testPixelMutation.data.installed ? "default" : "destructive"}>
+                <Badge
+                  variant={
+                    testPixelMutation.data.installed ? "default" : "destructive"
+                  }
+                >
                   {testPixelMutation.data.installed ? "Detected" : "Not found"}
                 </Badge>
               )}
@@ -179,16 +196,21 @@ export function TrackingSetupDialog({ siteId, open, onOpenChange }: TrackingSetu
             )}
           </TabsContent>
 
-          <TabsContent value="middleware" className="space-y-3 mt-4">
+          <TabsContent value="middleware" className="mt-4 space-y-3">
             <div className="relative">
-              <pre className="bg-muted p-3 pr-12 rounded-md text-sm whitespace-pre-wrap break-all max-h-48 overflow-y-auto">
+              <pre className="bg-muted max-h-48 overflow-y-auto whitespace-pre-wrap break-all rounded-md p-3 pr-12 text-sm">
                 <code>{scriptData?.middlewareSnippet}</code>
               </pre>
               <Button
                 size="icon"
                 variant="ghost"
-                className="absolute top-1.5 right-1.5 h-7 w-7"
-                onClick={() => copyToClipboard(scriptData?.middlewareSnippet ?? "", "middleware")}
+                className="absolute right-1.5 top-1.5 h-7 w-7"
+                onClick={() =>
+                  copyToClipboard(
+                    scriptData?.middlewareSnippet ?? "",
+                    "middleware",
+                  )
+                }
               >
                 {copied === "middleware" ? (
                   <Check className="h-3.5 w-3.5" />
@@ -197,7 +219,7 @@ export function TrackingSetupDialog({ siteId, open, onOpenChange }: TrackingSetu
                 )}
               </Button>
             </div>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-muted-foreground text-sm">
               For Next.js/Express. Catches text-only AI agents.
             </p>
             <div className="flex items-center gap-2">
@@ -208,25 +230,32 @@ export function TrackingSetupDialog({ siteId, open, onOpenChange }: TrackingSetu
                 disabled={testMiddlewareMutation.isPending}
               >
                 {testMiddlewareMutation.isPending ? (
-                  <RefreshCw className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                  <RefreshCw className="mr-1.5 h-3.5 w-3.5 animate-spin" />
                 ) : (
-                  <TestTube className="h-3.5 w-3.5 mr-1.5" />
+                  <TestTube className="mr-1.5 h-3.5 w-3.5" />
                 )}
                 Test Endpoint
               </Button>
               {testMiddlewareMutation.data && (
-                <Badge variant={testMiddlewareMutation.data.working ? "default" : "destructive"}>
+                <Badge
+                  variant={
+                    testMiddlewareMutation.data.working
+                      ? "default"
+                      : "destructive"
+                  }
+                >
                   {testMiddlewareMutation.data.working ? "Working" : "Error"}
                 </Badge>
               )}
             </div>
-            {testMiddlewareMutation.data && !testMiddlewareMutation.data.working && (
-              <Alert variant="destructive" className="py-2">
-                <AlertDescription className="text-xs">
-                  {testMiddlewareMutation.data.error}
-                </AlertDescription>
-              </Alert>
-            )}
+            {testMiddlewareMutation.data &&
+              !testMiddlewareMutation.data.working && (
+                <Alert variant="destructive" className="py-2">
+                  <AlertDescription className="text-xs">
+                    {testMiddlewareMutation.data.error}
+                  </AlertDescription>
+                </Alert>
+              )}
           </TabsContent>
         </Tabs>
       </DialogContent>
@@ -240,7 +269,7 @@ interface TrackingEmptyStateProps {
 
 export function TrackingEmptyState({ onSetupClick }: TrackingEmptyStateProps) {
   return (
-    <Empty className="border min-h-[300px]">
+    <Empty className="min-h-[300px] border">
       <EmptyHeader>
         <EmptyMedia variant="icon">
           <BarChart3 className="h-6 w-6" />
