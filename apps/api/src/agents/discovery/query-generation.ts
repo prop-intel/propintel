@@ -10,7 +10,7 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { generateObject } from 'ai';
 import { z } from 'zod';
 import { type PageAnalysis, type TargetQuery } from '../../types';
-import { createTrace, flushLangfuse } from '../../lib/langfuse';
+import { createTrace, safeFlush } from '../../lib/langfuse';
 
 // ===================
 // Timeout Configuration
@@ -142,7 +142,8 @@ Assign relevance scores based on how well the page content answers each query.`;
       },
     });
 
-    await flushLangfuse();
+    // Non-blocking flush - observability should never block business logic
+    safeFlush();
 
     // Sort by relevance score descending
     const queries = normalized.queries as TargetQuery[];
@@ -155,7 +156,8 @@ Assign relevance scores based on how well the page content answers each query.`;
       level: 'ERROR',
       statusMessage: (error as Error).message,
     });
-    await flushLangfuse();
+    // Non-blocking flush - still try to log errors
+    safeFlush();
     throw error;
   }
 }
@@ -235,7 +237,8 @@ These queries should be answerable by the page content.`;
       },
     });
 
-    await flushLangfuse();
+    // Non-blocking flush - observability should never block business logic
+    safeFlush();
 
     return normalized.queries as TargetQuery[];
   } catch (error) {
@@ -244,7 +247,8 @@ These queries should be answerable by the page content.`;
       level: 'ERROR',
       statusMessage: (error as Error).message,
     });
-    await flushLangfuse();
+    // Non-blocking flush - still try to log errors
+    safeFlush();
     throw error;
   }
 }

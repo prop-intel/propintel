@@ -113,6 +113,11 @@ export async function executeAgents(
   const sortedAgentIds = sortAgentsByDependencies(agentIds, initialCompleted);
   console.log(`[Executor] Sorted agent order: ${sortedAgentIds.join(", ")}`);
 
+  // Helper to check if a dependency is satisfied (completed OR disabled)
+  const isDependencySatisfied = (dep: string, completed: Set<string>): boolean => {
+    return completed.has(dep) || DISABLED_AGENTS.has(dep);
+  };
+
   if (runInParallel) {
     // For parallel execution, we need to be careful about dependencies
     // Only run agents whose dependencies are already satisfied
@@ -121,7 +126,7 @@ export async function executeAgents(
 
     for (const agentId of sortedAgentIds) {
       const metadata = getAgentMetadata(agentId);
-      if (metadata?.inputs.every((dep) => initialCompleted.has(dep))) {
+      if (metadata?.inputs.every((dep) => isDependencySatisfied(dep, initialCompleted))) {
         canRunNow.push(agentId);
       } else {
         mustWait.push(agentId);

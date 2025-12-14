@@ -13,9 +13,9 @@
  * - "Looking for Netlify alternatives"
  */
 
-import { Langfuse } from 'langfuse';
 import { type TargetQuery } from '../../types';
 import { search, searchBatch, isConfigured } from '../../lib/tavily';
+import { createTrace, safeFlush } from '../../lib/langfuse';
 
 // ===================
 // Types
@@ -52,10 +52,11 @@ export interface CommunityEngagementResult {
 // Configuration
 // ===================
 
+// Universal platforms that work for any industry (tech and non-tech)
+// Removed Hacker News and GitHub as they're too tech-focused
 const PLATFORMS = [
   { name: 'reddit', siteQuery: 'site:reddit.com' },
   { name: 'twitter', siteQuery: 'site:x.com OR site:twitter.com' },
-  { name: 'hackernews', siteQuery: 'site:news.ycombinator.com' },
 ] as const;
 
 // Question/discussion indicators to boost relevance
@@ -69,16 +70,6 @@ const OPPORTUNITY_INDICATORS = {
 
 const SEARCH_CONCURRENCY = 2;
 const MAX_RESULTS_PER_QUERY = 5;
-
-// ===================
-// Client Initialization
-// ===================
-
-const langfuse = new Langfuse({
-  publicKey: process.env.LANGFUSE_PUBLIC_KEY || '',
-  secretKey: process.env.LANGFUSE_SECRET_KEY || '',
-  baseUrl: process.env.LANGFUSE_BASE_URL || 'https://us.cloud.langfuse.com',
-});
 
 // ===================
 // Main Function
@@ -101,7 +92,7 @@ export async function searchCommunitySignals(
     return createEmptyResult();
   }
 
-  const trace = langfuse.trace({
+  const trace = createTrace({
     name: 'community-engagement-search',
     userId: tenantId,
     metadata: { jobId, queryCount: queries.length, targetDomain },
@@ -173,7 +164,8 @@ export async function searchCommunitySignals(
       },
     });
 
-    await langfuse.flushAsync();
+    // Non-blocking flush - observability should never block business logic
+    safeFlush();
 
     console.log(`[Community Agent] Found ${result.totalOpportunities} engagement opportunities`);
     return result;
@@ -182,7 +174,7 @@ export async function searchCommunitySignals(
       level: 'ERROR',
       statusMessage: (error as Error).message,
     });
-    await langfuse.flushAsync();
+    safeFlush();
     throw error;
   }
 }

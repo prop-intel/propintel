@@ -8,8 +8,8 @@
 import { createOpenAI } from '@ai-sdk/openai';
 import { generateObject } from 'ai';
 import { z } from 'zod';
-import { Langfuse } from 'langfuse';
 import { type AEOAnalysis, type AEORecommendation, type CursorPrompt, type PageAnalysis } from '../../types';
+import { createTrace, safeFlush } from '../../lib/langfuse';
 
 // ===================
 // Timeout Configuration
@@ -24,12 +24,6 @@ const LLM_TIMEOUT_MS = 60_000;
 
 const openai = createOpenAI({
   apiKey: process.env.OPENAI_API_KEY || '',
-});
-
-const langfuse = new Langfuse({
-  publicKey: process.env.LANGFUSE_PUBLIC_KEY || '',
-  secretKey: process.env.LANGFUSE_SECRET_KEY || '',
-  baseUrl: process.env.LANGFUSE_BASE_URL || 'https://us.cloud.langfuse.com',
 });
 
 // ===================
@@ -76,7 +70,7 @@ export async function generateCursorPrompt(
   jobId: string,
   model = 'gpt-4o-mini'
 ): Promise<CursorPrompt> {
-  const trace = langfuse.trace({
+  const trace = createTrace({
     name: 'aeo-cursor-prompt',
     userId: tenantId,
     metadata: { jobId, domain },
@@ -146,7 +140,8 @@ Create a prompt that will help improve visibility for these target queries.`;
       },
     });
 
-    await langfuse.flushAsync();
+    // Non-blocking flush - observability should never block business logic
+    safeFlush();
 
     const normalized = normalizeCursorPrompt(result.object);
     return {
@@ -161,7 +156,8 @@ Create a prompt that will help improve visibility for these target queries.`;
       level: 'ERROR',
       statusMessage: (error as Error).message,
     });
-    await langfuse.flushAsync();
+    // Non-blocking flush - still try to log errors
+    safeFlush();
     throw error;
   }
 }

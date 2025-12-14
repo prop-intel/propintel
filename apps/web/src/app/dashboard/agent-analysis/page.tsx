@@ -43,6 +43,8 @@ import {
   ContentGaps,
   KeyFindings,
   EngagementOpportunities,
+  RecommendationsCard,
+  CursorPromptCard,
 } from "@/components/analysis";
 import type { AgentStatus, PipelinePhase } from "@/components/analysis";
 import type { AgentSummary } from "@/types/agent-analysis";
@@ -333,6 +335,12 @@ export default function AgentAnalysisPage() {
   const aeoAnalysis = fullReport?.aeoAnalysis;
   const scores = isFullSummary(status?.summary) ? status?.summary.scores : null;
   const domain = fullReport?.meta?.domain ?? activeSite?.domain ?? "";
+  
+  // Extract recommendations and cursor prompt from full report
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const aeoRecommendations = (fullReport as any)?.aeoRecommendations ?? [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const cursorPrompt = (fullReport as any)?.cursorPrompt;
 
   return (
     <div className="space-y-6 p-6">
@@ -530,6 +538,16 @@ export default function AgentAnalysisPage() {
                     : undefined
                 }
               />
+            )}
+
+            {/* AEO Recommendations */}
+            {aeoRecommendations && aeoRecommendations.length > 0 && (
+              <RecommendationsCard recommendations={aeoRecommendations} />
+            )}
+
+            {/* Cursor Prompt - Copy-paste for implementation */}
+            {cursorPrompt && cursorPrompt.prompt && (
+              <CursorPromptCard cursorPrompt={cursorPrompt} />
             )}
 
             {/* Community Engagement Opportunities */}

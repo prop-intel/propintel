@@ -18,3 +18,9 @@ export { KeyFindings } from "./key-findings";
 export { EngagementOpportunities } from "./engagement-opportunities";
 export type { EngagementOpportunity, EngagementOpportunitiesProps } from "./engagement-opportunities";
 
+export { RecommendationsCard } from "./recommendations-card";
+export type { AEORecommendation, RecommendationsCardProps } from "./recommendations-card";
+
+export { CursorPromptCard } from "./cursor-prompt-card";
+export type { CursorPrompt, CursorPromptSection, CursorPromptCardProps } from "./cursor-prompt-card";
+

@@ -13,7 +13,7 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { generateObject } from 'ai';
 import { z } from 'zod';
 import { type CrawledPage, type PageAnalysis } from '../../types';
-import { createTrace, flushLangfuse } from '../../lib/langfuse';
+import { createTrace, safeFlush } from '../../lib/langfuse';
 
 // ===================
 // Timeout Configuration
@@ -163,7 +163,8 @@ Extract:
       },
     });
 
-    await flushLangfuse();
+    // Non-blocking flush - observability should never block business logic
+    safeFlush();
 
     return normalized as PageAnalysis;
   } catch (error) {
@@ -172,7 +173,8 @@ Extract:
       level: 'ERROR',
       statusMessage: (error as Error).message,
     });
-    await flushLangfuse();
+    // Non-blocking flush - still try to log errors
+    safeFlush();
     throw error;
   }
 }

@@ -9,6 +9,7 @@ import { analyzeSEO } from '../analysis/seo';
 import { type Report, type CrawledPage as CrawledPageType, type AEOReport, type PageAnalysis, type TargetQuery, type CrawlConfig, type Job as LegacyJob, type TavilySearchResult, type CompetitorVisibility, type QueryCitation, type AEORecommendation, type CursorPrompt } from '../types';
 import type { Job } from '@propintel/database';
 import { type CitationAnalysisResult } from '../agents/analysis';
+import { gracefulShutdown } from '../lib/langfuse';
 
 // AEO Agent imports
 import { analyzePages, generateTargetQueries, discoverCompetitors } from '../agents/discovery';
@@ -42,8 +43,13 @@ const AEO_QUERY_COUNT = 10; // Number of queries to generate per job
 // ===================
 
 export const handler: SQSHandler = async (event: SQSEvent): Promise<void> => {
-  for (const record of event.Records) {
-    await processRecord(record);
+  try {
+    for (const record of event.Records) {
+      await processRecord(record);
+    }
+  } finally {
+    // Ensure all Langfuse events are flushed before Lambda terminates
+    await gracefulShutdown();
   }
 };
 

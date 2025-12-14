@@ -10,7 +10,7 @@ import { generateObject } from 'ai';
 import { z } from 'zod';
 import { type ExecutionPlan, type ExecutionPhase } from '../../types';
 import { type AgentContext } from '../context';
-import { createTrace, flushLangfuse } from '../../lib/langfuse';
+import { createTrace, safeFlush } from '../../lib/langfuse';
 import { getAgentMetadata } from '../registry';
 
 // ===================
@@ -49,17 +49,17 @@ const ExecutionPlanSchema = z.object({
 // Available Agents
 // ===================
 
-// NOTE: perplexity, community-signals, google-aio are disabled
-// google-aio requires Browserbase which is not yet configured
+// NOTE: perplexity, google-aio are disabled (require special setup)
+// community-signals is now enabled - finds Reddit/Twitter engagement opportunities
 const AVAILABLE_AGENTS = {
   discovery: ['page-analysis', 'query-generation', 'competitor-discovery'],
-  research: ['tavily-research'], // Disabled: 'google-aio', 'perplexity', 'community-signals'
+  research: ['tavily-research', 'community-signals'], // Disabled: 'google-aio', 'perplexity'
   analysis: ['citation-analysis', 'content-comparison', 'visibility-scoring'],
   output: ['recommendations', 'cursor-prompt', 'report-generator'],
 };
 
-// Agents that are stubs and should be skipped
-export const DISABLED_AGENTS = new Set(['perplexity', 'community-signals', 'google-aio', 'content-comparison']);
+// Agents that are stubs or require special setup
+export const DISABLED_AGENTS = new Set(['perplexity', 'google-aio']);
 
 // ===================
 // Static Fallback Plan (Optimized)
@@ -75,17 +75,17 @@ const STATIC_EXECUTION_PLAN: ExecutionPlan = {
   phases: [
     // Phase 1: Discovery (sequential - dependencies require ordering)
     { name: 'Discovery', agents: ['page-analysis', 'query-generation', 'competitor-discovery'], runInParallel: false },
-    // Phase 2: Research (tavily only - google-aio disabled)
-    { name: 'Research', agents: ['tavily-research'], runInParallel: false },
-    // Phase 3: Analysis Part 1 (can run in parallel)
+    // Phase 2: Research (can run in parallel - both depend only on query-generation)
+    { name: 'Research', agents: ['tavily-research', 'community-signals'], runInParallel: true },
+    // Phase 3: Analysis (can run in parallel)
     { name: 'Analysis', agents: ['citation-analysis', 'content-comparison'], runInParallel: true },
     // Phase 4: Scoring (depends on Analysis)
     { name: 'Scoring', agents: ['visibility-scoring'], runInParallel: false },
     // Phase 5: Output (sequential)
     { name: 'Output', agents: ['recommendations', 'cursor-prompt'], runInParallel: false },
   ],
-  estimatedDuration: 90,
-  reasoning: 'Optimized static plan with Tavily research (Google AIO disabled)',
+  estimatedDuration: 100,
+  reasoning: 'Full pipeline with Tavily research and community engagement discovery',
 };
 
 // ===================
@@ -265,7 +265,7 @@ Available agents (USE ONLY THESE):
 - Analysis: ${AVAILABLE_AGENTS.analysis.join(', ')}
 - Output: ${AVAILABLE_AGENTS.output.join(', ')}
 
-NOTE: Do NOT include these disabled agents: google-aio, perplexity, community-signals
+NOTE: Do NOT include these disabled agents: google-aio, perplexity
 
 CRITICAL DEPENDENCY RULES (MUST FOLLOW):
 1. page-analysis MUST be the FIRST agent to run (no dependencies)
@@ -328,7 +328,8 @@ Generate a plan that:
         finalPlan = fixedPlan;
       } else {
         console.warn(`[Plan] Could not fix plan, falling back to static plan. Remaining errors: ${fixValidation.errors.join('; ')}`);
-        finalPlan = STATIC_EXECUTION_PLAN;
+        // Sanitize the static plan to remove disabled agents
+        finalPlan = sanitizePlan(STATIC_EXECUTION_PLAN);
       }
     } else {
       console.log(`[Plan] LLM-generated plan is valid`);
@@ -345,7 +346,8 @@ Generate a plan that:
       },
     });
 
-    await flushLangfuse();
+    // Non-blocking flush - observability should never block business logic
+    safeFlush();
 
     return finalPlan;
   } catch (error) {
@@ -354,7 +356,8 @@ Generate a plan that:
       level: 'ERROR',
       statusMessage: (error as Error).message,
     });
-    await flushLangfuse();
+    // Non-blocking flush - still try to log errors
+    safeFlush();
     throw error;
   }
 }

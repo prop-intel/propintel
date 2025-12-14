@@ -8,9 +8,9 @@
 import { createOpenAI } from '@ai-sdk/openai';
 import { generateObject } from 'ai';
 import { z } from 'zod';
-import { Langfuse } from 'langfuse';
 import { type AEOAnalysis, type AEORecommendation, type QueryGap, type CompetitorVisibility } from '../../types';
 import { type ContentComparisonResult } from '../analysis/content-comparison';
+import { createTrace, safeFlush } from '../../lib/langfuse';
 
 // ===================
 // Timeout Configuration
@@ -25,12 +25,6 @@ const LLM_TIMEOUT_MS = 60_000;
 
 const openai = createOpenAI({
   apiKey: process.env.OPENAI_API_KEY || '',
-});
-
-const langfuse = new Langfuse({
-  publicKey: process.env.LANGFUSE_PUBLIC_KEY || '',
-  secretKey: process.env.LANGFUSE_SECRET_KEY || '',
-  baseUrl: process.env.LANGFUSE_BASE_URL || 'https://us.cloud.langfuse.com',
 });
 
 // ===================
@@ -79,7 +73,7 @@ export async function generateAEORecommendations(
   jobId: string,
   model = 'gpt-4o-mini'
 ): Promise<AEORecommendation[]> {
-  const trace = langfuse.trace({
+  const trace = createTrace({
     name: 'aeo-recommendations',
     userId: tenantId,
     metadata: { jobId },
@@ -147,7 +141,8 @@ Generate 5-8 specific, prioritized recommendations.`;
       },
     });
 
-    await langfuse.flushAsync();
+    // Non-blocking flush - observability should never block business logic
+    safeFlush();
 
     // Add IDs and competitor examples, normalize enum values
     const recommendations: AEORecommendation[] = result.object.recommendations.map((rec, index) => {
@@ -172,7 +167,8 @@ Generate 5-8 specific, prioritized recommendations.`;
       level: 'ERROR',
       statusMessage: (error as Error).message,
     });
-    await langfuse.flushAsync();
+    // Non-blocking flush - still try to log errors
+    safeFlush();
     throw error;
   }
 }

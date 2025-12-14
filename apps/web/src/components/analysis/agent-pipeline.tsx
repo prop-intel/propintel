@@ -45,187 +45,150 @@ function StepIcon({ status }: { status: string }) {
         <Loader2 className="h-4 w-4 text-white animate-spin" />
       </div>
     );
-    const phaseIcons: Record<string, string> = {
-      "Discovery": "🔍",
-      "Discovery-1": "🔍",
-      "Discovery-2": "🔍",
-      "Discovery-3": "🔍",
-      "Research": "📚",
-      "Analysis": "📊",
-      "Analysis-1": "📊",
-      "Analysis-2": "📊",
-      "Output": "📝",
-      "Output-1": "📝",
-      "Output-2": "📝",
-    };
+  }
+  if (status === "failed") {
+    return (
+      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-red-500">
+        <Circle className="h-3 w-3 text-white fill-white" />
+      </div>
+    );
+  }
+  return (
+    <div className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-muted-foreground/30 bg-background">
+      <Circle className="h-2 w-2 text-muted-foreground/30 fill-muted-foreground/30" />
+    </div>
+  );
+}
 
-    function getPhaseIcon(phaseName: string): string {
-      for (const [key, icon] of Object.entries(phaseIcons)) {
-        if (phaseName.toLowerCase().includes(key.toLowerCase())) {
-          return icon;
-        }
-      }
-      return "⚙️";
-    }
+export function AgentPipeline({ phases, currentPhase: _currentPhase, className }: AgentPipelineProps) {
+  // Flatten all agents from all phases
+  const allAgents = phases.flatMap(p => p.agents);
+  
+  // Count statuses
+  const completedCount = allAgents.filter(a => a.status === "completed").length;
+  const runningCount = allAgents.filter(a => a.status === "running").length;
+  const totalCount = allAgents.length;
+  
+  // Status flags
+  const isRunning = runningCount > 0;
+  const isComplete = completedCount === totalCount && totalCount > 0;
+  
+  // Get agents that are running or completed (to show in the list)
+  const activeAgents = allAgents.filter(a => a.status === "completed" || a.status === "running");
 
-    function getStatusTextColor(status: string) {
-      switch (status) {
-        case "completed":
-          return "text-emerald-500";
-        case "running":
-          return "text-blue-500";
-        case "failed":
-          return "text-red-500";
-        default:
-          return "text-muted-foreground";
-      }
-      if (status === "failed") {
-        return (
-          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-red-500">
-            <Circle className="h-3 w-3 text-white fill-white" />
+  return (
+    <div className={cn("space-y-4", className)}>
+      {/* Header with live indicator */}
+      <div className="flex items-center gap-3">
+        <h3 className="text-lg font-semibold">Analysis Progress</h3>
+        {isRunning && (
+          <div className="flex items-center gap-2">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+            </span>
+            <span className="text-sm text-blue-500 font-medium">Processing</span>
           </div>
-        );
-      }
-      return (
-        <div className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-muted-foreground/30 bg-background">
-          <Circle className="h-2 w-2 text-muted-foreground/30 fill-muted-foreground/30" />
+        )}
+        {isComplete && (
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+            <span className="text-sm text-emerald-500 font-medium">Complete</span>
+          </div>
+        )}
+      </div>
+
+      {/* Progress bar */}
+      <div className="space-y-1">
+        <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+          <motion.div
+            className={cn(
+              "h-full rounded-full",
+              isComplete ? "bg-emerald-500" : "bg-blue-500"
+            )}
+            initial={{ width: 0 }}
+            animate={{
+              width: totalCount > 0
+                ? `${((completedCount + runningCount * 0.5) / totalCount) * 100}%`
+                : "0%"
+            }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
+          />
         </div>
-      );
-    }
+      </div>
 
-    export function AgentPipeline({ phases, currentPhase: _currentPhase, className }: AgentPipelineProps) {
-      const completedPhases = phases.filter(p => p.status === "completed").length;
-      const totalPhases = phases.length;
-      const progress = totalPhases > 0 ? (completedPhases / totalPhases) * 100 : 0;
+      {/* Linear step list */}
+      <div className="relative">
+        {/* Vertical line connecting steps */}
+        {activeAgents.length > 1 && (
+          <div className="absolute left-3 top-6 bottom-6 w-px bg-border" />
+        )}
 
-      // Group phases by category
-      const phaseCategories = [
-        { name: "Discovery", phases: phases.filter(p => p.name.toLowerCase().includes("discovery")) },
-        { name: "Research", phases: phases.filter(p => p.name.toLowerCase().includes("research")) },
-        { name: "Analysis", phases: phases.filter(p => p.name.toLowerCase().includes("analysis")) },
-        { name: "Output", phases: phases.filter(p => p.name.toLowerCase().includes("output")) },
-      ].filter(c => c.phases.length > 0);
-
-      // Get current insights from the latest running or completed phase
-      const currentInsights = phases
-        .filter(p => p.status === "completed" || p.status === "running")
-        .flatMap(p => p.insights ?? [])
-        .slice(-3);
-
-      return (
-        <div className={cn("space-y-4", className)}>
-          {/* Header with live indicator */}
-          <div className="flex items-center gap-3">
-            <h3 className="text-lg font-semibold">Analysis Progress</h3>
-            {isRunning && (
-              <div className="flex items-center gap-2">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
-                </span>
-                <span className="text-sm text-blue-500 font-medium">Processing</span>
+        <AnimatePresence mode="popLayout">
+          {activeAgents.length === 0 ? (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="flex items-center gap-3 py-3"
+            >
+              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-500">
+                <Loader2 className="h-4 w-4 text-white animate-spin" />
               </div>
-            )}
-            {isComplete && (
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                <span className="text-sm text-emerald-500 font-medium">Complete</span>
-              </div>
-            )}
-          </div>
-
-          {/* Progress bar */}
-          <div className="space-y-1">
-            <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-              <motion.div
-                className={cn(
-                  "h-full rounded-full",
-                  isComplete ? "bg-emerald-500" : "bg-blue-500"
-                )}
-                initial={{ width: 0 }}
-                animate={{
-                  width: totalCount > 0
-                    ? `${((completedCount + runningCount * 0.5) / totalCount) * 100}%`
-                    : "0%"
-                }}
-                transition={{ duration: 0.3, ease: "easeOut" }}
-              />
-            </div>
-          </div>
-
-          {/* Linear step list */}
-          <div className="relative">
-            {/* Vertical line connecting steps */}
-            {activeAgents.length > 1 && (
-              <div className="absolute left-3 top-6 bottom-6 w-px bg-border" />
-            )}
-
-            <AnimatePresence mode="popLayout">
-              {activeAgents.length === 0 ? (
+              <span className="text-sm text-muted-foreground">Starting analysis...</span>
+            </motion.div>
+          ) : (
+            <div className="space-y-0">
+              {activeAgents.map((agent) => (
                 <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="flex items-center gap-3 py-3"
+                  key={agent.id}
+                  initial={{ opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{
+                    duration: 0.2,
+                    ease: "easeOut"
+                  }}
+                  className="relative flex items-start gap-3 py-2"
                 >
-                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-500">
-                    <Loader2 className="h-4 w-4 text-white animate-spin" />
+                  {/* Step icon */}
+                  <div className="relative z-10 flex-shrink-0">
+                    <StepIcon status={agent.status} />
                   </div>
-                  <span className="text-sm text-muted-foreground">Starting analysis...</span>
+
+                  {/* Content */}
+                  <div className="flex-1 min-w-0 pt-0.5">
+                    <div className="flex items-center gap-2">
+                      <span className={cn(
+                        "text-sm font-medium",
+                        agent.status === "completed" && "text-emerald-600",
+                        agent.status === "running" && "text-blue-600",
+                        agent.status === "failed" && "text-red-600",
+                        agent.status === "pending" && "text-muted-foreground"
+                      )}>
+                        {agent.name}
+                      </span>
+                      {agent.duration && agent.status === "completed" && (
+                        <span className="text-xs text-muted-foreground">
+                          {agent.duration.toFixed(1)}s
+                        </span>
+                      )}
+                    </div>
+                    {agent.summary && (
+                      <motion.p
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 0.1 }}
+                        className="text-xs text-muted-foreground mt-0.5 line-clamp-1"
+                      >
+                        {agent.summary}
+                      </motion.p>
+                    )}
+                  </div>
                 </motion.div>
-              ) : (
-                <div className="space-y-0">
-                  {activeAgents.map((agent) => (
-                    <motion.div
-                      key={agent.id}
-                      initial={{ opacity: 0, y: -8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{
-                        duration: 0.2,
-                        ease: "easeOut"
-                      }}
-                      className="relative flex items-start gap-3 py-2"
-                    >
-                      {/* Step icon */}
-                      <div className="relative z-10 flex-shrink-0">
-                        <StepIcon status={agent.status} />
-                      </div>
-
-                      {/* Content */}
-                      <div className="flex-1 min-w-0 pt-0.5">
-                        <div className="flex items-center gap-2">
-                          <span className={cn(
-                            "text-sm font-medium",
-                            agent.status === "completed" && "text-emerald-600",
-                            agent.status === "running" && "text-blue-600",
-                            agent.status === "failed" && "text-red-600",
-                            agent.status === "pending" && "text-muted-foreground"
-                          )}>
-                            {agent.name}
-                          </span>
-                          {agent.duration && agent.status === "completed" && (
-                            <span className="text-xs text-muted-foreground">
-                              {agent.duration.toFixed(1)}s
-                            </span>
-                          )}
-                        </div>
-                        {agent.summary && (
-                          <motion.p
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            transition={{ delay: 0.1 }}
-                            className="text-xs text-muted-foreground mt-0.5 line-clamp-1"
-                          >
-                            {agent.summary}
-                          </motion.p>
-                        )}
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
-              )}
-            </AnimatePresence>
-          </div>
-        </div>
-      );
-    }
-
+              ))}
+            </div>
+          )}
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+}
