@@ -4,8 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { motion } from "motion/react";
 import Link from "next/link";
-import { Bot, CheckCircle2, Sparkles, Terminal } from "lucide-react";
+import { Bot, Sparkles } from "lucide-react";
 import { useState } from "react";
+import { ScoreDashboard } from "@/components/analysis/score-dashboard";
+import { CompetitorLandscape } from "@/components/analysis/competitor-landscape";
+import { RecommendationsCard } from "@/components/analysis/recommendations-card";
 
 export function Hero() {
   const [url, setUrl] = useState("");
@@ -15,7 +18,7 @@ export function Hero() {
     window.location.href = `/login?analyze_url=${encodeURIComponent(url)}`;
   };
   return (
-    <section className="relative pt-32 pb-20 md:pt-48 md:pb-32 overflow-hidden">
+    <section className="relative pt-24 pb-20 md:pt-32 md:pb-32 overflow-hidden">
       {/* Background gradients */}
       <div className="absolute inset-0 -z-10 bg-background">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[500px] bg-primary/5 blur-[120px] rounded-full" />
@@ -28,11 +31,12 @@ export function Hero() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="inline-flex items-center gap-2 px-3 py-1 rounded-full border bg-muted/50 backdrop-blur-sm text-sm font-medium mb-6"
+            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border bg-muted/50 backdrop-blur-sm text-sm font-medium mb-6"
           >
             <span className="flex h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-            <span className="bg-gradient-to-r from-blue-600 to-violet-600 bg-clip-text text-transparent font-bold">New:</span>
-            Generate Cursor Prompts to fix your content
+            <span className="bg-gradient-to-r from-blue-600 to-violet-600 bg-clip-text text-transparent font-semibold">
+              Become the brand AI recommends.
+            </span>
           </motion.div>
 
           <motion.h1
@@ -41,8 +45,8 @@ export function Hero() {
             transition={{ duration: 0.5, delay: 0.1 }}
             className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight mb-6"
           >
-            Your <span className="text-primary">AI Visibility</span> Journey
-            <br className="hidden md:block" /> Starts Here
+            AI Gives <span className="text-primary">One Answer.</span>
+            <br className="hidden md:block" /> Make Sure It&apos;s You.
           </motion.h1>
 
           <motion.p
@@ -51,7 +55,7 @@ export function Hero() {
             transition={{ duration: 0.5, delay: 0.2 }}
             className="text-xl text-muted-foreground mb-8 max-w-2xl leading-relaxed"
           >
-            BrandSight gives you <strong>clear visibility</strong> into the AI landscape. Our agents actively search Perplexity, Google, and SearchGPT to see exactly where your brand appears—and where it&apos;s missing.
+            Track which AI systems cite your brand, understand why competitors appear instead, and get a clear roadmap to own the recommendation.
           </motion.p>
 
           {/* URL Input */}
@@ -59,175 +63,168 @@ export function Hero() {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.5, delay: 0.25 }}
-            className="w-full max-w-lg mb-8"
+            className="w-full max-w-2xl mb-8"
           >
-            <div className="relative group">
-              <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg blur opacity-25 group-hover:opacity-75 transition duration-1000 group-hover:duration-200"></div>
-              <div className="relative flex items-center bg-background rounded-lg p-1 pr-1 border shadow-sm">
-                <Input
-                  placeholder="Enter your website URL (e.g. example.com)"
-                  className="border-0 shadow-none focus-visible:ring-0 h-10 md:text-base text-base bg-transparent"
-                  value={url}
-                  onChange={(e) => setUrl(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleAnalyze()}
-                />
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="relative group flex-1">
+                <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg blur opacity-25 group-hover:opacity-75 transition duration-1000 group-hover:duration-200"></div>
+                <div className="relative flex items-center bg-background rounded-lg p-1 border shadow-sm h-12">
+                  <Input
+                    placeholder="Enter your website URL (e.g. example.com)"
+                    className="border-0 shadow-none focus-visible:ring-0 h-full md:text-base text-base bg-transparent px-4"
+                    value={url}
+                    onChange={(e) => setUrl(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleAnalyze()}
+                  />
+                </div>
               </div>
-            </div>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.3 }}
-            className="flex flex-col sm:flex-row items-center gap-4"
-          >
-            <Button
-              size="lg"
-              className="h-12 px-8 text-base shadow-lg shadow-primary/20"
-              onClick={handleAnalyze}
-            >
-              Analyze My Site
-              <Sparkles className="ml-2 size-4" />
-            </Button>
-            <Link href="/how-it-works">
-              <Button variant="outline" size="lg" className="h-12 px-8 text-base">
-                See How It Works
+              <Button
+                size="lg"
+                className="h-12 px-8 text-base shadow-lg shadow-primary/20 shrink-0"
+                onClick={handleAnalyze}
+              >
+                Analyze My Site
+                <Sparkles className="ml-2 size-4" />
               </Button>
-            </Link>
+            </div>
           </motion.div>
         </div>
 
-        {/* Dashboard Mockup */}
-        <motion.div
-          initial={{ opacity: 0, y: 40 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.4 }}
-          className="mt-20 relative mx-auto max-w-5xl"
-        >
-          <div className="rounded-xl border border-border bg-card/50 backdrop-blur shadow-2xl overflow-hidden p-2 md:p-4">
-            <div className="rounded-lg bg-background border border-border/50 overflow-hidden relative min-h-[400px]">
-              {/* Mock Header */}
-              <div className="h-12 border-b border-border/50 bg-muted/20 flex items-center px-4 gap-2 justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="flex gap-1.5">
-                    <div className="size-3 rounded-full bg-red-500/20" />
-                    <div className="size-3 rounded-full bg-yellow-500/20" />
-                    <div className="size-3 rounded-full bg-green-500/20" />
-                  </div>
-                  <div className="h-6 w-48 bg-muted rounded-md flex items-center px-2 text-[10px] text-muted-foreground font-mono">
-                    AEO Analysis: pricing-page
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-                  <span className="text-[10px] text-muted-foreground">Agents Active</span>
-                </div>
-              </div>
-
-              {/* Mock Content */}
-              <div className="grid grid-cols-1 md:grid-cols-3 h-full">
-                {/* Sidebar / Stats */}
-                <div className="border-r p-6 space-y-6 bg-muted/10">
-                  <div>
-                    <div className="text-sm font-medium text-muted-foreground mb-2">AEO Visibility Score</div>
-                    <div className="text-4xl font-bold flex items-baseline gap-2">
-                      65
-                      <span className="text-sm font-normal text-muted-foreground">/100</span>
-                    </div>
-                    <div className="mt-2 h-2 w-full bg-muted rounded-full overflow-hidden">
-                      <div className="h-full bg-yellow-500 w-[65%]" />
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    <div className="text-xs font-semibold uppercase text-muted-foreground tracking-wider">Top Competitors</div>
-                    {[
-                      { name: "stripe.com", score: 92 },
-                      { name: "paddle.com", score: 88 },
-                      { name: "lemonsqueezy.com", score: 81 }
-                    ].map((c, i) => (
-                      <div key={i} className="flex justify-between items-center text-sm">
-                        <span>{c.name}</span>
-                        <span className="font-mono text-muted-foreground">{c.score}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Main Content / Analysis */}
-                <div className="col-span-2 p-6">
-                  <div className="space-y-6">
-                    <div className="flex items-center gap-2 text-sm font-medium text-blue-500 bg-blue-500/10 w-fit px-3 py-1 rounded-full">
-                      <Bot className="size-4" />
-                      <span>Analysis by Tavily & OpenAI Agent</span>
-                    </div>
-
-                    <div className="space-y-4">
-                      <div className="bg-card border rounded-lg p-4 shadow-sm">
-                        <h3 className="font-semibold mb-2 flex items-center gap-2">
-                          <CheckCircle2 className="size-4 text-green-500" />
-                          On Track
-                        </h3>
-                        <p className="text-sm text-muted-foreground">&quot;Best payment processor for SaaS&quot;</p>
-                        <div className="mt-3 text-xs bg-muted p-2 rounded border-l-2 border-green-500">
-                          Cited in <strong>Perplexity</strong> and <strong>SearchGPT</strong> results.
-                        </div>
-                      </div>
-
-                      <div className="bg-card border rounded-lg p-4 shadow-sm relative overflow-hidden">
-                        <div className="absolute top-0 left-0 w-1 h-full bg-red-500" />
-                        <h3 className="font-semibold mb-2 text-red-600 dark:text-red-400">Room to Grow</h3>
-                        <p className="text-sm text-muted-foreground mb-3">&quot;SaaS pricing models comparison&quot;</p>
-
-                        <div className="bg-zinc-950 text-zinc-50 rounded-lg p-3 font-mono text-xs overflow-x-auto relative group">
-                          <div className="absolute top-2 right-2 opacity-100 bg-zinc-800 px-2 py-0.5 rounded text-[10px] flex items-center gap-1">
-                            <Terminal className="size-3" />
-                            Cursor Prompt Ready
-                          </div>
-                          <div className="text-zinc-500"># Generated optimization task</div>
-                          <div><span className="text-purple-400">### 1. Add Pricing Comparison Table</span></div>
-                          <div className="pl-4 border-l border-zinc-800 ml-1 mt-1">
-                            Add a markdown table comparing flat-rate vs tiered pricing.<br />
-                            Use &apos;PaymentModel&apos; schema markup...
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Floating badges */}
+        {/* Scattered UI Elements */}
+        <div className="mt-20 relative mx-auto max-w-7xl min-h-[800px] md:min-h-[600px] perspective-1000">
+          
+          {/* Central Score Card */}
           <motion.div
-            animate={{ y: [0, -10, 0] }}
-            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-            className="absolute -left-4 top-20 md:-left-12 md:top-32 bg-background border p-3 rounded-lg shadow-xl flex items-center gap-3 z-20"
+            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="w-full md:absolute md:left-1/2 md:-translate-x-1/2 md:top-0 md:w-[680px] z-20"
           >
-            <div className="bg-blue-100 p-2 rounded-md dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
-              <Bot className="size-5" />
-            </div>
-            <div>
-              <div className="text-xs font-semibold">Tavily Agent</div>
-              <div className="text-[10px] text-muted-foreground">Simulating 12 queries...</div>
+            <div className="rounded-2xl border bg-card/80 backdrop-blur-xl shadow-2xl p-6 border-primary/20 ring-1 ring-primary/10">
+              <div className="flex items-center gap-2 mb-6 border-b pb-4">
+                <div className="size-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Sparkles className="size-4 text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-lg">Visibility Score</h3>
+                  <p className="text-xs text-muted-foreground">Real-time AI search analysis</p>
+                </div>
+                <div className="ml-auto text-xs font-mono bg-muted px-2 py-1 rounded">
+                  Live Preview
+                </div>
+              </div>
+              <ScoreDashboard 
+                scores={{
+                  aeoVisibilityScore: 78,
+                  llmeoScore: 82,
+                  seoScore: 90,
+                  overallScore: 84
+                }}
+                confidence={0.92}
+                className="[&_.grid]:gap-4" 
+              />
             </div>
           </motion.div>
 
+          {/* Competitor Analysis - Floating Left */}
           <motion.div
-            animate={{ y: [0, 10, 0] }}
-            transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-            className="absolute -right-4 bottom-20 md:-right-12 md:bottom-32 bg-background border p-3 rounded-lg shadow-xl flex items-center gap-3 z-20"
+            initial={{ opacity: 0, x: -40, rotate: -2 }}
+            animate={{ opacity: 1, x: 0, rotate: -2 }}
+            whileHover={{ rotate: 0, scale: 1.02, zIndex: 40 }}
+            transition={{ duration: 0.6, delay: 0.4 }}
+            className="w-full mt-6 md:mt-0 md:absolute md:left-0 md:top-48 md:w-[420px] z-10"
           >
-            <div className="bg-purple-100 p-2 rounded-md dark:bg-purple-900/30 text-purple-600 dark:text-purple-400">
-              <Sparkles className="size-5" />
-            </div>
-            <div>
-              <div className="text-xs font-semibold">Optimization Ready</div>
-              <div className="text-[10px] text-muted-foreground">+15% projected visibility</div>
+            <div className="relative group">
+              <div className="absolute -inset-0.5 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-xl blur opacity-50 group-hover:opacity-100 transition duration-500"></div>
+              <CompetitorLandscape 
+                className="relative shadow-xl border-blue-500/20 bg-card/90 backdrop-blur-sm"
+                competitors={[
+                  { domain: "stripe.com", citationCount: 156, citationRate: 92, averageRank: 1.2 },
+                  { domain: "paddle.com", citationCount: 124, citationRate: 88, averageRank: 1.5 },
+                  { domain: "lemonsqueezy.com", citationCount: 89, citationRate: 81, averageRank: 2.1 }
+                ]}
+                yourDomain="your-saas.com"
+                yourCitationRate={78}
+                yourAverageRank={2.4}
+              />
             </div>
           </motion.div>
-        </motion.div>
+
+          {/* Actionable Insights - Floating Right */}
+          <motion.div
+            initial={{ opacity: 0, x: 40, rotate: 2 }}
+            animate={{ opacity: 1, x: 0, rotate: 2 }}
+            whileHover={{ rotate: 0, scale: 1.02, zIndex: 40 }}
+            transition={{ duration: 0.6, delay: 0.6 }}
+            className="w-full mt-6 md:mt-0 md:absolute md:right-0 md:top-64 md:w-[440px] z-30"
+          >
+            <div className="relative group">
+              <div className="absolute -inset-0.5 bg-gradient-to-br from-amber-500/20 to-orange-500/20 rounded-xl blur opacity-50 group-hover:opacity-100 transition duration-500"></div>
+              <RecommendationsCard 
+                className="relative shadow-xl border-amber-500/20 bg-card/90 backdrop-blur-sm"
+                recommendations={[
+                  {
+                    id: "1",
+                    priority: "high",
+                    category: "content",
+                    title: "Missing Pricing Comparison",
+                    description: "AI agents look for structured pricing tables. Add a comparison matrix to capture 'vs' queries.",
+                    impact: "High visibility gain",
+                    effort: "low",
+                    targetQueries: ["stripe vs paddle"]
+                  }
+                ]}
+              />
+              {/* Floating Badge attached to card */}
+              <motion.div 
+                animate={{ y: [0, -5, 0] }}
+                transition={{ duration: 3, repeat: Infinity }}
+                className="absolute -top-4 -right-4 bg-zinc-900 text-white text-xs px-3 py-1.5 rounded-full shadow-lg flex items-center gap-1.5 border border-zinc-700"
+              >
+                <Bot className="size-3 text-green-400" />
+                Cursor Prompt Ready
+              </motion.div>
+            </div>
+          </motion.div>
+
+          {/* Connecting Lines (Decorative) - Desktop Only */}
+          <svg className="hidden md:block absolute inset-0 pointer-events-none z-0" style={{ overflow: 'visible' }}>
+            {/* Line from Score to Competitors */}
+            <motion.path
+              d="M 500 100 Q 300 200 200 250"
+              fill="transparent"
+              stroke="url(#gradient-left)"
+              strokeWidth="2"
+              strokeDasharray="4 4"
+              initial={{ pathLength: 0, opacity: 0 }}
+              animate={{ pathLength: 1, opacity: 0.3 }}
+              transition={{ duration: 1, delay: 0.8 }}
+            />
+             {/* Line from Score to Recommendations */}
+            <motion.path
+              d="M 700 100 Q 900 250 1000 300"
+              fill="transparent"
+              stroke="url(#gradient-right)"
+              strokeWidth="2"
+              strokeDasharray="4 4"
+              initial={{ pathLength: 0, opacity: 0 }}
+              animate={{ pathLength: 1, opacity: 0.3 }}
+              transition={{ duration: 1, delay: 0.8 }}
+            />
+            <defs>
+              <linearGradient id="gradient-left" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="#3b82f6" />
+                <stop offset="100%" stopColor="#a855f7" />
+              </linearGradient>
+              <linearGradient id="gradient-right" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="#f59e0b" />
+                <stop offset="100%" stopColor="#ef4444" />
+              </linearGradient>
+            </defs>
+          </svg>
+
+        </div>
+
       </div>
     </section>
   );

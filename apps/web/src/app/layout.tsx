@@ -81,6 +81,17 @@ export default function RootLayout({
     <html lang="en" className={`${geist.variable}`} suppressHydrationWarning>
       <body>
         <TRPCReactProvider>{children}</TRPCReactProvider>
+        {/* AI Crawler Tracking Pixel */}
+        <img
+          src="https://your-domain.com/api/pixel/3q4SCx-rqOqxlGnE"
+          alt=""
+          style={{
+            position: "absolute",
+            width: 0,
+            height: 0,
+            border: 0,
+          }}
+        />
       </body>
     </html>
   );

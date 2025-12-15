@@ -13,14 +13,14 @@ export function Navbar() {
       initial={{ y: -100 }}
       animate={{ y: 0 }}
       transition={{ duration: 0.5 }}
-      className="fixed top-0 left-0 right-0 z-50 border-b border-border/40 bg-background/80 backdrop-blur-md"
+      className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md"
     >
-      <div className="container mx-auto px-4 h-16 flex items-center justify-between">
+      <div className="container relative mx-auto px-4 h-16 flex items-center justify-between">
         <Link href="/" className="font-bold text-xl">
           Brandsight
         </Link>
 
-        <nav className="hidden md:flex items-center gap-5 text-sm font-medium text-muted-foreground">
+        <nav className="hidden md:flex items-center gap-5 text-sm font-medium text-muted-foreground absolute left-1/2 -translate-x-1/2">
           <Link href="/#features" className="hover:text-foreground transition-colors">
             Features
           </Link>
@@ -29,9 +29,6 @@ export function Navbar() {
           </Link>
           <Link href="/enterprise" className="hover:text-foreground transition-colors">
             Enterprise
-          </Link>
-          <Link href="/about" className="hover:text-foreground transition-colors">
-            About
           </Link>
         </nav>
 
