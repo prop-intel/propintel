@@ -74,12 +74,16 @@ export class OrchestratorAgent {
 
     // Execute each phase
     const totalPhases = this.plan.phases.length;
+    console.log(`[Orchestrator] Starting execution of ${totalPhases} phases`);
     for (let i = 0; i < totalPhases; i++) {
       const phase = this.plan.phases[i];
-      if (!phase) continue;
+      if (!phase) {
+        console.log(`[Orchestrator] Skipping null phase at index ${i}`);
+        continue;
+      }
 
       console.log(
-        `[Orchestrator] Executing phase ${i + 1}/${totalPhases}: ${phase.name}`,
+        `[Orchestrator] ========== Phase ${i + 1}/${totalPhases}: ${phase.name} ==========`,
       );
       console.log(
         `[Orchestrator] Phase agents: ${phase.agents.join(", ")}, parallel: ${phase.runInParallel}`,
@@ -92,6 +96,7 @@ export class OrchestratorAgent {
 
       try {
         // Execute agents (parallel or sequential based on phase config)
+        console.log(`[Orchestrator] Starting executeAgents for phase ${phase.name}...`);
         await executeAgents(
           phase.agents,
           phase.runInParallel,
@@ -100,12 +105,15 @@ export class OrchestratorAgent {
           context.jobId,
           model,
         );
+        console.log(`[Orchestrator] executeAgents completed for phase ${phase.name}`);
 
         // Always push progress to the job as soon as a phase finishes,
         // so a failure in reasoning won't lose the completion update.
         if (onPhaseComplete) {
+          console.log(`[Orchestrator] Calling onPhaseComplete for ${phase.name}...`);
           try {
             await onPhaseComplete(phase.name, this.getAllAgentSummaries());
+            console.log(`[Orchestrator] onPhaseComplete finished for ${phase.name}`);
           } catch (callbackError) {
             console.error(
               `[Orchestrator] Failed to run onPhaseComplete for ${phase.name}:`,
@@ -117,6 +125,7 @@ export class OrchestratorAgent {
         // Reason over results after each phase (best-effort; don't block progress)
         let reasoning: Awaited<ReturnType<typeof reasonOverResults>> | null =
           null;
+        console.log(`[Orchestrator] Starting reasonOverResults for ${phase.name}...`);
         try {
           reasoning = await reasonOverResults(
             this.context.getContext(),
@@ -134,6 +143,7 @@ export class OrchestratorAgent {
             reasonError,
           );
         }
+        console.log(`[Orchestrator] Phase ${phase.name} post-processing complete, continuing to next phase...`);
 
         // Apply adjustments if suggested
         if ((reasoning?.adjustments?.length ?? 0) > 0) {
@@ -167,6 +177,7 @@ export class OrchestratorAgent {
         throw error;
       }
     }
+    console.log(`[Orchestrator] ========== All ${totalPhases} phases complete ==========`);
   }
 
   /**

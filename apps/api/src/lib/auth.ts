@@ -94,6 +94,16 @@ function extractSessionToken(event: APIGatewayProxyEventV2): string | null {
 
   const cookieHeader = authHeaders.cookie || authHeaders.Cookie || authHeaders.COOKIE;
   if (cookieHeader) {
+    // Check for secure cookie variants first (used in production HTTPS)
+    const secureMatch = /__Secure-authjs\.session-token=([^;]+)/i.exec(cookieHeader);
+    if (secureMatch?.[1]) {
+      return secureMatch[1].trim();
+    }
+    const secureNextMatch = /__Secure-next-auth\.session-token=([^;]+)/i.exec(cookieHeader);
+    if (secureNextMatch?.[1]) {
+      return secureNextMatch[1].trim();
+    }
+    // Check for non-secure variants
     const match = /authjs\.session-token=([^;]+)/i.exec(cookieHeader);
     if (match?.[1]) {
       return match[1].trim();
@@ -106,6 +116,14 @@ function extractSessionToken(event: APIGatewayProxyEventV2): string | null {
 
   const cookies = event.cookies || [];
   for (const cookie of cookies) {
+    // Check secure variants first
+    if (cookie.startsWith('__Secure-authjs.session-token=')) {
+      return cookie.replace('__Secure-authjs.session-token=', '').split(';')[0]?.trim() ?? null;
+    }
+    if (cookie.startsWith('__Secure-next-auth.session-token=')) {
+      return cookie.replace('__Secure-next-auth.session-token=', '').split(';')[0]?.trim() ?? null;
+    }
+    // Non-secure variants
     if (cookie.startsWith('authjs.session-token=')) {
       return cookie.replace('authjs.session-token=', '').split(';')[0]?.trim() ?? null;
     }

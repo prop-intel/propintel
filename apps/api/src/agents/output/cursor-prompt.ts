@@ -15,11 +15,62 @@ import { createTrace, safeFlush } from '../../lib/langfuse';
 const AGENT_NAME = 'Cursor Prompt Agent';
 
 // ===================
-// Timeout Configuration
+// Timeout & Retry Configuration
 // ===================
 
 // 60 second timeout for LLM API calls to prevent indefinite hangs
 const LLM_TIMEOUT_MS = 60_000;
+const MAX_RETRIES = 3;
+
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  providerName: string,
+  maxRetries = MAX_RETRIES
+): Promise<T> {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      const isLastAttempt = attempt === maxRetries;
+      const errorMsg = (error as Error).message;
+      
+      if (isLastAttempt) {
+        console.error(`[${AGENT_NAME}] All ${maxRetries} attempts failed with ${providerName}`);
+        throw error;
+      }
+      
+      const delay = 1000 * Math.pow(2, attempt - 1); // 1s, 2s, 4s
+      console.log(`[${AGENT_NAME}] ${providerName} attempt ${attempt} failed: ${errorMsg}`);
+      console.log(`[${AGENT_NAME}] Retrying in ${delay}ms... (${attempt}/${maxRetries})`);
+      await new Promise(r => setTimeout(r, delay));
+    }
+  }
+  throw new Error('Unreachable');
+}
+
+type Provider = typeof openai;
+
+async function withProviderFallback<T>(
+  fn: (provider: Provider) => Promise<T>
+): Promise<T> {
+  // Try OpenAI first
+  try {
+    console.log(`[${AGENT_NAME}] Trying OpenAI...`);
+    return await withRetry(() => fn(openai), 'OpenAI');
+  } catch (openaiError) {
+    // If OpenRouter key is available, try it as fallback
+    if (process.env.OPENROUTER_API_KEY) {
+      console.log(`[${AGENT_NAME}] OpenAI failed, falling back to OpenRouter...`);
+      try {
+        return await withRetry(() => fn(openrouter), 'OpenRouter');
+      } catch (openrouterError) {
+        console.error(`[${AGENT_NAME}] Both providers failed`);
+        throw openrouterError;
+      }
+    }
+    throw openaiError;
+  }
+}
 
 // ===================
 // Client Initialization
@@ -27,6 +78,11 @@ const LLM_TIMEOUT_MS = 60_000;
 
 const openai = createOpenAI({
   apiKey: process.env.OPENAI_API_KEY || '',
+});
+
+const openrouter = createOpenAI({
+  apiKey: process.env.OPENROUTER_API_KEY || '',
+  baseURL: 'https://openrouter.ai/api/v1',
 });
 
 // ===================
@@ -137,14 +193,16 @@ ${aeoAnalysis.keyFindings.map(f => `- ${f}`).join('\n')}
 
 Create a prompt that will help improve visibility for these target queries.`;
 
-    const result = await generateObject({
-      model: openai(model),
-      schema: CursorPromptSchema,
-      system: systemPrompt,
-      prompt: userPrompt,
-      temperature: 0,
-      abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
-    });
+    const result = await withProviderFallback((provider) =>
+      generateObject({
+        model: provider(model),
+        schema: CursorPromptSchema,
+        system: systemPrompt,
+        prompt: userPrompt,
+        temperature: 0,
+        abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
+      })
+    );
 
     const duration = ((Date.now() - startTime) / 1000).toFixed(1);
     console.log(`[${AGENT_NAME}] LLM call completed in ${duration}s`);

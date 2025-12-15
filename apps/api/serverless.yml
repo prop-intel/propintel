@@ -15,12 +15,12 @@ provider:
     STAGE: ${self:provider.stage}
     DATABASE_URL: ${env:DATABASE_URL, ''}
     S3_BUCKET: ${self:service}-${self:provider.stage}-storage
-    SQS_QUEUE_URL: !Ref CrawlJobQueue
-    ECS_CLUSTER_ARN: !GetAtt ECSCluster.Arn
-    ECS_TASK_DEFINITION: !Ref CrawlTaskDefinition
-    ECS_RENDER_TASK_DEFINITION: !Ref RenderTaskDefinition
-    ECS_SUBNET_IDS: !Join [',', [!Ref PublicSubnet1, !Ref PublicSubnet2]]
-    ECS_SECURITY_GROUP: !Ref ECSSecurityGroup
+    SQS_QUEUE_URL: https://sqs.us-west-2.amazonaws.com/971422717446/${self:service}-${self:provider.stage}-crawl-jobs
+    ECS_CLUSTER_ARN: arn:aws:ecs:us-west-2:971422717446:cluster/${self:service}-${self:provider.stage}
+    ECS_TASK_DEFINITION: ${self:service}-${self:provider.stage}-crawl
+    ECS_RENDER_TASK_DEFINITION: ${self:service}-${self:provider.stage}-render
+    ECS_SUBNET_IDS: subnet-0771f1f630d611688,subnet-0bc2e48c08206e4b6
+    ECS_SECURITY_GROUP: sg-07143aece0f260f67
     OPENAI_API_KEY: ${env:OPENAI_API_KEY, ''}
     LANGFUSE_PUBLIC_KEY: ${env:LANGFUSE_PUBLIC_KEY, ''}
     LANGFUSE_SECRET_KEY: ${env:LANGFUSE_SECRET_KEY, ''}
@@ -39,8 +39,8 @@ provider:
             - s3:DeleteObject
             - s3:ListBucket
           Resource:
-            - !GetAtt StorageBucket.Arn
-            - !Join ['/', [!GetAtt StorageBucket.Arn, '*']]
+            - arn:aws:s3:::${self:service}-${self:provider.stage}-storage
+            - arn:aws:s3:::${self:service}-${self:provider.stage}-storage/*
         # SQS permissions
         - Effect: Allow
           Action:
@@ -49,7 +49,7 @@ provider:
             - sqs:DeleteMessage
             - sqs:GetQueueAttributes
           Resource:
-            - !GetAtt CrawlJobQueue.Arn
+            - arn:aws:sqs:us-west-2:971422717446:${self:service}-${self:provider.stage}-crawl-jobs
         # ECS permissions
         - Effect: Allow
           Action:
@@ -61,8 +61,8 @@ provider:
           Action:
             - iam:PassRole
           Resource:
-            - !GetAtt ECSTaskExecutionRole.Arn
-            - !GetAtt ECSTaskRole.Arn
+            - arn:aws:iam::971422717446:role/${self:service}-${self:provider.stage}-ecs-execution
+            - arn:aws:iam::971422717446:role/${self:service}-${self:provider.stage}-ecs-task
         # CloudWatch Logs
         - Effect: Allow
           Action:
@@ -107,6 +107,7 @@ custom:
     platform: node
     keepNames: true
     format: esm
+    outputFileExtension: '.mjs'
     banner:
       js: "import { createRequire } from 'module'; import { fileURLToPath } from 'url'; import { dirname } from 'path'; const require = createRequire(import.meta.url); const __filename = fileURLToPath(import.meta.url); const __dirname = dirname(__filename);"
   serverless-offline:
@@ -114,7 +115,7 @@ custom:
     lambdaPort: 4001
     noPrependStageInUrl: true
     reloadHandler: true
-    noTimeout: true  # Disable timeout for local development
+    noTimeout: true
 
 package:
   individually: true
@@ -143,7 +144,7 @@ functions:
     memorySize: 1024
     events:
       - sqs:
-          arn: !GetAtt CrawlJobQueue.Arn
+          arn: arn:aws:sqs:us-west-2:971422717446:${self:service}-${self:provider.stage}-crawl-jobs
           batchSize: 1
 
   # Health Check
@@ -182,8 +183,6 @@ functions:
   # Scheduled Crawls
   createSchedule:
     handler: src/handlers/schedules.createSchedule
-    environment:
-      SCHEDULED_CRAWL_FUNCTION_ARN: !GetAtt ScheduledCrawlLambdaFunction.Arn
     events:
       - httpApi:
           path: /schedules
@@ -207,7 +206,7 @@ functions:
     handler: src/handlers/schedules.handleScheduledCrawl
     timeout: 60
 
-  # Documentation Headers
+  # Documentation
   apiDocs:
     handler: src/handlers/docs.html
     events:
@@ -223,281 +222,7 @@ functions:
           method: get
 
 resources:
-  Resources:
-    # ===================
-    # VPC Configuration
-    # ===================
-    VPC:
-      Type: AWS::EC2::VPC
-      Properties:
-        CidrBlock: 10.0.0.0/16
-        EnableDnsHostnames: true
-        EnableDnsSupport: true
-        Tags:
-          - Key: Name
-            Value: ${self:service}-${self:provider.stage}-vpc
-
-    InternetGateway:
-      Type: AWS::EC2::InternetGateway
-      Properties:
-        Tags:
-          - Key: Name
-            Value: ${self:service}-${self:provider.stage}-igw
-
-    InternetGatewayAttachment:
-      Type: AWS::EC2::VPCGatewayAttachment
-      Properties:
-        InternetGatewayId: !Ref InternetGateway
-        VpcId: !Ref VPC
-
-    PublicSubnet1:
-      Type: AWS::EC2::Subnet
-      Properties:
-        VpcId: !Ref VPC
-        AvailabilityZone: !Select [0, !GetAZs '']
-        CidrBlock: 10.0.1.0/24
-        MapPublicIpOnLaunch: true
-        Tags:
-          - Key: Name
-            Value: ${self:service}-${self:provider.stage}-public-1
-
-    PublicSubnet2:
-      Type: AWS::EC2::Subnet
-      Properties:
-        VpcId: !Ref VPC
-        AvailabilityZone: !Select [1, !GetAZs '']
-        CidrBlock: 10.0.2.0/24
-        MapPublicIpOnLaunch: true
-        Tags:
-          - Key: Name
-            Value: ${self:service}-${self:provider.stage}-public-2
-
-    PublicRouteTable:
-      Type: AWS::EC2::RouteTable
-      Properties:
-        VpcId: !Ref VPC
-        Tags:
-          - Key: Name
-            Value: ${self:service}-${self:provider.stage}-public-rt
-
-    DefaultPublicRoute:
-      Type: AWS::EC2::Route
-      DependsOn: InternetGatewayAttachment
-      Properties:
-        RouteTableId: !Ref PublicRouteTable
-        DestinationCidrBlock: 0.0.0.0/0
-        GatewayId: !Ref InternetGateway
-
-    PublicSubnet1RouteTableAssociation:
-      Type: AWS::EC2::SubnetRouteTableAssociation
-      Properties:
-        RouteTableId: !Ref PublicRouteTable
-        SubnetId: !Ref PublicSubnet1
-
-    PublicSubnet2RouteTableAssociation:
-      Type: AWS::EC2::SubnetRouteTableAssociation
-      Properties:
-        RouteTableId: !Ref PublicRouteTable
-        SubnetId: !Ref PublicSubnet2
-
-    ECSSecurityGroup:
-      Type: AWS::EC2::SecurityGroup
-      Properties:
-        GroupDescription: Security group for ECS tasks
-        VpcId: !Ref VPC
-        SecurityGroupEgress:
-          - IpProtocol: -1
-            CidrIp: 0.0.0.0/0
-        Tags:
-          - Key: Name
-            Value: ${self:service}-${self:provider.stage}-ecs-sg
-
-    # ===================
-    # S3 Bucket
-    # ===================
-    StorageBucket:
-      Type: AWS::S3::Bucket
-      Properties:
-        BucketName: ${self:service}-${self:provider.stage}-storage
-        LifecycleConfiguration:
-          Rules:
-            - Id: DeleteAfter30Days
-              Status: Enabled
-              ExpirationInDays: 30
-        CorsConfiguration:
-          CorsRules:
-            - AllowedHeaders: ['*']
-              AllowedMethods: [GET, PUT]
-              AllowedOrigins: ['*']
-              MaxAge: 3000
-
-    # ===================
-    # SQS Queue
-    # ===================
-    CrawlJobQueue:
-      Type: AWS::SQS::Queue
-      Properties:
-        QueueName: ${self:service}-${self:provider.stage}-crawl-jobs
-        VisibilityTimeout: 900
-        MessageRetentionPeriod: 86400
-        RedrivePolicy:
-          deadLetterTargetArn: !GetAtt CrawlJobDLQ.Arn
-          maxReceiveCount: 3
-
-    CrawlJobDLQ:
-      Type: AWS::SQS::Queue
-      Properties:
-        QueueName: ${self:service}-${self:provider.stage}-crawl-jobs-dlq
-        MessageRetentionPeriod: 1209600
-
-    # ===================
-    # ECS Cluster
-    # ===================
-    ECSCluster:
-      Type: AWS::ECS::Cluster
-      Properties:
-        ClusterName: ${self:service}-${self:provider.stage}
-        CapacityProviders:
-          - FARGATE
-          - FARGATE_SPOT
-        DefaultCapacityProviderStrategy:
-          - CapacityProvider: FARGATE_SPOT
-            Weight: 1
-
-    # ECS Task Execution Role
-    ECSTaskExecutionRole:
-      Type: AWS::IAM::Role
-      Properties:
-        RoleName: ${self:service}-${self:provider.stage}-ecs-execution
-        AssumeRolePolicyDocument:
-          Version: '2012-10-17'
-          Statement:
-            - Effect: Allow
-              Principal:
-                Service: ecs-tasks.amazonaws.com
-              Action: sts:AssumeRole
-        ManagedPolicyArns:
-          - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
-        Policies:
-          - PolicyName: CloudWatchLogs
-            PolicyDocument:
-              Version: '2012-10-17'
-              Statement:
-                - Effect: Allow
-                  Action:
-                    - logs:CreateLogGroup
-                    - logs:CreateLogStream
-                    - logs:PutLogEvents
-                  Resource: '*'
-
-    # ECS Task Role
-    ECSTaskRole:
-      Type: AWS::IAM::Role
-      Properties:
-        RoleName: ${self:service}-${self:provider.stage}-ecs-task
-        AssumeRolePolicyDocument:
-          Version: '2012-10-17'
-          Statement:
-            - Effect: Allow
-              Principal:
-                Service: ecs-tasks.amazonaws.com
-              Action: sts:AssumeRole
-        Policies:
-          - PolicyName: TaskPermissions
-            PolicyDocument:
-              Version: '2012-10-17'
-              Statement:
-                - Effect: Allow
-                  Action:
-                    - s3:PutObject
-                    - s3:GetObject
-                  Resource:
-                    - !Join ['/', [!GetAtt StorageBucket.Arn, '*']]
-
-    # ECS Task Definition (placeholder - will use ECR image)
-    CrawlTaskDefinition:
-      Type: AWS::ECS::TaskDefinition
-      Properties:
-        Family: ${self:service}-${self:provider.stage}-crawl
-        NetworkMode: awsvpc
-        RequiresCompatibilities:
-          - FARGATE
-        Cpu: '1024'
-        Memory: '2048'
-        ExecutionRoleArn: !GetAtt ECSTaskExecutionRole.Arn
-        TaskRoleArn: !GetAtt ECSTaskRole.Arn
-        ContainerDefinitions:
-          - Name: crawler
-            Image: public.ecr.aws/lambda/nodejs:20
-            Essential: true
-            Environment:
-              - Name: STAGE
-                Value: ${self:provider.stage}
-              - Name: DATABASE_URL
-                Value: ${env:DATABASE_URL, ''}
-              - Name: S3_BUCKET
-                Value: ${self:service}-${self:provider.stage}-storage
-            LogConfiguration:
-              LogDriver: awslogs
-              Options:
-                awslogs-group: /ecs/${self:service}-${self:provider.stage}
-                awslogs-region: ${self:provider.region}
-                awslogs-stream-prefix: crawler
-                awslogs-create-group: 'true'
-
-    # ECS Render Task Definition (Playwright for SPA rendering)
-    RenderTaskDefinition:
-      Type: AWS::ECS::TaskDefinition
-      Properties:
-        Family: ${self:service}-${self:provider.stage}-render
-        NetworkMode: awsvpc
-        RequiresCompatibilities:
-          - FARGATE
-        Cpu: '1024'
-        Memory: '2048'
-        ExecutionRoleArn: !GetAtt ECSTaskExecutionRole.Arn
-        TaskRoleArn: !GetAtt ECSTaskRole.Arn
-        ContainerDefinitions:
-          - Name: renderer
-            Image: public.ecr.aws/lambda/nodejs:20
-            Essential: true
-            Environment:
-              - Name: STAGE
-                Value: ${self:provider.stage}
-              - Name: AWS_REGION
-                Value: ${self:provider.region}
-              - Name: DATABASE_URL
-                Value: ${env:DATABASE_URL, ''}
-              - Name: S3_BUCKET
-                Value: ${self:service}-${self:provider.stage}-storage
-            LogConfiguration:
-              LogDriver: awslogs
-              Options:
-                awslogs-group: /ecs/${self:service}-${self:provider.stage}
-                awslogs-region: ${self:provider.region}
-                awslogs-stream-prefix: renderer
-                awslogs-create-group: 'true'
-
-    # CloudWatch Log Group for ECS
-    ECSLogGroup:
-      Type: AWS::Logs::LogGroup
-      Properties:
-        LogGroupName: /ecs/${self:service}-${self:provider.stage}
-        RetentionInDays: 30
-
   Outputs:
     ApiEndpoint:
       Description: API Gateway endpoint URL
       Value: !Sub 'https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com'
-    S3Bucket:
-      Description: S3 bucket name
-      Value: !Ref StorageBucket
-    SQSQueueUrl:
-      Description: SQS queue URL
-      Value: !Ref CrawlJobQueue
-    ECSCluster:
-      Description: ECS cluster ARN
-      Value: !GetAtt ECSCluster.Arn
-    VPCId:
-      Description: VPC ID
-      Value: !Ref VPC

@@ -242,6 +242,8 @@ async function executeAgent(
   jobId: string,
   model: string,
 ): Promise<void> {
+  console.log(`[Executor] >>> Starting agent: ${agentId}`);
+  
   // Skip disabled/stub agents
   if (DISABLED_AGENTS.has(agentId)) {
     console.log(`[Executor] Skipping disabled agent: ${agentId}`);
@@ -293,11 +295,15 @@ async function executeAgent(
 
   try {
     // Execute agent based on ID
+    console.log(`[Executor] Running agent implementation for: ${agentId}`);
     const result = await runAgent(agentId, context, tenantId, jobId, model);
+    console.log(`[Executor] Agent ${agentId} returned result, storing...`);
 
     // Store result in context
     await context.storeAgentResult(agentId, result, model);
+    console.log(`[Executor] <<< Agent ${agentId} completed successfully`);
   } catch (error) {
+    console.error(`[Executor] <<< Agent ${agentId} FAILED:`, (error as Error).message);
     context.markAgentFailed(agentId, (error as Error).message);
     throw error;
   }
