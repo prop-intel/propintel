@@ -1,8 +1,13 @@
-import { generateText, generateObject } from 'ai';
-import { z } from 'zod';
-import { type CrawledPage, type LLMEOAnalysis, type SEOAnalysis, type Recommendation } from '../types';
-import { openai } from './openai';
-import { createTrace, flushLangfuse } from './langfuse';
+import { generateText, generateObject } from "ai";
+import { z } from "zod";
+import {
+  type CrawledPage,
+  type LLMEOAnalysis,
+  type SEOAnalysis,
+  type Recommendation,
+} from "../types";
+import { openai } from "./openai";
+import { createTrace, safeFlush } from "./langfuse";
 
 // ===================
 // Timeout Configuration
@@ -16,23 +21,31 @@ const LLM_TIMEOUT_MS = 60_000;
 // ===================
 
 const SummarySchema = z.object({
-  strengths: z.array(z.string()).describe('Key strengths of the site'),
-  weaknesses: z.array(z.string()).describe('Key weaknesses to address'),
-  opportunities: z.array(z.string()).describe('Opportunities for improvement'),
-  nextSteps: z.array(z.string()).describe('Prioritized next steps'),
+  strengths: z.array(z.string()).describe("Key strengths of the site"),
+  weaknesses: z.array(z.string()).describe("Key weaknesses to address"),
+  opportunities: z.array(z.string()).describe("Opportunities for improvement"),
+  nextSteps: z.array(z.string()).describe("Prioritized next steps"),
 });
 
 // Case-insensitive enum helper
 const caseInsensitiveEnum = <T extends string>(values: readonly T[]) =>
-  z.string().transform((val) => val.toLowerCase() as T).pipe(z.enum(values as unknown as readonly [T, ...T[]]));
+  z
+    .string()
+    .transform((val) => val.toLowerCase() as T)
+    .pipe(z.enum(values as unknown as readonly [T, ...T[]]));
 
 const RecommendationSchema = z.object({
   title: z.string(),
   description: z.string(),
   impact: z.string(),
-  effort: caseInsensitiveEnum(['low', 'medium', 'high'] as const),
-  category: caseInsensitiveEnum(['llmeo', 'seo', 'content', 'technical'] as const),
-  priority: caseInsensitiveEnum(['high', 'medium', 'low'] as const),
+  effort: caseInsensitiveEnum(["low", "medium", "high"] as const),
+  category: caseInsensitiveEnum([
+    "llmeo",
+    "seo",
+    "content",
+    "technical",
+  ] as const),
+  priority: caseInsensitiveEnum(["high", "medium", "low"] as const),
   codeSnippet: z.string().optional(),
 });
 
@@ -41,7 +54,7 @@ const RecommendationsSchema = z.object({
 });
 
 const CopyReadyPromptSchema = z.object({
-  prompt: z.string().describe('Copy-ready prompt for content improvement'),
+  prompt: z.string().describe("Copy-ready prompt for content improvement"),
 });
 
 // ===================
@@ -54,7 +67,7 @@ export async function generateSummary(
   seoAnalysis: SEOAnalysis,
   tenantId: string,
   jobId: string,
-  model = 'gpt-4o-mini'
+  model = "gpt-4o-mini",
 ): Promise<{
   strengths: string[];
   weaknesses: string[];
@@ -62,15 +75,19 @@ export async function generateSummary(
   nextSteps: string[];
 }> {
   const trace = createTrace({
-    name: 'generate-summary',
+    name: "generate-summary",
     userId: tenantId,
     metadata: { jobId },
   });
 
   const generation = trace.generation({
-    name: 'summary-generation',
+    name: "summary-generation",
     model,
-    input: { pagesCount: pages.length, llmeoScore: llmeoAnalysis.score, seoScore: seoAnalysis.score },
+    input: {
+      pagesCount: pages.length,
+      llmeoScore: llmeoAnalysis.score,
+      seoScore: seoAnalysis.score,
+    },
   });
 
   try {
@@ -90,8 +107,8 @@ Pages Crawled: ${pages.length}
 LLMEO Analysis:
 - Overall Score: ${llmeoAnalysis.score}/100
 - Schema Score: ${llmeoAnalysis.schemaAnalysis.score}/100
-- Schemas Found: ${llmeoAnalysis.schemaAnalysis.schemasFound.join(', ') || 'None'}
-- Missing Recommended Schemas: ${llmeoAnalysis.schemaAnalysis.missingRecommended.join(', ') || 'None'}
+- Schemas Found: ${llmeoAnalysis.schemaAnalysis.schemasFound.join(", ") || "None"}
+- Missing Recommended Schemas: ${llmeoAnalysis.schemaAnalysis.missingRecommended.join(", ") || "None"}
 - Content Depth Score: ${llmeoAnalysis.contentDepth.score}/100
 - Thin Content Pages: ${llmeoAnalysis.contentDepth.thinContentPages.length}
 - Freshness Score: ${llmeoAnalysis.freshness.score}/100
@@ -125,16 +142,16 @@ Generate a comprehensive summary with specific, actionable insights.`;
       },
     });
 
-    await flushLangfuse();
+    void safeFlush();
 
     return result.object;
   } catch (error) {
     generation.end({
       output: null,
-      level: 'ERROR',
+      level: "ERROR",
       statusMessage: (error as Error).message,
     });
-    await flushLangfuse();
+    void safeFlush();
     throw error;
   }
 }
@@ -145,16 +162,16 @@ export async function generateRecommendations(
   seoAnalysis: SEOAnalysis,
   tenantId: string,
   jobId: string,
-  model = 'gpt-4o-mini'
+  model = "gpt-4o-mini",
 ): Promise<Recommendation[]> {
   const trace = createTrace({
-    name: 'generate-recommendations',
+    name: "generate-recommendations",
     userId: tenantId,
     metadata: { jobId },
   });
 
   const generation = trace.generation({
-    name: 'recommendations-generation',
+    name: "recommendations-generation",
     model,
     input: { pagesCount: pages.length },
   });
@@ -173,17 +190,17 @@ Focus on high-impact, achievable improvements first.`;
     const userPrompt = `Based on this analysis, generate prioritized recommendations:
 
 LLMEO Issues:
-- Missing schemas: ${llmeoAnalysis.schemaAnalysis.missingRecommended.join(', ') || 'None'}
-- Invalid schemas: ${llmeoAnalysis.schemaAnalysis.invalidSchemas.join(', ') || 'None'}
-- Thin content pages: ${llmeoAnalysis.contentDepth.thinContentPages.slice(0, 5).join(', ') || 'None'}
-- Stale pages: ${llmeoAnalysis.freshness.stalePages.slice(0, 5).join(', ') || 'None'}
+- Missing schemas: ${llmeoAnalysis.schemaAnalysis.missingRecommended.join(", ") || "None"}
+- Invalid schemas: ${llmeoAnalysis.schemaAnalysis.invalidSchemas.join(", ") || "None"}
+- Thin content pages: ${llmeoAnalysis.contentDepth.thinContentPages.slice(0, 5).join(", ") || "None"}
+- Stale pages: ${llmeoAnalysis.freshness.stalePages.slice(0, 5).join(", ") || "None"}
 
 SEO Issues:
-- Missing titles: ${seoAnalysis.metadata.missingTitles.slice(0, 5).join(', ') || 'None'}
-- Missing descriptions: ${seoAnalysis.metadata.missingDescriptions.slice(0, 5).join(', ') || 'None'}
-- Missing H1: ${seoAnalysis.structure.missingH1.slice(0, 5).join(', ') || 'None'}
-- Images without alt: ${seoAnalysis.images.missingAlt.slice(0, 5).join(', ') || 'None'}
-- Slow pages (>3s): ${seoAnalysis.performance.slowPages.slice(0, 5).join(', ') || 'None'}
+- Missing titles: ${seoAnalysis.metadata.missingTitles.slice(0, 5).join(", ") || "None"}
+- Missing descriptions: ${seoAnalysis.metadata.missingDescriptions.slice(0, 5).join(", ") || "None"}
+- Missing H1: ${seoAnalysis.structure.missingH1.slice(0, 5).join(", ") || "None"}
+- Images without alt: ${seoAnalysis.images.missingAlt.slice(0, 5).join(", ") || "None"}
+- Slow pages (>3s): ${seoAnalysis.performance.slowPages.slice(0, 5).join(", ") || "None"}
 
 Generate 5-10 prioritized recommendations with code snippets where applicable.`;
 
@@ -204,24 +221,34 @@ Generate 5-10 prioritized recommendations with code snippets where applicable.`;
       },
     });
 
-    await flushLangfuse();
+    void safeFlush();
 
     // Add IDs and affected pages, normalize enum values to lowercase
     return result.object.recommendations.map((rec, index) => ({
       ...rec,
       id: `rec-${index + 1}`,
-      effort: (rec.effort?.toLowerCase() || 'medium') as 'low' | 'medium' | 'high',
-      priority: (rec.priority?.toLowerCase() || 'medium') as 'high' | 'medium' | 'low',
-      category: (rec.category?.toLowerCase() || 'seo') as 'llmeo' | 'seo' | 'content' | 'technical',
+      effort: (rec.effort?.toLowerCase() || "medium") as
+        | "low"
+        | "medium"
+        | "high",
+      priority: (rec.priority?.toLowerCase() || "medium") as
+        | "high"
+        | "medium"
+        | "low",
+      category: (rec.category?.toLowerCase() || "seo") as
+        | "llmeo"
+        | "seo"
+        | "content"
+        | "technical",
       affectedPages: [], // Would be populated from analysis
     }));
   } catch (error) {
     generation.end({
       output: null,
-      level: 'ERROR',
+      level: "ERROR",
       statusMessage: (error as Error).message,
     });
-    await flushLangfuse();
+    void safeFlush();
     throw error;
   }
 }
@@ -236,16 +263,16 @@ export async function generateCopyReadyPrompt(
   },
   tenantId: string,
   jobId: string,
-  model = 'gpt-4o-mini'
+  model = "gpt-4o-mini",
 ): Promise<string> {
   const trace = createTrace({
-    name: 'generate-copy-prompt',
+    name: "generate-copy-prompt",
     userId: tenantId,
     metadata: { jobId },
   });
 
   const generation = trace.generation({
-    name: 'copy-prompt-generation',
+    name: "copy-prompt-generation",
     model,
   });
 
@@ -260,10 +287,10 @@ The prompt should:
 
     const userPrompt = `Create a copy-ready prompt for ${domain} based on:
 
-Strengths: ${summary.strengths.join('; ')}
-Weaknesses: ${summary.weaknesses.join('; ')}
-Opportunities: ${summary.opportunities.join('; ')}
-Next Steps: ${summary.nextSteps.join('; ')}
+Strengths: ${summary.strengths.join("; ")}
+Weaknesses: ${summary.weaknesses.join("; ")}
+Opportunities: ${summary.opportunities.join("; ")}
+Next Steps: ${summary.nextSteps.join("; ")}
 
 Generate a comprehensive prompt that the content team can use to improve their site.`;
 
@@ -284,16 +311,16 @@ Generate a comprehensive prompt that the content team can use to improve their s
       },
     });
 
-    await flushLangfuse();
+    void safeFlush();
 
     return result.object.prompt;
   } catch (error) {
     generation.end({
       output: null,
-      level: 'ERROR',
+      level: "ERROR",
       statusMessage: (error as Error).message,
     });
-    await flushLangfuse();
+    void safeFlush();
     throw error;
   }
 }
@@ -304,7 +331,7 @@ Generate a comprehensive prompt that the content team can use to improve their s
 
 export async function detectLanguage(
   text: string,
-  model = 'gpt-4o-mini'
+  model = "gpt-4o-mini",
 ): Promise<string> {
   const result = await generateText({
     model: openai(model),
@@ -318,4 +345,3 @@ ${text.slice(0, 1000)}`,
 
   return result.text.trim().toLowerCase().slice(0, 2);
 }
-

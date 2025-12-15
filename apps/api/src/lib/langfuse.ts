@@ -30,7 +30,12 @@ export function createTrace(config: {
   name: string;
   userId: string;
   metadata?: Record<string, unknown>;
-}) {
+}):
+  | ReturnType<NonNullable<typeof langfuse>["trace"]>
+  | {
+      generation: () => { end: () => void; update: () => void };
+      span: () => { end: () => void };
+    } {
   if (langfuse) {
     return langfuse.trace(config);
   }
@@ -69,7 +74,7 @@ export async function flushLangfuse(): Promise<void> {
 /**
  * Non-blocking flush with timeout. Observability failures
  * should NEVER break business logic.
- * 
+ *
  * Use this in agent code after LLM calls complete.
  */
 export async function safeFlush(): Promise<void> {
@@ -78,12 +83,18 @@ export async function safeFlush(): Promise<void> {
     await Promise.race([
       langfuse.flushAsync(),
       new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("Langfuse flush timeout")), FLUSH_TIMEOUT_MS)
+        setTimeout(
+          () => reject(new Error("Langfuse flush timeout")),
+          FLUSH_TIMEOUT_MS,
+        ),
       ),
     ]);
   } catch (error) {
     // Log locally, don't propagate - observability is best-effort
-    console.warn("[Langfuse] Flush failed (non-fatal):", (error as Error).message);
+    console.warn(
+      "[Langfuse] Flush failed (non-fatal):",
+      (error as Error).message,
+    );
   }
 }
 
@@ -109,7 +120,10 @@ export async function gracefulShutdown(): Promise<void> {
     await Promise.race([
       langfuse.shutdownAsync(),
       new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("Shutdown timeout")), SHUTDOWN_TIMEOUT_MS)
+        setTimeout(
+          () => reject(new Error("Shutdown timeout")),
+          SHUTDOWN_TIMEOUT_MS,
+        ),
       ),
     ]);
   } catch {

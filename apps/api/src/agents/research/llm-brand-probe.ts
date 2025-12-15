@@ -12,12 +12,9 @@
 
 import { generateObject, generateText } from "ai";
 import { z } from "zod";
-import { createTrace, flushLangfuse } from "../../lib/langfuse";
+import { createTrace, safeFlush } from "../../lib/langfuse";
 import { openai } from "../../lib/openai";
-import {
-  type PageAnalysis,
-  type TargetQuery,
-} from "../../types";
+import { type PageAnalysis, type TargetQuery } from "../../types";
 
 // ===================
 // Timeout Configuration
@@ -273,7 +270,7 @@ export async function probeLLMsForBrand(
       },
     });
 
-    await flushLangfuse();
+    void safeFlush();
 
     return aggregate;
   } catch (error) {
@@ -282,7 +279,7 @@ export async function probeLLMsForBrand(
       level: "ERROR",
       statusMessage: errorMessage,
     });
-    await flushLangfuse();
+    void safeFlush();
     throw error;
   }
 }
@@ -383,7 +380,7 @@ Focus on prompts where this brand SHOULD appear if it's well-known in its space.
       },
     });
 
-    await flushLangfuse();
+    void safeFlush();
 
     return prompts;
   } catch (error) {
@@ -391,7 +388,7 @@ Focus on prompts where this brand SHOULD appear if it's well-known in its space.
       level: "ERROR",
       statusMessage: (error as Error).message,
     });
-    await flushLangfuse();
+    void safeFlush();
     throw error;
   }
 }

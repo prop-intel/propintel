@@ -5,11 +5,11 @@
  * and determine next steps.
  */
 
-import { generateObject } from 'ai';
-import { z } from 'zod';
-import { type AgentContext } from '../context';
-import { openai } from '../../lib/openai';
-import { createTrace, flushLangfuse } from '../../lib/langfuse';
+import { generateObject } from "ai";
+import { z } from "zod";
+import { type AgentContext } from "../context";
+import { openai } from "../../lib/openai";
+import { createTrace, safeFlush } from "../../lib/langfuse";
 
 // ===================
 // Timeout Configuration
@@ -23,11 +23,18 @@ const LLM_TIMEOUT_MS = 60_000;
 // ===================
 
 const ReasoningResultSchema = z.object({
-  shouldContinue: z.boolean().describe('Whether to continue with the plan'),
-  nextSteps: z.array(z.string()).describe('Recommended next steps'),
-  adjustments: z.array(z.string()).optional().describe('Suggested adjustments to the plan'),
-  insights: z.array(z.string()).describe('Key insights from current results'),
-  confidence: z.number().min(0).max(100).describe('Confidence in current results (0-100)'),
+  shouldContinue: z.boolean().describe("Whether to continue with the plan"),
+  nextSteps: z.array(z.string()).describe("Recommended next steps"),
+  adjustments: z
+    .array(z.string())
+    .optional()
+    .describe("Suggested adjustments to the plan"),
+  insights: z.array(z.string()).describe("Key insights from current results"),
+  confidence: z
+    .number()
+    .min(0)
+    .max(100)
+    .describe("Confidence in current results (0-100)"),
 });
 
 // ===================
@@ -41,7 +48,7 @@ export async function reasonOverResults(
   context: AgentContext,
   tenantId: string,
   jobId: string,
-  model = 'gpt-4o-mini'
+  model = "gpt-4o-mini",
 ): Promise<{
   shouldContinue: boolean;
   nextSteps: string[];
@@ -50,13 +57,13 @@ export async function reasonOverResults(
   confidence: number;
 }> {
   const trace = createTrace({
-    name: 'result-reasoning',
+    name: "result-reasoning",
     userId: tenantId,
     metadata: { jobId },
   });
 
   const generation = trace.generation({
-    name: 'reasoning-generation',
+    name: "reasoning-generation",
     model,
     input: { agentCount: Object.keys(context.summaries).length },
   });
@@ -107,16 +114,16 @@ Provide reasoning about:
       },
     });
 
-    await flushLangfuse();
+    void safeFlush();
 
     return result.object;
   } catch (error) {
     generation.end({
       output: null,
-      level: 'ERROR',
+      level: "ERROR",
       statusMessage: (error as Error).message,
     });
-    await flushLangfuse();
+    void safeFlush();
     throw error;
   }
 }
@@ -128,29 +135,34 @@ function buildResultsSummary(context: AgentContext): string {
   const summaries = Object.values(context.summaries);
 
   const completed = summaries
-    .filter(s => s.status === 'completed')
-    .map(s => {
+    .filter((s) => s.status === "completed")
+    .map((s) => {
       return `**${s.agentId}**:
 - Summary: ${s.summary}
-- Key Findings: ${s.keyFindings.slice(0, 3).join(', ')}
+- Key Findings: ${s.keyFindings.slice(0, 3).join(", ")}
 - Metrics: ${Object.entries(s.metrics)
         .slice(0, 3)
         .map(([k, v]) => `${k}=${v}`)
-        .join(', ')}`;
+        .join(", ")}`;
     })
-    .join('\n\n');
+    .join("\n\n");
 
   const failed = summaries
-    .filter(s => s.status === 'failed')
-    .map(s => `- ${s.agentId}: ${s.summary}`)
-    .join('\n');
+    .filter((s) => s.status === "failed")
+    .map((s) => `- ${s.agentId}: ${s.summary}`)
+    .join("\n");
 
-  return `Completed Agents (${summaries.filter(s => s.status === 'completed').length}):
-${completed || 'None'}
+  return `Completed Agents (${summaries.filter((s) => s.status === "completed").length}):
+${completed || "None"}
 
-Failed Agents (${summaries.filter(s => s.status === 'failed').length}):
-${failed || 'None'}
+Failed Agents (${summaries.filter((s) => s.status === "failed").length}):
+${failed || "None"}
 
-Running Agents (${summaries.filter(s => s.status === 'running').length}):
-${summaries.filter(s => s.status === 'running').map(s => s.agentId).join(', ') || 'None'}`;
+Running Agents (${summaries.filter((s) => s.status === "running").length}):
+${
+  summaries
+    .filter((s) => s.status === "running")
+    .map((s) => s.agentId)
+    .join(", ") || "None"
+}`;
 }
