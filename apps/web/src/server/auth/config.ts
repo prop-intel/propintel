@@ -52,13 +52,13 @@ export const authConfig = {
   }),
   callbacks: {
     session: ({ session, user }) => {
-      if (process.env.NODE_ENV === "development") {
-        console.log("[Auth] User session:", {
-          id: user.id,
-          email: session.user.email,
-          role: user.role ?? "user",
-        });
-      }
+      // if (process.env.NODE_ENV === "development") {
+      //   console.log("[Auth] User session:", {
+      //     id: user.id,
+      //     email: session.user.email,
+      //     role: user.role ?? "user",
+      //   });
+      // }
       return {
         ...session,
         user: {
