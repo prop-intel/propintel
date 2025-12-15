@@ -520,7 +520,7 @@ export function HowItWorks() {
                     <motion.p
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.2 }}
+                        transition={{ delay: 0.1 }}
                         className="text-xl text-muted-foreground leading-relaxed max-w-2xl mx-auto"
                     >
                         Our AI agent pipeline simulates real searches, analyzes your competition, and delivers actionable recommendations you can implement today.
