@@ -26,7 +26,7 @@ export function Hero() {
       </div>
 
       <div className="container mx-auto px-4 relative z-10">
-        <div className="flex flex-col items-center text-center max-w-4xl mx-auto">
+        <div className="flex flex-col items-center text-center max-w-6xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -53,7 +53,7 @@ export function Hero() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
-            className="text-xl text-muted-foreground mb-8 max-w-2xl leading-relaxed"
+            className="text-xl md:text-[1.35rem] text-muted-foreground mb-8 leading-relaxed"
           >
             Track which AI systems cite your brand, understand why competitors appear instead, and get a clear roadmap to own the recommendation.
           </motion.p>

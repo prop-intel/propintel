@@ -1,10 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useSession } from "next-auth/react";
 
 export function Footer() {
-  const { data: session } = useSession();
   return (
     <footer className="border-t bg-muted/20">
       <div className="container mx-auto px-4 py-12">
@@ -23,8 +21,6 @@ export function Footer() {
             <ul className="space-y-2 text-sm text-muted-foreground">
               <li><Link href="/#features" className="hover:text-foreground">Features</Link></li>
               <li><Link href="/enterprise" className="hover:text-foreground">Enterprise</Link></li>
-              <li><Link href={session ? "/dashboard" : "/#features"} className="hover:text-foreground">Dashboard</Link></li>
-              <li><Link href="/docs" className="hover:text-foreground">API</Link></li>
             </ul>
           </div>
 
@@ -32,7 +28,6 @@ export function Footer() {
             <h4 className="font-medium mb-4">Company</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
               <li><Link href="/about" className="hover:text-foreground">About</Link></li>
-              <li><Link href="/careers" className="hover:text-foreground">Careers</Link></li>
               <li><Link href="/contact" className="hover:text-foreground">Contact</Link></li>
             </ul>
           </div>
