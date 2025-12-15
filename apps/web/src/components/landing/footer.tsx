@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { Bot } from "lucide-react";
 import { useSession } from "next-auth/react";
 
 export function Footer() {
@@ -11,10 +10,7 @@ export function Footer() {
       <div className="container mx-auto px-4 py-12">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div className="space-y-4">
-            <Link href="/" className="flex items-center gap-2 font-bold text-xl">
-              <div className="p-1.5 bg-primary rounded-lg text-primary-foreground">
-                <Bot className="size-5" />
-              </div>
+            <Link href="/" className="font-bold text-xl">
               Brandsight
             </Link>
             <p className="text-sm text-muted-foreground">

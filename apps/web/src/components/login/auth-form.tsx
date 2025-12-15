@@ -9,7 +9,6 @@ import { loginAction, signupAction } from "@/server/actions/auth";
 import { GoogleSignInForm } from "@/components/login/google-signin-form";
 import { SubmitButton } from "@/components/login/submit-button";
 import Link from "next/link";
-import { ListChecks } from "lucide-react";
 
 interface AuthFormProps {
   error?: string;
@@ -37,10 +36,9 @@ export function AuthForm({
         <div className="sm:mx-auto sm:w-full sm:max-w-sm">
           <Link
             href="/"
-            className="group mb-6 flex items-center justify-center gap-2 transition-all hover:opacity-80"
+            className="mb-6 block text-center text-2xl font-bold transition-all hover:opacity-80"
           >
-            <ListChecks className="text-primary h-6 w-6" />
-            <span className="text-2xl font-bold">BrandSight</span>
+            BrandSight
           </Link>
           <h2 className="text-foreground text-center text-xl font-semibold">
             Log in or create account

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { motion } from "motion/react";
-import { Bot, LayoutDashboard, LogOut } from "lucide-react";
+import { LayoutDashboard, LogOut } from "lucide-react";
 import { useSession, signOut } from "next-auth/react";
 
 export function Navbar() {
@@ -16,10 +16,7 @@ export function Navbar() {
       className="fixed top-0 left-0 right-0 z-50 border-b border-border/40 bg-background/80 backdrop-blur-md"
     >
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2 font-bold text-xl">
-          <div className="p-1.5 bg-primary rounded-lg text-primary-foreground">
-            <Bot className="size-5" />
-          </div>
+        <Link href="/" className="font-bold text-xl">
           Brandsight
         </Link>
 

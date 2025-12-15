@@ -170,14 +170,76 @@ export default function AnalyzePage() {
 
   return (
     <div className="space-y-6 p-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      {/* Header with Analysis Selector */}
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h1 className="text-2xl font-bold">Analyze</h1>
           <p className="text-muted-foreground">
             Understand how AI search engines see your content
           </p>
         </div>
+        {activeSite && (
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <Select
+              value={selectedJobId ?? undefined}
+              onValueChange={setSelectedJobId}
+            >
+              <SelectTrigger className="w-full sm:w-[340px]">
+                <SelectValue
+                  placeholder={
+                    jobsLoading ? "Loading..." : "Select an analysis"
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {jobs.map((job) => (
+                  <SelectItem key={job.id} value={job.id}>
+                    <div className="flex items-center gap-2 w-full">
+                      {getStatusIcon(job.status)}
+                      <span className="flex-1">
+                        {format(
+                          new Date(job.createdAt),
+                          "MMM d, yyyy h:mm a"
+                        )}
+                      </span>
+                      <Badge
+                        variant={getStatusVariant(job.status)}
+                        className="text-xs"
+                      >
+                        {job.status}
+                      </Badge>
+                    </div>
+                  </SelectItem>
+                ))}
+                {jobs.length === 0 && !jobsLoading && (
+                  <div className="text-muted-foreground px-2 py-1.5 text-sm">
+                    No analyses yet
+                  </div>
+                )}
+              </SelectContent>
+            </Select>
+            <Button
+              onClick={handleStartAnalysis}
+              disabled={
+                createJobMutation.isPending ||
+                status?.status === "crawling" ||
+                status?.status === "analyzing"
+              }
+            >
+              {createJobMutation.isPending ? (
+                <>
+                  <Spinner className="mr-2 h-4 w-4" />
+                  Starting...
+                </>
+              ) : (
+                <>
+                  <Play className="mr-2 h-4 w-4" />
+                  New Analysis
+                </>
+              )}
+            </Button>
+          </div>
+        )}
       </div>
 
       {siteLoading ? (
@@ -193,78 +255,6 @@ export default function AnalyzePage() {
         </Alert>
       ) : (
         <>
-          {/* Analysis selector */}
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex flex-1 items-center gap-3">
-                  <span className="text-muted-foreground whitespace-nowrap text-sm">
-                    Analysis:
-                  </span>
-                  <Select
-                    value={selectedJobId ?? undefined}
-                    onValueChange={setSelectedJobId}
-                  >
-                    <SelectTrigger className="w-full max-w-[320px]">
-                      <SelectValue
-                        placeholder={
-                          jobsLoading ? "Loading..." : "Select an analysis"
-                        }
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {jobs.map((job) => (
-                        <SelectItem key={job.id} value={job.id}>
-                          <div className="flex items-center gap-2">
-                            {getStatusIcon(job.status)}
-                            <span>
-                              {format(
-                                new Date(job.createdAt),
-                                "MMM d, yyyy h:mm a"
-                              )}
-                            </span>
-                            <Badge
-                              variant={getStatusVariant(job.status)}
-                              className="ml-1 text-xs"
-                            >
-                              {job.status}
-                            </Badge>
-                          </div>
-                        </SelectItem>
-                      ))}
-                      {jobs.length === 0 && !jobsLoading && (
-                        <div className="text-muted-foreground px-2 py-1.5 text-sm">
-                          No analyses yet
-                        </div>
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <Button
-                  onClick={handleStartAnalysis}
-                  disabled={
-                    createJobMutation.isPending ||
-                    status?.status === "crawling" ||
-                    status?.status === "analyzing"
-                  }
-                >
-                  {createJobMutation.isPending ? (
-                    <>
-                      <Spinner className="mr-2 h-4 w-4" />
-                      Starting...
-                    </>
-                  ) : (
-                    <>
-                      <Play className="mr-2 h-4 w-4" />
-                      New Analysis
-                    </>
-                  )}
-                </Button>
-              </div>
-
-            </CardContent>
-          </Card>
 
           {/* Analysis Progress Steps - show when running or failed */}
           {(status?.status === "crawling" ||
