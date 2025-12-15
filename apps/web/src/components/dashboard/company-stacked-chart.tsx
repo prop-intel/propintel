@@ -73,11 +73,25 @@ export function CompanyStackedChart({ siteId }: CompanyStackedChartProps) {
         />
         <YAxis tick={{ fontSize: 12 }} />
         <Tooltip
-          labelFormatter={(value: string) => formatTooltipLabel(value, data.aggregation)}
-          contentStyle={{
-            backgroundColor: "hsl(var(--background))",
-            border: "1px solid hsl(var(--border))",
-            borderRadius: "8px",
+          content={({ active, payload, label }) => {
+            if (!active || !payload?.length) return null;
+            return (
+              <div className="rounded-lg border bg-popover p-2 shadow-sm">
+                <div className="text-sm text-popover-foreground mb-1">
+                  {formatTooltipLabel(label as string, data.aggregation)}
+                </div>
+                {payload.map((entry) => (
+                  <div key={entry.name} className="flex items-center gap-2 text-sm">
+                    <div
+                      className="h-2 w-2 rounded-full"
+                      style={{ backgroundColor: entry.color }}
+                    />
+                    <span className="text-popover-foreground">{entry.name}:</span>
+                    <span className="font-medium text-popover-foreground">{entry.value}</span>
+                  </div>
+                ))}
+              </div>
+            );
           }}
         />
         <Legend />

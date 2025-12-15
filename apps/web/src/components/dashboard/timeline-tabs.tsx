@@ -10,7 +10,13 @@ import {
 } from "recharts";
 import { BarChart3, Building2, FileText, Activity } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   Tooltip,
   TooltipContent,
@@ -20,6 +26,7 @@ import {
 import { CompanyStackedChart } from "./company-stacked-chart";
 import { UrlMultiLineChart } from "./url-multiline-chart";
 import { ActivityFeed } from "./activity-feed";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface TimelineTabsProps {
   siteId: string;
@@ -28,17 +35,27 @@ interface TimelineTabsProps {
     data: Array<{ date: string; count: number }>;
     aggregation: "hourly" | "daily";
   };
+  isLoading?: boolean;
 }
 
-function formatXAxisTick(value: string, aggregation: "hourly" | "daily"): string {
+function formatXAxisTick(
+  value: string,
+  aggregation: "hourly" | "daily",
+): string {
   const date = new Date(value);
   if (aggregation === "hourly") {
-    return date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+    return date.toLocaleTimeString(undefined, {
+      hour: "numeric",
+      minute: "2-digit",
+    });
   }
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
-function formatTooltipLabel(value: string, aggregation: "hourly" | "daily"): string {
+function formatTooltipLabel(
+  value: string,
+  aggregation: "hourly" | "daily",
+): string {
   const date = new Date(value);
   if (aggregation === "hourly") {
     return date.toLocaleString(undefined, {
@@ -62,7 +79,12 @@ const tabItems = [
   { value: "activity", icon: Activity, label: "Activity" },
 ];
 
-export function TimelineTabs({ siteId, timeFrameLabel, initialData }: TimelineTabsProps) {
+export function TimelineTabs({
+  siteId,
+  timeFrameLabel,
+  initialData,
+  isLoading = false,
+}: TimelineTabsProps) {
   return (
     <Card>
       <Tabs defaultValue="overview" className="w-full">
@@ -79,7 +101,7 @@ export function TimelineTabs({ siteId, timeFrameLabel, initialData }: TimelineTa
                 {tabItems.map(({ value, icon: Icon, label }) => (
                   <Tooltip key={value}>
                     <TooltipTrigger asChild>
-                      <TabsTrigger value={value} className="px-2 h-7">
+                      <TabsTrigger value={value} className="h-7 px-2">
                         <Icon className="h-4 w-4" />
                       </TabsTrigger>
                     </TooltipTrigger>
@@ -94,7 +116,11 @@ export function TimelineTabs({ siteId, timeFrameLabel, initialData }: TimelineTa
         </CardHeader>
         <CardContent className="pt-0">
           <TabsContent value="overview" className="mt-0">
-            <TimelineChartInner data={initialData} />
+            {isLoading ? (
+              <Skeleton className="h-[300px] w-full" />
+            ) : (
+              <TimelineChartInner data={initialData} />
+            )}
           </TabsContent>
           <TabsContent value="by-company" className="mt-0">
             <CompanyStackedChart siteId={siteId} />
@@ -115,11 +141,14 @@ export function TimelineTabs({ siteId, timeFrameLabel, initialData }: TimelineTa
 function TimelineChartInner({
   data,
 }: {
-  data: { data: Array<{ date: string; count: number }>; aggregation: "hourly" | "daily" };
+  data: {
+    data: Array<{ date: string; count: number }>;
+    aggregation: "hourly" | "daily";
+  };
 }) {
   if (!data || data.data.length === 0) {
     return (
-      <div className="flex h-[300px] items-center justify-center text-muted-foreground">
+      <div className="text-muted-foreground flex h-[300px] items-center justify-center">
         No visit data yet
       </div>
     );
@@ -138,8 +167,19 @@ function TimelineChartInner({
         />
         <YAxis tick={{ fontSize: 12 }} />
         <RechartsTooltip
-          labelFormatter={(value: string) => formatTooltipLabel(value, aggregation)}
-          formatter={(value: number) => [value, "Visits"]}
+          content={({ active, payload, label }) => {
+            if (!active || !payload?.length) return null;
+            return (
+              <div className="rounded-lg border bg-popover p-2 shadow-sm">
+                <div className="text-sm text-popover-foreground">
+                  {formatTooltipLabel(label as string, aggregation)}
+                </div>
+                <div className="text-sm font-medium text-popover-foreground">
+                  {payload[0]?.value} Visits
+                </div>
+              </div>
+            );
+          }}
         />
         <Area
           type="monotone"

@@ -13,6 +13,7 @@ import {
   TrackingEmptyState,
 } from "@/components/dashboard/tracking-status";
 import { UnmatchedUserAgents } from "@/components/dashboard/unmatched-user-agents";
+import { useSite } from "@/contexts/site-context";
 import type { UserRole } from "@/server/auth/config";
 
 type Site = {
@@ -71,6 +72,13 @@ export function DashboardContent({
   userRole,
 }: DashboardContentProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
+  const { activeSite } = useSite();
+
+  // Use context site for reactive updates, fallback to prop for initial render
+  const currentSite = activeSite ?? site;
+
+  // Detect if we're switching sites (context updated but server data is stale)
+  const isSiteSwitching = currentSite.id !== site.id;
 
   const hasTracking =
     initialData.trackingStatus.hasPixel ||
@@ -98,33 +106,34 @@ export function DashboardContent({
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <div>
-            <h1 className="text-2xl font-bold">{site.name ?? site.domain}</h1>
+            <h1 className="text-2xl font-bold">{currentSite.name ?? currentSite.domain}</h1>
             <p className="text-muted-foreground">AI Crawler Analytics Dashboard</p>
           </div>
           <TrackingStatusBadge
-            siteId={site.id}
+            siteId={currentSite.id}
             onClick={() => setDialogOpen(true)}
           />
         </div>
-        <DashboardFilters siteId={site.id} />
+        <DashboardFilters siteId={currentSite.id} />
       </div>
 
       {hasTracking ? (
         <>
-          <SummaryCards data={initialData.summary} isLoading={false} />
+          <SummaryCards data={initialData.summary} isLoading={isSiteSwitching} />
 
           <div className="grid gap-6 lg:grid-cols-2">
-            <CrawlerChart data={crawlerChartData} isLoading={false} />
+            <CrawlerChart data={crawlerChartData} isLoading={isSiteSwitching} />
             <TimelineTabs
-              siteId={site.id}
+              siteId={currentSite.id}
               timeFrameLabel={timeFrameLabel}
               initialData={initialData.timeline}
+              isLoading={isSiteSwitching}
             />
           </div>
 
           <div className="grid gap-6 lg:grid-cols-2">
-            <TopPagesTable data={topPagesData} isLoading={false} />
-            <CrawlerHeatmap siteId={site.id} />
+            <TopPagesTable data={topPagesData} isLoading={isSiteSwitching} />
+            <CrawlerHeatmap siteId={currentSite.id} />
           </div>
         </>
       ) : (
@@ -132,7 +141,7 @@ export function DashboardContent({
       )}
 
       <TrackingSetupDialog
-        siteId={site.id}
+        siteId={currentSite.id}
         open={dialogOpen}
         onOpenChange={setDialogOpen}
       />

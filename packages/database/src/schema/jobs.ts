@@ -5,7 +5,14 @@ import { sites } from "./sites";
 
 const createTable = pgTableCreator((name) => name);
 
-export type JobStatus = 'pending' | 'queued' | 'crawling' | 'analyzing' | 'completed' | 'failed' | 'blocked';
+export type JobStatus =
+  | "pending"
+  | "queued"
+  | "crawling"
+  | "analyzing"
+  | "completed"
+  | "failed"
+  | "blocked";
 
 export type JobConfig = {
   maxPages: number;
@@ -79,7 +86,7 @@ export const jobs = createTable(
     competitors: d.jsonb("competitors").$type<string[]>().default([]),
     webhookUrl: d.text("webhook_url"),
     authConfig: d.jsonb("auth_config").$type<{
-      type: 'basic' | 'cookie';
+      type: "basic" | "cookie";
       credentials: Record<string, string>;
     }>(),
     llmModel: d.varchar("llm_model", { length: 100 }).default("gpt-4o-mini"),
@@ -107,7 +114,7 @@ export const jobs = createTable(
     index("jobs_site_id_idx").on(t.siteId),
     index("jobs_status_idx").on(t.status),
     index("jobs_created_at_idx").on(t.createdAt),
-  ]
+  ],
 );
 
 export type PageData = {
@@ -177,7 +184,7 @@ export const crawledPages = createTable(
       .notNull()
       .defaultNow(),
   }),
-  (t) => [index("crawled_pages_job_id_idx").on(t.jobId)]
+  (t) => [index("crawled_pages_job_id_idx").on(t.jobId)],
 );
 
 export const reports = createTable(
@@ -200,7 +207,7 @@ export const reports = createTable(
       .notNull()
       .defaultNow(),
   }),
-  (t) => [index("reports_job_id_idx").on(t.jobId)]
+  (t) => [index("reports_job_id_idx").on(t.jobId)],
 );
 
 export type AnalysisScores = {
@@ -254,7 +261,7 @@ export const analyses = createTable(
     index("analyses_user_id_idx").on(t.userId),
     index("analyses_domain_idx").on(t.domain),
     index("analyses_generated_at_idx").on(t.generatedAt),
-  ]
+  ],
 );
 
 export const jobsRelations = relations(jobs, ({ one, many }) => ({

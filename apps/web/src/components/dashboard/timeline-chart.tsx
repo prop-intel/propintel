@@ -95,8 +95,19 @@ export function TimelineChart({ data, isLoading, timeFrameLabel }: TimelineChart
             />
             <YAxis tick={{ fontSize: 12 }} />
             <Tooltip
-              labelFormatter={(value: string) => formatTooltipLabel(value, aggregation)}
-              formatter={(value: number) => [value, "Visits"]}
+              content={({ active, payload, label }) => {
+                if (!active || !payload?.length) return null;
+                return (
+                  <div className="rounded-lg border bg-popover p-2 shadow-sm">
+                    <div className="text-sm text-popover-foreground">
+                      {formatTooltipLabel(label as string, aggregation)}
+                    </div>
+                    <div className="text-sm font-medium text-popover-foreground">
+                      {payload[0]?.value} Visits
+                    </div>
+                  </div>
+                );
+              }}
             />
             <Area
               type="monotone"

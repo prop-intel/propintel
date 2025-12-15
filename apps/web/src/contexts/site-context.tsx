@@ -3,6 +3,7 @@
 import {
   createContext,
   useContext,
+  useState,
   type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
@@ -36,19 +37,22 @@ export function SiteProvider({
   initialActiveSite,
 }: SiteProviderProps) {
   const router = useRouter();
+  const [activeSite, setActiveSiteState] = useState<Site | null>(initialActiveSite);
 
   const setActiveSite = (site: Site | null) => {
     if (site) {
       setActiveSiteCookie(site.id);
     }
-    // Refresh the page to re-fetch data with new site
+    // Update local state immediately for instant UI feedback
+    setActiveSiteState(site);
+    // Refresh the page to re-fetch server data with new site
     router.refresh();
   };
 
   return (
     <SiteContext.Provider
       value={{
-        activeSite: initialActiveSite,
+        activeSite,
         setActiveSite,
         sites: initialSites,
         isLoading: false,
