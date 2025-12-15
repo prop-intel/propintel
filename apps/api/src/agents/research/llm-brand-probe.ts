@@ -12,8 +12,12 @@
 
 import { generateObject, generateText } from "ai";
 import { z } from "zod";
-import { createTrace, safeFlush } from "../../lib/langfuse";
-import { withProviderFallback, withRetry, openai, LLM_TIMEOUT_MS } from "../../lib/llm-utils";
+import {
+  withProviderFallback,
+  withRetry,
+  openai,
+  LLM_TIMEOUT_MS,
+} from "../../lib/llm-utils";
 import { type PageAnalysis, type TargetQuery } from "../../types";
 
 // Agent name for logging
@@ -208,23 +212,6 @@ export async function probeLLMsForBrand(
   const { promptCount = DEFAULT_PROMPT_COUNT, models = [...DEFAULT_MODELS] } =
     options;
 
-  const trace = createTrace({
-    name: "llm-brand-probe",
-    userId: tenantId,
-    metadata: { jobId, brand: input.brand.name, promptCount, models },
-  });
-
-  const span = trace.span({
-    name: "probe-llms-for-brand",
-    input: { brand: input.brand.name, promptCount },
-  }) as {
-    end: (data?: {
-      output?: unknown;
-      level?: string;
-      statusMessage?: string;
-    }) => void;
-  };
-
   try {
     // Stage 1: Generate contextually relevant prompts
     const prompts = await generateProbePrompts(
@@ -258,24 +245,10 @@ export async function probeLLMsForBrand(
       models,
     );
 
-    span.end({
-      output: {
-        geoScore: aggregate.geoScore,
-        overallMentionRate: aggregate.overallMentionRate,
-        totalProbes: aggregate.totalProbes,
-      },
-    });
-
-    void safeFlush();
-
     return aggregate;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    span.end({
-      level: "ERROR",
-      statusMessage: errorMessage,
-    });
-    void safeFlush();
+
     throw error;
   }
 }
@@ -293,17 +266,6 @@ async function generateProbePrompts(
   tenantId: string,
   jobId: string,
 ): Promise<ProbePrompt[]> {
-  const trace = createTrace({
-    name: "geo-prompt-generation",
-    userId: tenantId,
-    metadata: { jobId, brand: input.brand.name },
-  });
-
-  const generation = trace.generation({
-    name: "generate-probe-prompts",
-    model: "gpt-4o-mini",
-  });
-
   try {
     const systemPrompt = `You are an expert at understanding how people ask AI assistants questions.
 
@@ -352,7 +314,9 @@ ${input.targetQueries
 Generate ${promptCount} natural prompts that real users might ask an AI assistant.
 Focus on prompts where this brand SHOULD appear if it's well-known in its space.`;
 
-    console.log(`[${AGENT_NAME}] Generating probe prompts (timeout: ${LLM_TIMEOUT_MS / 1000}s)...`);
+    console.log(
+      `[${AGENT_NAME}] Generating probe prompts (timeout: ${LLM_TIMEOUT_MS / 1000}s)...`,
+    );
 
     const result = await withProviderFallback(
       (provider) =>
@@ -364,34 +328,21 @@ Focus on prompts where this brand SHOULD appear if it's well-known in its space.
           temperature: 0.7, // Some creativity for diverse prompts
           abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
         }),
-      AGENT_NAME
+      AGENT_NAME,
     );
 
     const promptsResult = result.object;
-    const prompts: ProbePrompt[] = promptsResult.prompts.map((p: z.infer<typeof GeneratedPromptsSchema>["prompts"][0]) => ({
-      prompt: p.prompt,
-      category: p.category as PromptCategory,
-      targetBrand: input.brand.name,
-      relatedCompetitors: p.relatedCompetitors,
-    }));
-
-    generation.end({
-      output: { promptCount: prompts.length },
-      usage: {
-        promptTokens: result.usage?.promptTokens,
-        completionTokens: result.usage?.completionTokens,
-      },
-    });
-
-    void safeFlush();
+    const prompts: ProbePrompt[] = promptsResult.prompts.map(
+      (p: z.infer<typeof GeneratedPromptsSchema>["prompts"][0]) => ({
+        prompt: p.prompt,
+        category: p.category as PromptCategory,
+        targetBrand: input.brand.name,
+        relatedCompetitors: p.relatedCompetitors,
+      }),
+    );
 
     return prompts;
   } catch (error) {
-    generation.end({
-      level: "ERROR",
-      statusMessage: (error as Error).message,
-    });
-    void safeFlush();
     throw error;
   }
 }
@@ -450,7 +401,7 @@ async function probeSinglePrompt(
           abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
         }),
       AGENT_NAME,
-      "OpenAI"
+      "OpenAI",
     );
 
     const responseText = response.text;
@@ -551,7 +502,7 @@ Determine:
           temperature: 0,
           abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
         }),
-      AGENT_NAME
+      AGENT_NAME,
     );
 
     const analysisResult = result.object;
@@ -561,12 +512,16 @@ Determine:
       mentionPosition: analysisResult.mentionPosition ?? undefined,
       mentionContext: analysisResult.mentionContext ?? undefined,
       sentiment: analysisResult.sentiment,
-      competitorsMentioned: analysisResult.competitorsMentioned.map((c: z.infer<typeof MentionAnalysisSchema>["competitorsMentioned"][0]) => ({
-        name: c.name,
-        mentioned: c.mentioned,
-        mentionType: c.mentionType,
-        position: c.position,
-      })),
+      competitorsMentioned: analysisResult.competitorsMentioned.map(
+        (
+          c: z.infer<typeof MentionAnalysisSchema>["competitorsMentioned"][0],
+        ) => ({
+          name: c.name,
+          mentioned: c.mentioned,
+          mentionType: c.mentionType,
+          position: c.position,
+        }),
+      ),
     };
   } catch {
     // Fallback to simple regex-based analysis

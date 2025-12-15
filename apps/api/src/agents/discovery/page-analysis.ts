@@ -9,55 +9,102 @@
  * - Summary and key points
  */
 
-import { generateObject } from 'ai';
-import { z } from 'zod';
-import { type CrawledPage, type PageAnalysis } from '../../types';
-import { createTrace, safeFlush } from '../../lib/langfuse';
-import { withProviderFallback, LLM_TIMEOUT_MS } from '../../lib/llm-utils';
+import { generateObject } from "ai";
+import { z } from "zod";
+import { type CrawledPage, type PageAnalysis } from "../../types";
+import { withProviderFallback, LLM_TIMEOUT_MS } from "../../lib/llm-utils";
 
 // Agent name for logging
-const AGENT_NAME = 'Page Analysis';
+const AGENT_NAME = "Page Analysis";
 
 // ===================
 // Schema Definition
 // ===================
 
 const PageAnalysisSchema = z.object({
-  topic: z.string().describe('The main topic or subject of the page'),
-  intent: z.string().describe('The primary user intent (informational, transactional, navigational, commercial)'),
-  entities: z.array(z.string()).optional()
-    .describe('Key entities, concepts, products, or technologies mentioned'),
-  contentType: z.string().describe('The type of content (article, product, landing, documentation, blog, other)'),
-  summary: z.string()
-    .describe('A 2-3 sentence summary of what the page is about'),
-  keyPoints: z.array(z.string()).optional()
-    .describe('The main points or takeaways from the page (3-5 items)'),
-  
+  topic: z.string().describe("The main topic or subject of the page"),
+  intent: z
+    .string()
+    .describe(
+      "The primary user intent (informational, transactional, navigational, commercial)",
+    ),
+  entities: z
+    .array(z.string())
+    .optional()
+    .describe("Key entities, concepts, products, or technologies mentioned"),
+  contentType: z
+    .string()
+    .describe(
+      "The type of content (article, product, landing, documentation, blog, other)",
+    ),
+  summary: z
+    .string()
+    .describe("A 2-3 sentence summary of what the page is about"),
+  keyPoints: z
+    .array(z.string())
+    .optional()
+    .describe("The main points or takeaways from the page (3-5 items)"),
+
   // Business understanding fields
-  companyName: z.string()
-    .describe('The company or product name (e.g., "GauntletAI", "Stripe", "Notion")'),
-  businessCategory: z.string()
-    .describe('The business category: saas, ecommerce, education, agency, marketplace, media, fintech, healthcare, b2b-services, consumer-app, developer-tools, ai-ml, or other'),
-  businessModel: z.string()
-    .describe('How this business operates and acquires customers (e.g., "Intensive bootcamp program where engineers apply and enroll for AI training", "Subscription-based project management software", "E-commerce platform selling directly to consumers")'),
-  competitorProfile: z.string()
-    .describe('What a real business competitor would look like - another company where a customer could choose to go INSTEAD (e.g., "Other AI/ML bootcamps or training programs where engineers could apply", "Other project management SaaS tools", "Other online retailers in the same product category")'),
+  companyName: z
+    .string()
+    .describe(
+      'The company or product name (e.g., "GauntletAI", "Stripe", "Notion")',
+    ),
+  businessCategory: z
+    .string()
+    .describe(
+      "The business category: saas, ecommerce, education, agency, marketplace, media, fintech, healthcare, b2b-services, consumer-app, developer-tools, ai-ml, or other",
+    ),
+  businessModel: z
+    .string()
+    .describe(
+      'How this business operates and acquires customers (e.g., "Intensive bootcamp program where engineers apply and enroll for AI training", "Subscription-based project management software", "E-commerce platform selling directly to consumers")',
+    ),
+  competitorProfile: z
+    .string()
+    .describe(
+      'What a real business competitor would look like - another company where a customer could choose to go INSTEAD (e.g., "Other AI/ML bootcamps or training programs where engineers could apply", "Other project management SaaS tools", "Other online retailers in the same product category")',
+    ),
 });
 
 // Normalize page analysis result
 function normalizePageAnalysis(data: z.infer<typeof PageAnalysisSchema>) {
   return {
     topic: data.topic,
-    intent: (data.intent?.toLowerCase() || 'informational') as 'informational' | 'transactional' | 'navigational' | 'commercial',
+    intent: (data.intent?.toLowerCase() || "informational") as
+      | "informational"
+      | "transactional"
+      | "navigational"
+      | "commercial",
     entities: data.entities ?? [],
-    contentType: (data.contentType?.toLowerCase() || 'other') as 'article' | 'product' | 'landing' | 'documentation' | 'blog' | 'other',
+    contentType: (data.contentType?.toLowerCase() || "other") as
+      | "article"
+      | "product"
+      | "landing"
+      | "documentation"
+      | "blog"
+      | "other",
     summary: data.summary,
     keyPoints: data.keyPoints ?? [],
     // Business understanding
-    companyName: data.companyName || '',
-    businessCategory: (data.businessCategory?.toLowerCase() || 'other') as 'saas' | 'ecommerce' | 'education' | 'agency' | 'marketplace' | 'media' | 'fintech' | 'healthcare' | 'b2b-services' | 'consumer-app' | 'developer-tools' | 'ai-ml' | 'other',
-    businessModel: data.businessModel || '',
-    competitorProfile: data.competitorProfile || '',
+    companyName: data.companyName || "",
+    businessCategory: (data.businessCategory?.toLowerCase() || "other") as
+      | "saas"
+      | "ecommerce"
+      | "education"
+      | "agency"
+      | "marketplace"
+      | "media"
+      | "fintech"
+      | "healthcare"
+      | "b2b-services"
+      | "consumer-app"
+      | "developer-tools"
+      | "ai-ml"
+      | "other",
+    businessModel: data.businessModel || "",
+    competitorProfile: data.competitorProfile || "",
   };
 }
 
@@ -72,20 +119,8 @@ export async function analyzePageContent(
   page: CrawledPage,
   tenantId: string,
   jobId: string,
-  model = 'gpt-4o-mini'
+  model = "gpt-4o-mini",
 ): Promise<PageAnalysis> {
-  const trace = createTrace({
-    name: 'aeo-page-analysis',
-    userId: tenantId,
-    metadata: { jobId, url: page.url },
-  });
-
-  const generation = trace.generation({
-    name: 'page-analysis-generation',
-    model,
-    input: { url: page.url, title: page.title },
-  });
-
   try {
     // Build content context from crawled page
     const contentContext = buildContentContext(page);
@@ -112,8 +147,8 @@ Be specific and accurate. This analysis will be used to find ACTUAL business com
     const userPrompt = `Analyze this web page:
 
 URL: ${page.url}
-Title: ${page.title || 'No title'}
-Meta Description: ${page.metaDescription || 'None'}
+Title: ${page.title || "No title"}
+Meta Description: ${page.metaDescription || "None"}
 
 Headings:
 ${formatHeadings(page.headings)}
@@ -122,7 +157,7 @@ Content Summary (first 2000 chars):
 ${contentContext.slice(0, 2000)}
 
 Word Count: ${page.wordCount}
-Schema Types Found: ${page.schemas.map(s => s.type).join(', ') || 'None'}
+Schema Types Found: ${page.schemas.map((s) => s.type).join(", ") || "None"}
 
 Extract:
 1. CONTENT ANALYSIS: topic, intent, entities, content type, summary, key points
@@ -132,7 +167,9 @@ Extract:
    - businessModel: How they operate and acquire customers (be specific)
    - competitorProfile: Describe what a REAL business competitor looks like - another company a customer would evaluate alongside this one (NOT content platforms like YouTube/Medium, NOT general information sites)`;
 
-    console.log(`[${AGENT_NAME}] Calling LLM (timeout: ${LLM_TIMEOUT_MS / 1000}s)...`);
+    console.log(
+      `[${AGENT_NAME}] Calling LLM (timeout: ${LLM_TIMEOUT_MS / 1000}s)...`,
+    );
     const startTime = Date.now();
 
     const result = await withProviderFallback(
@@ -145,7 +182,7 @@ Extract:
           temperature: 0,
           abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
         }),
-      AGENT_NAME
+      AGENT_NAME,
     );
 
     const duration = ((Date.now() - startTime) / 1000).toFixed(1);
@@ -153,26 +190,8 @@ Extract:
 
     const normalized = normalizePageAnalysis(result.object);
 
-    generation.end({
-      output: normalized,
-      usage: {
-        promptTokens: result.usage?.promptTokens,
-        completionTokens: result.usage?.completionTokens,
-      },
-    });
-
-    // Non-blocking flush - observability should never block business logic
-    void safeFlush();
-
     return normalized as PageAnalysis;
   } catch (error) {
-    generation.end({
-      output: null,
-      level: 'ERROR',
-      statusMessage: (error as Error).message,
-    });
-    // Non-blocking flush - still try to log errors
-    void safeFlush();
     throw error;
   }
 }
@@ -185,11 +204,11 @@ export async function analyzePages(
   pages: CrawledPage[],
   tenantId: string,
   jobId: string,
-  model = 'gpt-4o-mini'
+  model = "gpt-4o-mini",
 ): Promise<PageAnalysis> {
   // Find the best page to analyze (prefer homepage or page with most content)
   const bestPage = selectBestPage(pages);
-  
+
   return analyzePageContent(bestPage, tenantId, jobId, model);
 }
 
@@ -202,11 +221,11 @@ export async function analyzePages(
  */
 function selectBestPage(pages: CrawledPage[]): CrawledPage {
   if (pages.length === 0) {
-    throw new Error('No pages to analyze');
+    throw new Error("No pages to analyze");
   }
 
   // Score each page
-  const scored = pages.map(page => ({
+  const scored = pages.map((page) => ({
     page,
     score: calculatePageScore(page),
   }));
@@ -216,7 +235,7 @@ function selectBestPage(pages: CrawledPage[]): CrawledPage {
 
   const best = scored[0];
   if (!best) {
-    throw new Error('No pages to analyze');
+    throw new Error("No pages to analyze");
   }
   return best.page;
 }
@@ -240,7 +259,7 @@ function calculatePageScore(page: CrawledPage): number {
   // Prefer homepage
   try {
     const url = new URL(page.url);
-    if (url.pathname === '/' || url.pathname === '') {
+    if (url.pathname === "/" || url.pathname === "") {
       score += 15;
     }
   } catch {
@@ -278,28 +297,27 @@ function buildContentContext(page: CrawledPage): string {
     ...page.headings.h2,
     ...page.headings.h3,
   ];
-  
+
   if (allHeadings.length > 0) {
-    parts.push(`Key Sections: ${allHeadings.join(', ')}`);
+    parts.push(`Key Sections: ${allHeadings.join(", ")}`);
   }
 
-  return parts.join('\n\n');
+  return parts.join("\n\n");
 }
 
 /**
  * Format headings for prompt
  */
-function formatHeadings(headings: CrawledPage['headings']): string {
+function formatHeadings(headings: CrawledPage["headings"]): string {
   const lines: string[] = [];
 
-  headings.h1.forEach(h => lines.push(`H1: ${h}`));
-  headings.h2.forEach(h => lines.push(`  H2: ${h}`));
-  headings.h3.slice(0, 5).forEach(h => lines.push(`    H3: ${h}`));
+  headings.h1.forEach((h) => lines.push(`H1: ${h}`));
+  headings.h2.forEach((h) => lines.push(`  H2: ${h}`));
+  headings.h3.slice(0, 5).forEach((h) => lines.push(`    H3: ${h}`));
 
   if (lines.length === 0) {
-    return 'No headings found';
+    return "No headings found";
   }
 
-  return lines.join('\n');
+  return lines.join("\n");
 }
-

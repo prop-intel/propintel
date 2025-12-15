@@ -6,7 +6,6 @@ import {
   type SEOAnalysis,
   type Recommendation,
 } from "../types";
-import { createTrace, safeFlush } from "./langfuse";
 import { withProviderFallback, LLM_TIMEOUT_MS } from "./llm-utils";
 
 // Agent name for logging
@@ -70,22 +69,6 @@ export async function generateSummary(
   opportunities: string[];
   nextSteps: string[];
 }> {
-  const trace = createTrace({
-    name: "generate-summary",
-    userId: tenantId,
-    metadata: { jobId },
-  });
-
-  const generation = trace.generation({
-    name: "summary-generation",
-    model,
-    input: {
-      pagesCount: pages.length,
-      llmeoScore: llmeoAnalysis.score,
-      seoScore: seoAnalysis.score,
-    },
-  });
-
   try {
     const systemPrompt = `You are an expert SEO and LLMEO analyst. Analyze the provided data and generate a structured summary of the website's strengths, weaknesses, opportunities, and recommended next steps.
 
@@ -131,29 +114,13 @@ Generate a comprehensive summary with specific, actionable insights.`;
           temperature: 0,
           abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
         }),
-      AGENT_NAME
+      AGENT_NAME,
     );
 
     const summaryResult = result.object;
 
-    generation.end({
-      output: summaryResult,
-      usage: {
-        promptTokens: result.usage?.promptTokens,
-        completionTokens: result.usage?.completionTokens,
-      },
-    });
-
-    void safeFlush();
-
     return summaryResult;
   } catch (error) {
-    generation.end({
-      output: null,
-      level: "ERROR",
-      statusMessage: (error as Error).message,
-    });
-    void safeFlush();
     throw error;
   }
 }
@@ -166,18 +133,6 @@ export async function generateRecommendations(
   jobId: string,
   model = "gpt-4o-mini",
 ): Promise<Recommendation[]> {
-  const trace = createTrace({
-    name: "generate-recommendations",
-    userId: tenantId,
-    metadata: { jobId },
-  });
-
-  const generation = trace.generation({
-    name: "recommendations-generation",
-    model,
-    input: { pagesCount: pages.length },
-  });
-
   try {
     const systemPrompt = `You are an expert SEO and LLMEO consultant. Generate specific, actionable recommendations based on the analysis data.
 
@@ -216,47 +171,33 @@ Generate 5-10 prioritized recommendations with code snippets where applicable.`;
           temperature: 0,
           abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
         }),
-      AGENT_NAME
+      AGENT_NAME,
     );
 
     const recsResult = result.object;
 
-    generation.end({
-      output: recsResult,
-      usage: {
-        promptTokens: result.usage?.promptTokens,
-        completionTokens: result.usage?.completionTokens,
-      },
-    });
-
-    void safeFlush();
-
     // Add IDs and affected pages, normalize enum values to lowercase
-    return recsResult.recommendations.map((rec: z.infer<typeof RecommendationSchema>, index: number) => ({
-      ...rec,
-      id: `rec-${index + 1}`,
-      effort: (rec.effort?.toLowerCase() || "medium") as
-        | "low"
-        | "medium"
-        | "high",
-      priority: (rec.priority?.toLowerCase() || "medium") as
-        | "high"
-        | "medium"
-        | "low",
-      category: (rec.category?.toLowerCase() || "seo") as
-        | "llmeo"
-        | "seo"
-        | "content"
-        | "technical",
-      affectedPages: [], // Would be populated from analysis
-    }));
+    return recsResult.recommendations.map(
+      (rec: z.infer<typeof RecommendationSchema>, index: number) => ({
+        ...rec,
+        id: `rec-${index + 1}`,
+        effort: (rec.effort?.toLowerCase() || "medium") as
+          | "low"
+          | "medium"
+          | "high",
+        priority: (rec.priority?.toLowerCase() || "medium") as
+          | "high"
+          | "medium"
+          | "low",
+        category: (rec.category?.toLowerCase() || "seo") as
+          | "llmeo"
+          | "seo"
+          | "content"
+          | "technical",
+        affectedPages: [], // Would be populated from analysis
+      }),
+    );
   } catch (error) {
-    generation.end({
-      output: null,
-      level: "ERROR",
-      statusMessage: (error as Error).message,
-    });
-    void safeFlush();
     throw error;
   }
 }
@@ -273,17 +214,6 @@ export async function generateCopyReadyPrompt(
   jobId: string,
   model = "gpt-4o-mini",
 ): Promise<string> {
-  const trace = createTrace({
-    name: "generate-copy-prompt",
-    userId: tenantId,
-    metadata: { jobId },
-  });
-
-  const generation = trace.generation({
-    name: "copy-prompt-generation",
-    model,
-  });
-
   try {
     const systemPrompt = `You are a content strategist. Create a single, comprehensive prompt that a content team could use to improve their website based on the analysis.
 
@@ -312,29 +242,13 @@ Generate a comprehensive prompt that the content team can use to improve their s
           temperature: 0,
           abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
         }),
-      AGENT_NAME
+      AGENT_NAME,
     );
 
     const promptResult = result.object;
 
-    generation.end({
-      output: promptResult,
-      usage: {
-        promptTokens: result.usage?.promptTokens,
-        completionTokens: result.usage?.completionTokens,
-      },
-    });
-
-    void safeFlush();
-
     return promptResult.prompt;
   } catch (error) {
-    generation.end({
-      output: null,
-      level: "ERROR",
-      statusMessage: (error as Error).message,
-    });
-    void safeFlush();
     throw error;
   }
 }
@@ -358,7 +272,7 @@ ${text.slice(0, 1000)}`,
         maxTokens: 10,
         abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
       }),
-    AGENT_NAME
+    AGENT_NAME,
   );
 
   return result.text.trim().toLowerCase().slice(0, 2);

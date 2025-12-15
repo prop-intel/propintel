@@ -12,7 +12,6 @@ import {
   type QueryCitation,
 } from "../../types";
 import { searchBatch, isConfigured } from "../../lib/tavily";
-import { createTrace, safeFlush } from "../../lib/langfuse";
 
 // ===================
 // Configuration
@@ -48,16 +47,6 @@ export async function researchQueries(
     }));
   }
 
-  const trace = createTrace({
-    name: "aeo-tavily-research",
-    userId: tenantId,
-    metadata: { jobId, queryCount: queries.length },
-  });
-
-  const span = trace.span({
-    name: "research-queries",
-  });
-
   try {
     // Extract query strings
     const queryStrings = queries.map((q) => q.query);
@@ -69,24 +58,8 @@ export async function researchQueries(
       concurrency: SEARCH_CONCURRENCY,
     });
 
-    span.end({
-      output: {
-        totalResults: results.reduce((sum, r) => sum + r.results.length, 0),
-        queriesSearched: results.length,
-      },
-    });
-
-    // Non-blocking flush - observability should never block business logic
-    void safeFlush();
-
     return results;
   } catch (error) {
-    span.end({
-      level: "ERROR",
-      statusMessage: (error as Error).message,
-    });
-    // Non-blocking flush - still try to log errors
-    void safeFlush();
     throw error;
   }
 }
@@ -347,16 +320,6 @@ export async function searchCommunitySignals(
     return createEmptyCommunityResult();
   }
 
-  const trace = createTrace({
-    name: "aeo-community-signals",
-    userId: tenantId,
-    metadata: { jobId, domain, brandName },
-  });
-
-  const span = trace.span({
-    name: "search-community-signals",
-  });
-
   try {
     // Build search queries for universal platforms (works for any industry)
     const queries = [
@@ -400,21 +363,6 @@ export async function searchCommunitySignals(
     // Identify training data indicators
     const trainingDataIndicators = identifyTrainingDataIndicators(allSignals);
 
-    span.end({
-      output: {
-        totalMentions: allSignals.length,
-        engagementScore,
-        platforms: {
-          reddit: platforms.reddit.length,
-          hackernews: platforms.hackernews.length,
-          github: platforms.github.length,
-        },
-      },
-    });
-
-    // Non-blocking flush - observability should never block business logic
-    void safeFlush();
-
     return {
       totalMentions: allSignals.length,
       platforms,
@@ -424,12 +372,6 @@ export async function searchCommunitySignals(
       trainingDataIndicators,
     };
   } catch (error) {
-    span.end({
-      level: "ERROR",
-      statusMessage: (error as Error).message,
-    });
-    // Non-blocking flush - still try to log errors
-    void safeFlush();
     throw error;
   }
 }

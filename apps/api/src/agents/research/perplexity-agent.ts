@@ -8,7 +8,6 @@
  */
 
 import { type TargetQuery, type PerplexityResult } from "../../types";
-import { createTrace, safeFlush } from "../../lib/langfuse";
 
 // ===================
 // Main Function
@@ -26,17 +25,6 @@ export async function searchPerplexity(
   tenantId: string,
   jobId: string,
 ): Promise<PerplexityResult[]> {
-  const trace = createTrace({
-    name: "perplexity-research",
-    userId: tenantId,
-    metadata: { jobId, queryCount: queries.length, targetDomain },
-  });
-
-  const span = trace.span({
-    name: "search-perplexity",
-    input: { queryCount: queries.length },
-  });
-
   try {
     // TODO: Implement actual Perplexity integration
     // Options:
@@ -54,22 +42,8 @@ export async function searchPerplexity(
       searchedAt: new Date().toISOString(),
     }));
 
-    span.end({
-      output: {
-        queriesSearched: results.length,
-        citationsFound: 0,
-      },
-    });
-
-    void safeFlush();
-
     return results;
   } catch (error) {
-    span.end({
-      level: "ERROR",
-      statusMessage: (error as Error).message,
-    });
-    void safeFlush();
     throw error;
   }
 }

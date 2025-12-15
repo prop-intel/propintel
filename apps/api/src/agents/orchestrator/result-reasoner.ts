@@ -8,7 +8,6 @@
 import { generateObject } from "ai";
 import { z } from "zod";
 import { type AgentContext } from "../context";
-import { createTrace, safeFlush } from "../../lib/langfuse";
 import { withProviderFallback, LLM_TIMEOUT_MS } from "../../lib/llm-utils";
 
 // Agent name for logging
@@ -52,18 +51,6 @@ export async function reasonOverResults(
   insights: string[];
   confidence: number;
 }> {
-  const trace = createTrace({
-    name: "result-reasoning",
-    userId: tenantId,
-    metadata: { jobId },
-  });
-
-  const generation = trace.generation({
-    name: "reasoning-generation",
-    model,
-    input: { agentCount: Object.keys(context.summaries).length },
-  });
-
   try {
     // Build summary of all results
     const resultsSummary = buildResultsSummary(context);
@@ -93,7 +80,9 @@ Provide reasoning about:
 4. What are the recommended next steps?
 5. How confident are we in the results so far?`;
 
-    console.log(`[${AGENT_NAME}] Calling LLM for reasoning (timeout: ${LLM_TIMEOUT_MS / 1000}s)...`);
+    console.log(
+      `[${AGENT_NAME}] Calling LLM for reasoning (timeout: ${LLM_TIMEOUT_MS / 1000}s)...`,
+    );
 
     const result = await withProviderFallback(
       (provider) =>
@@ -105,29 +94,13 @@ Provide reasoning about:
           temperature: 0.2,
           abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
         }),
-      AGENT_NAME
+      AGENT_NAME,
     );
 
     const reasoningResult = result.object;
 
-    generation.end({
-      output: reasoningResult,
-      usage: {
-        promptTokens: result.usage?.promptTokens,
-        completionTokens: result.usage?.completionTokens,
-      },
-    });
-
-    void safeFlush();
-
     return reasoningResult;
   } catch (error) {
-    generation.end({
-      output: null,
-      level: "ERROR",
-      statusMessage: (error as Error).message,
-    });
-    void safeFlush();
     throw error;
   }
 }

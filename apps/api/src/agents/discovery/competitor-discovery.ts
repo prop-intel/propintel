@@ -3,21 +3,25 @@
  *
  * Discovers REAL BUSINESS competitors - other companies where
  * a customer could choose to go INSTEAD.
- * 
+ *
  * This is different from "visibility competitors" (anyone who ranks).
  * We filter out content platforms (YouTube, Medium, Wikipedia) and
  * use business context to identify actual competitors.
  */
 
-import { generateObject } from 'ai';
-import { z } from 'zod';
-import { type TargetQuery, type CompetitorVisibility, type TavilySearchResult, type BusinessCategory } from '../../types';
-import { searchBatch } from '../../lib/tavily';
-import { createTrace, safeFlush } from '../../lib/langfuse';
-import { withProviderFallback, LLM_TIMEOUT_MS } from '../../lib/llm-utils';
+import { generateObject } from "ai";
+import { z } from "zod";
+import {
+  type TargetQuery,
+  type CompetitorVisibility,
+  type TavilySearchResult,
+  type BusinessCategory,
+} from "../../types";
+import { searchBatch } from "../../lib/tavily";
+import { withProviderFallback, LLM_TIMEOUT_MS } from "../../lib/llm-utils";
 
 // Agent name for logging
-const AGENT_NAME = 'Competitor Discovery';
+const AGENT_NAME = "Competitor Discovery";
 
 // ===================
 // Configuration
@@ -32,46 +36,46 @@ const MIN_APPEARANCES = 1; // Lowered since we filter more aggressively
 
 // Content platforms to always exclude - these are never real business competitors
 const CONTENT_PLATFORMS = new Set([
-  'youtube.com',
-  'medium.com',
-  'wikipedia.org',
-  'reddit.com',
-  'quora.com',
-  'twitter.com',
-  'x.com',
-  'linkedin.com',
-  'facebook.com',
-  'instagram.com',
-  'tiktok.com',
-  'pinterest.com',
-  'github.com',
-  'stackoverflow.com',
-  'dev.to',
-  'hashnode.dev',
-  'substack.com',
-  'wordpress.com',
-  'blogger.com',
-  'tumblr.com',
-  'news.ycombinator.com',
+  "youtube.com",
+  "medium.com",
+  "wikipedia.org",
+  "reddit.com",
+  "quora.com",
+  "twitter.com",
+  "x.com",
+  "linkedin.com",
+  "facebook.com",
+  "instagram.com",
+  "tiktok.com",
+  "pinterest.com",
+  "github.com",
+  "stackoverflow.com",
+  "dev.to",
+  "hashnode.dev",
+  "substack.com",
+  "wordpress.com",
+  "blogger.com",
+  "tumblr.com",
+  "news.ycombinator.com",
 ]);
 
 // Generic info sites to exclude
 const INFO_SITES = new Set([
-  'forbes.com',
-  'businessinsider.com',
-  'techcrunch.com',
-  'wired.com',
-  'theverge.com',
-  'cnet.com',
-  'zdnet.com',
-  'entrepreneur.com',
-  'inc.com',
-  'investopedia.com',
-  'hubspot.com', // Content marketing, not competitor for most
-  'nerdwallet.com',
-  'g2.com',
-  'capterra.com',
-  'trustpilot.com',
+  "forbes.com",
+  "businessinsider.com",
+  "techcrunch.com",
+  "wired.com",
+  "theverge.com",
+  "cnet.com",
+  "zdnet.com",
+  "entrepreneur.com",
+  "inc.com",
+  "investopedia.com",
+  "hubspot.com", // Content marketing, not competitor for most
+  "nerdwallet.com",
+  "g2.com",
+  "capterra.com",
+  "trustpilot.com",
 ]);
 
 // ===================
@@ -102,12 +106,25 @@ export interface BusinessContext {
 // ===================
 
 const CompetitorValidationSchema = z.object({
-  validCompetitors: z.array(z.object({
-    domain: z.string(),
-    isRealCompetitor: z.boolean().describe('Is this a real business competitor where a customer could choose to go instead?'),
-    reason: z.string().describe('Brief explanation of why this is or is not a real competitor'),
-    competitorType: z.string().optional().describe('Type of competitor: direct, indirect, or content-only'),
-  })),
+  validCompetitors: z.array(
+    z.object({
+      domain: z.string(),
+      isRealCompetitor: z
+        .boolean()
+        .describe(
+          "Is this a real business competitor where a customer could choose to go instead?",
+        ),
+      reason: z
+        .string()
+        .describe(
+          "Brief explanation of why this is or is not a real competitor",
+        ),
+      competitorType: z
+        .string()
+        .optional()
+        .describe("Type of competitor: direct, indirect, or content-only"),
+    }),
+  ),
 });
 
 // ===================
@@ -126,59 +143,69 @@ export async function discoverCompetitors(
     maxCompetitors?: number;
     searchResults?: TavilySearchResult[]; // Reuse if already searched
     businessContext?: BusinessContext; // Business understanding for filtering
-  } = {}
+  } = {},
 ): Promise<CompetitorVisibility[]> {
-  const { maxCompetitors = MAX_COMPETITORS, searchResults, businessContext } = options;
+  const {
+    maxCompetitors = MAX_COMPETITORS,
+    searchResults,
+    businessContext,
+  } = options;
 
-  console.log(`[Competitor Discovery] Starting for ${targetDomain} with ${queries.length} queries`);
-  console.log(`[Competitor Discovery] Has existing search results: ${!!searchResults}, Has business context: ${!!businessContext}`);
-
-  const trace = createTrace({
-    name: 'aeo-competitor-discovery',
-    userId: tenantId,
-    metadata: { jobId, targetDomain, queryCount: queries.length, hasBusinessContext: !!businessContext },
-  });
-
-  const span = trace.span({
-    name: 'discover-competitors',
-  });
+  console.log(
+    `[Competitor Discovery] Starting for ${targetDomain} with ${queries.length} queries`,
+  );
+  console.log(
+    `[Competitor Discovery] Has existing search results: ${!!searchResults}, Has business context: ${!!businessContext}`,
+  );
 
   try {
     // Get search results (reuse if provided, otherwise fetch)
     let results: TavilySearchResult[];
     if (searchResults) {
-      console.log(`[Competitor Discovery] Reusing ${searchResults.length} existing search results`);
+      console.log(
+        `[Competitor Discovery] Reusing ${searchResults.length} existing search results`,
+      );
       results = searchResults;
     } else {
-      console.log(`[Competitor Discovery] Fetching search results via Tavily for ${queries.length} queries...`);
+      console.log(
+        `[Competitor Discovery] Fetching search results via Tavily for ${queries.length} queries...`,
+      );
       const startTime = Date.now();
       results = await searchBatch(
-        queries.map(q => q.query),
+        queries.map((q) => q.query),
         {
           maxResults: 10,
-          searchDepth: 'basic',
-        }
+          searchDepth: "basic",
+        },
       );
-      console.log(`[Competitor Discovery] Tavily search completed in ${Date.now() - startTime}ms, got ${results.length} results`);
+      console.log(
+        `[Competitor Discovery] Tavily search completed in ${Date.now() - startTime}ms, got ${results.length} results`,
+      );
     }
 
     // Analyze domain frequency across all results
     console.log(`[Competitor Discovery] Analyzing domain stats...`);
     const domainStats = analyzeDomainStats(results, targetDomain);
-    console.log(`[Competitor Discovery] Found ${domainStats.size} unique domains`);
+    console.log(
+      `[Competitor Discovery] Found ${domainStats.size} unique domains`,
+    );
 
     // STEP 1: Filter out obvious content platforms
     const filteredStats = filterContentPlatforms(domainStats);
-    console.log(`[Competitor Discovery] After filtering content platforms: ${filteredStats.size} domains (removed ${domainStats.size - filteredStats.size})`);
+    console.log(
+      `[Competitor Discovery] After filtering content platforms: ${filteredStats.size} domains (removed ${domainStats.size - filteredStats.size})`,
+    );
 
     // STEP 2: Build initial competitor list
     let competitors = buildCompetitorList(
       filteredStats,
       results,
       queries.length,
-      maxCompetitors * 2 // Get more candidates for LLM filtering
+      maxCompetitors * 2, // Get more candidates for LLM filtering
     );
-    console.log(`[Competitor Discovery] Built initial competitor list: ${competitors.length} candidates`);
+    console.log(
+      `[Competitor Discovery] Built initial competitor list: ${competitors.length} candidates`,
+    );
 
     // STEP 3: If we have business context, use LLM to validate real competitors
     if (businessContext && competitors.length > 0) {
@@ -187,36 +214,22 @@ export async function discoverCompetitors(
       competitors = await validateCompetitorsWithLLM(
         competitors,
         businessContext,
-        tenantId,
-        trace
       );
-      console.log(`[Competitor Discovery] LLM validation completed in ${Date.now() - startTime}ms, ${competitors.length} validated`);
+      console.log(
+        `[Competitor Discovery] LLM validation completed in ${Date.now() - startTime}ms, ${competitors.length} validated`,
+      );
     }
 
     // Limit to requested max
     competitors = competitors.slice(0, maxCompetitors);
-    console.log(`[Competitor Discovery] Complete! Found ${competitors.length} competitors: ${competitors.map(c => c.domain).join(', ')}`);
-
-    span.end({
-      output: {
-        competitorsFound: competitors.length,
-        topCompetitor: competitors[0]?.domain,
-        filteredOut: domainStats.size - filteredStats.size,
-      },
-    });
-
-    // Non-blocking flush - observability should never block business logic
-    void safeFlush();
+    console.log(
+      `[Competitor Discovery] Complete! Found ${competitors.length} competitors: ${competitors.map((c) => c.domain).join(", ")}`,
+    );
 
     return competitors;
   } catch (error) {
     console.error(`[Competitor Discovery] ERROR:`, error);
-    span.end({
-      level: 'ERROR',
-      statusMessage: (error as Error).message,
-    });
-    // Non-blocking flush - still try to log errors
-    void safeFlush();
+
     throw error;
   }
 }
@@ -224,24 +237,26 @@ export async function discoverCompetitors(
 /**
  * Filter out known content platforms that are never real business competitors
  */
-function filterContentPlatforms(stats: Map<string, DomainStats>): Map<string, DomainStats> {
+function filterContentPlatforms(
+  stats: Map<string, DomainStats>,
+): Map<string, DomainStats> {
   const filtered = new Map<string, DomainStats>();
-  
+
   for (const [domain, domainStats] of stats) {
     // Check if domain matches any content platform
-    const isContentPlatform = [...CONTENT_PLATFORMS].some(platform => 
-      domain === platform || domain.endsWith('.' + platform)
+    const isContentPlatform = [...CONTENT_PLATFORMS].some(
+      (platform) => domain === platform || domain.endsWith("." + platform),
     );
-    
-    const isInfoSite = [...INFO_SITES].some(site => 
-      domain === site || domain.endsWith('.' + site)
+
+    const isInfoSite = [...INFO_SITES].some(
+      (site) => domain === site || domain.endsWith("." + site),
     );
-    
+
     if (!isContentPlatform && !isInfoSite) {
       filtered.set(domain, domainStats);
     }
   }
-  
+
   return filtered;
 }
 
@@ -251,16 +266,13 @@ function filterContentPlatforms(stats: Map<string, DomainStats>): Map<string, Do
 async function validateCompetitorsWithLLM(
   candidates: CompetitorVisibility[],
   businessContext: BusinessContext,
-  tenantId: string,
-  trace: ReturnType<typeof createTrace>
 ): Promise<CompetitorVisibility[]> {
-  console.log(`[Competitor Discovery] LLM validation starting for ${candidates.length} candidates`);
-  console.log(`[Competitor Discovery] Business context: ${businessContext.companyName} (${businessContext.businessCategory})`);
-  
-  const generation = trace.generation({
-    name: 'competitor-validation',
-    model: 'gpt-4o-mini',
-  });
+  console.log(
+    `[Competitor Discovery] LLM validation starting for ${candidates.length} candidates`,
+  );
+  console.log(
+    `[Competitor Discovery] Business context: ${businessContext.companyName} (${businessContext.businessCategory})`,
+  );
 
   try {
     const systemPrompt = `You are an expert business analyst specializing in competitive intelligence.
@@ -288,65 +300,64 @@ Be strict. Only mark as "isRealCompetitor: true" if a customer evaluating ${busi
 - What a competitor looks like: ${businessContext.competitorProfile}
 
 Candidate domains found in search results:
-${candidates.map(c => `- ${c.domain} (appeared in ${c.citationCount} queries)`).join('\n')}
+${candidates.map((c) => `- ${c.domain} (appeared in ${c.citationCount} queries)`).join("\n")}
 
 For each domain, determine if it's a REAL business competitor or just a content/visibility competitor.`;
 
-    console.log(`[${AGENT_NAME}] Calling LLM for validation (timeout: ${LLM_TIMEOUT_MS / 1000}s)...`);
+    console.log(
+      `[${AGENT_NAME}] Calling LLM for validation (timeout: ${LLM_TIMEOUT_MS / 1000}s)...`,
+    );
     const llmStartTime = Date.now();
-    
+
     const result = await withProviderFallback(
       (provider) =>
         generateObject({
-          model: provider('gpt-4o-mini'),
+          model: provider("gpt-4o-mini"),
           schema: CompetitorValidationSchema,
           system: systemPrompt,
           prompt: userPrompt,
           temperature: 0,
           abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
         }),
-      AGENT_NAME
+      AGENT_NAME,
     );
 
-    console.log(`[${AGENT_NAME}] LLM response received in ${Date.now() - llmStartTime}ms`);
+    console.log(
+      `[${AGENT_NAME}] LLM response received in ${Date.now() - llmStartTime}ms`,
+    );
 
     const validationResult = result.object;
-
-    generation.end({
-      output: validationResult,
-      usage: {
-        promptTokens: result.usage?.promptTokens,
-        completionTokens: result.usage?.completionTokens,
-      },
-    });
 
     // Filter to only real competitors
     const validDomains = new Set(
       validationResult.validCompetitors
         .filter((v: { isRealCompetitor: boolean }) => v.isRealCompetitor)
-        .map((v: { domain: string }) => v.domain)
+        .map((v: { domain: string }) => v.domain),
     );
 
     // Update competitor info with validation results
     return candidates
-      .filter(c => validDomains.has(c.domain))
-      .map(c => {
-        const validation = validationResult.validCompetitors.find((v: { domain: string }) => v.domain === c.domain);
+      .filter((c) => validDomains.has(c.domain))
+      .map((c) => {
+        const validation = validationResult.validCompetitors.find(
+          (v: { domain: string }) => v.domain === c.domain,
+        );
         return {
           ...c,
           strengths: [
             ...c.strengths,
-            validation?.competitorType === 'direct' ? 'Direct competitor' : 'Indirect competitor',
+            validation?.competitorType === "direct"
+              ? "Direct competitor"
+              : "Indirect competitor",
           ],
         };
       });
   } catch (error) {
-    generation.end({
-      level: 'ERROR',
-      statusMessage: (error as Error).message,
-    });
     // On error, return candidates without LLM filtering
-    console.warn(`[${AGENT_NAME}] LLM validation failed, returning unfiltered results:`, error);
+    console.warn(
+      `[${AGENT_NAME}] LLM validation failed, returning unfiltered results:`,
+      error,
+    );
     return candidates;
   }
 }
@@ -357,11 +368,11 @@ For each domain, determine if it's a REAL business competitor or just a content/
 export async function getTopCompetitors(
   queries: string[],
   targetDomain: string,
-  limit = 5
+  limit = 5,
 ): Promise<string[]> {
   const results = await searchBatch(queries.slice(0, 5), {
     maxResults: 5,
-    searchDepth: 'basic',
+    searchDepth: "basic",
   });
 
   const domainCounts = new Map<string, number>();
@@ -391,7 +402,7 @@ export async function getTopCompetitors(
  */
 function analyzeDomainStats(
   results: TavilySearchResult[],
-  targetDomain: string
+  targetDomain: string,
 ): Map<string, DomainStats> {
   const stats = new Map<string, DomainStats>();
 
@@ -402,7 +413,11 @@ function analyzeDomainStats(
       const domain = item.domain;
 
       // Skip target domain
-      if (domain === targetDomain || domain.includes(targetDomain) || targetDomain.includes(domain)) {
+      if (
+        domain === targetDomain ||
+        domain.includes(targetDomain) ||
+        targetDomain.includes(domain)
+      ) {
         continue;
       }
 
@@ -435,7 +450,7 @@ function buildCompetitorList(
   stats: Map<string, DomainStats>,
   results: TavilySearchResult[],
   totalQueries: number,
-  maxCompetitors: number
+  maxCompetitors: number,
 ): CompetitorVisibility[] {
   const competitors: CompetitorVisibility[] = [];
 
@@ -478,7 +493,7 @@ function buildCompetitorList(
  */
 function identifyStrengths(
   stats: DomainStats,
-  results: TavilySearchResult[]
+  results: TavilySearchResult[],
 ): string[] {
   const strengths: string[] = [];
 
@@ -508,9 +523,9 @@ function identifyStrengths(
   if (strengths.length === 0) {
     const avgRank = stats.totalRank / stats.appearances;
     if (avgRank <= 3) {
-      strengths.push('Consistently high rankings');
+      strengths.push("Consistently high rankings");
     } else {
-      strengths.push('Appears in relevant searches');
+      strengths.push("Appears in relevant searches");
     }
   }
 
@@ -523,9 +538,8 @@ function identifyStrengths(
 export function extractDomain(url: string): string {
   try {
     const urlObj = new URL(url);
-    return urlObj.hostname.replace(/^www\./, '');
+    return urlObj.hostname.replace(/^www\./, "");
   } catch {
     return url;
   }
 }
-

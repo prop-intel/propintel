@@ -15,7 +15,6 @@ import {
   type Report,
   type CrawledPage,
 } from "../../types";
-import { createTrace, safeFlush } from "../../lib/langfuse";
 
 // ===================
 // Score Weights
@@ -47,16 +46,6 @@ export async function generateAEOReport(
   seoAnalysis: SEOAnalysis,
   existingReport: Partial<Report> = {},
 ): Promise<AEOReport> {
-  const trace = createTrace({
-    name: "aeo-report-generation",
-    userId: tenantId,
-    metadata: { jobId, domain },
-  });
-
-  const span = trace.span({
-    name: "generate-report",
-  });
-
   try {
     // Calculate combined overall score (AEO-weighted)
     const overallScore = calculateOverallScore(
@@ -114,23 +103,8 @@ export async function generateAEOReport(
       },
     };
 
-    span.end({
-      output: {
-        overallScore,
-        aeoScore: aeoAnalysis.visibilityScore,
-        recommendationCount: aeoRecommendations.length,
-      },
-    });
-
-    void safeFlush();
-
     return report;
   } catch (error) {
-    span.end({
-      level: "ERROR",
-      statusMessage: (error as Error).message,
-    });
-    void safeFlush();
     throw error;
   }
 }
