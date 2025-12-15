@@ -2,27 +2,27 @@
 
 import { useSite } from "@/contexts/site-context";
 import { api } from "@/trpc/react";
-import { RobotsViewer } from "@/components/robots/robots-viewer";
-import { LlmsViewer } from "@/components/robots/llms-viewer";
-import { PermissionMatrix } from "@/components/robots/permission-matrix";
+import { RobotsViewer } from "@/components/configuration/robots-viewer";
+import { LlmsViewer } from "@/components/configuration/llms-viewer";
+import { PermissionMatrix } from "@/components/configuration/permission-matrix";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
-export default function RobotsPage() {
+export default function ConfigurationPage() {
   const { activeSite } = useSite();
 
   const robotsQuery = api.robots.fetchRobotsTxt.useQuery(
     { siteId: activeSite?.id ?? "" },
-    { enabled: !!activeSite?.id }
+    { enabled: !!activeSite?.id },
   );
 
   const llmsQuery = api.robots.fetchLlmsTxt.useQuery(
     { siteId: activeSite?.id ?? "" },
-    { enabled: !!activeSite?.id }
+    { enabled: !!activeSite?.id },
   );
 
   const permissionsQuery = api.robots.analyzePermissions.useQuery(
     { siteId: activeSite?.id ?? "" },
-    { enabled: !!activeSite?.id }
+    { enabled: !!activeSite?.id },
   );
 
   if (!activeSite) {
@@ -30,14 +30,16 @@ export default function RobotsPage() {
       <div className="p-6">
         <Alert>
           <AlertTitle>No site selected</AlertTitle>
-          <AlertDescription>Select a site to analyze its robots.txt and llms.txt.</AlertDescription>
+          <AlertDescription>
+            Select a site to analyze its robots.txt and llms.txt.
+          </AlertDescription>
         </Alert>
       </div>
     );
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6 p-6">
       <div>
         <h1 className="text-2xl font-bold">Robots Analysis</h1>
         <p className="text-muted-foreground">
