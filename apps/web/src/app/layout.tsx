@@ -83,7 +83,7 @@ export default function RootLayout({
         <TRPCReactProvider>{children}</TRPCReactProvider>
         {/* AI Crawler Tracking Pixel */}
         <img
-          src="https://your-domain.com/api/pixel/3q4SCx-rqOqxlGnE"
+          src="https://brand-sight.com/api/pixel/3q4SCx-rqOqxlGnE"
           alt=""
           style={{
             position: "absolute",
