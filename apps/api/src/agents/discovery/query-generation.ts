@@ -6,32 +6,20 @@
  * result in the analyzed page being cited.
  */
 
-import { createOpenAI } from '@ai-sdk/openai';
 import { generateObject } from 'ai';
 import { z } from 'zod';
 import { type PageAnalysis, type TargetQuery } from '../../types';
 import { createTrace, safeFlush } from '../../lib/langfuse';
+import { withProviderFallback, LLM_TIMEOUT_MS } from '../../lib/llm-utils';
 
-// ===================
-// Timeout Configuration
-// ===================
-
-// 60 second timeout for LLM API calls to prevent indefinite hangs
-const LLM_TIMEOUT_MS = 60_000;
+// Agent name for logging
+const AGENT_NAME = 'Query Generation';
 
 // ===================
 // Configuration
 // ===================
 
 const DEFAULT_QUERY_COUNT = 10;
-
-// ===================
-// Client Initialization
-// ===================
-
-const openai = createOpenAI({
-  apiKey: process.env.OPENAI_API_KEY || '',
-});
 
 // ===================
 // Schema Definition
@@ -123,14 +111,24 @@ Generate ${queryCount} diverse queries that should lead AI systems to cite this 
 Prioritize queries with high search volume potential.
 Assign relevance scores based on how well the page content answers each query.`;
 
-    const result = await generateObject({
-      model: openai(model),
-      schema: QueriesSchema,
-      system: systemPrompt,
-      prompt: userPrompt,
-      temperature: 0.3, // Slight variation for query diversity
-      abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
-    });
+    console.log(`[${AGENT_NAME}] Calling LLM (timeout: ${LLM_TIMEOUT_MS / 1000}s)...`);
+    const startTime = Date.now();
+
+    const result = await withProviderFallback(
+      (provider) =>
+        generateObject({
+          model: provider(model),
+          schema: QueriesSchema,
+          system: systemPrompt,
+          prompt: userPrompt,
+          temperature: 0.3, // Slight variation for query diversity
+          abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
+        }),
+      AGENT_NAME
+    );
+
+    const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+    console.log(`[${AGENT_NAME}] LLM call completed in ${duration}s`);
 
     const normalized = normalizeQueries(result.object);
 
@@ -218,14 +216,18 @@ Key Points: ${pageAnalysis.keyPoints.join('; ')}
 
 These queries should be answerable by the page content.`;
 
-    const result = await generateObject({
-      model: openai(model),
-      schema: QueriesSchema,
-      system: systemPrompt,
-      prompt: userPrompt,
-      temperature: 0.4,
-      abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
-    });
+    const result = await withProviderFallback(
+      (provider) =>
+        generateObject({
+          model: provider(model),
+          schema: QueriesSchema,
+          system: systemPrompt,
+          prompt: userPrompt,
+          temperature: 0.4,
+          abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
+        }),
+      AGENT_NAME
+    );
 
     const normalized = normalizeQueries(result.object);
 

@@ -5,30 +5,15 @@
  * based on AEO analysis results.
  */
 
-import { createOpenAI } from '@ai-sdk/openai';
 import { generateObject } from 'ai';
 import { z } from 'zod';
 import { type AEOAnalysis, type AEORecommendation, type QueryGap, type CompetitorVisibility } from '../../types';
 import { type ContentComparisonResult } from '../analysis/content-comparison';
 import { createTrace, safeFlush } from '../../lib/langfuse';
+import { withProviderFallback, LLM_TIMEOUT_MS } from '../../lib/llm-utils';
 
 // Agent name for logging
 const AGENT_NAME = 'Recommendations Agent';
-
-// ===================
-// Timeout Configuration
-// ===================
-
-// 60 second timeout for LLM API calls to prevent indefinite hangs
-const LLM_TIMEOUT_MS = 60_000;
-
-// ===================
-// Client Initialization
-// ===================
-
-const openai = createOpenAI({
-  apiKey: process.env.OPENAI_API_KEY || '',
-});
 
 // ===================
 // Schema Definition
@@ -139,22 +124,27 @@ ${aeoAnalysis.competitors.slice(0, 3).map(c =>
 
 Generate 5-8 specific, prioritized recommendations.`;
 
-    const result = await generateObject({
-      model: openai(model),
-      schema: RecommendationsSchema,
-      system: systemPrompt,
-      prompt: userPrompt,
-      temperature: 0,
-      abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
-    });
+    const result = await withProviderFallback(
+      (provider) =>
+        generateObject({
+          model: provider(model),
+          schema: RecommendationsSchema,
+          system: systemPrompt,
+          prompt: userPrompt,
+          temperature: 0,
+          abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
+        }),
+      AGENT_NAME
+    );
 
     const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+    const recommendationsResult = result.object;
     console.log(`[${AGENT_NAME}] LLM call completed in ${duration}s`);
-    console.log(`[${AGENT_NAME}] Generated ${result.object.recommendations.length} recommendations`);
+    console.log(`[${AGENT_NAME}] Generated ${recommendationsResult.recommendations.length} recommendations`);
     console.log(`[${AGENT_NAME}] Token usage: ${result.usage?.promptTokens} prompt, ${result.usage?.completionTokens} completion`);
 
     generation.end({
-      output: result.object,
+      output: recommendationsResult,
       usage: {
         promptTokens: result.usage?.promptTokens,
         completionTokens: result.usage?.completionTokens,
@@ -166,7 +156,7 @@ Generate 5-8 specific, prioritized recommendations.`;
 
     // Add IDs and competitor examples, normalize enum values
     console.log(`[${AGENT_NAME}] Processing and normalizing recommendations...`);
-    const recommendations: AEORecommendation[] = result.object.recommendations.map((rec, index) => {
+    const recommendations: AEORecommendation[] = recommendationsResult.recommendations.map((rec: z.infer<typeof RecommendationSchema>, index: number) => {
       const normalized = normalizeRecommendation(rec);
       return {
         ...normalized,

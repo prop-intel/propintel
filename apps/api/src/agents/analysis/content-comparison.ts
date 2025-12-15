@@ -5,26 +5,14 @@
  * to identify what they're doing differently.
  */
 
-import { createOpenAI } from '@ai-sdk/openai';
 import { generateObject } from 'ai';
 import { z } from 'zod';
 import { type TavilySearchResult, type PageAnalysis, type CompetitorVisibility } from '../../types';
 import { createTrace, safeFlush } from '../../lib/langfuse';
+import { withProviderFallback, LLM_TIMEOUT_MS } from '../../lib/llm-utils';
 
-// ===================
-// Timeout Configuration
-// ===================
-
-// 60 second timeout for LLM API calls to prevent indefinite hangs
-const LLM_TIMEOUT_MS = 60_000;
-
-// ===================
-// Client Initialization
-// ===================
-
-const openai = createOpenAI({
-  apiKey: process.env.OPENAI_API_KEY || '',
-});
+// Agent name for logging
+const AGENT_NAME = 'Content Comparison';
 
 // ===================
 // Types
@@ -122,7 +110,7 @@ export async function compareContent(
     // Early return if no meaningful data to compare
     // This prevents the LLM from receiving an empty prompt and hanging
     if (competitorContent.length === 0 || competitorContent.every(c => c.contentSnippets.length === 0)) {
-      console.log(`[ContentComparison] No competitor content to compare - returning default result`);
+      console.log(`[${AGENT_NAME}] No competitor content to compare - returning default result`);
       generation.end({
         output: { skipped: true, reason: 'No competitor content available for comparison' },
       });
@@ -168,14 +156,26 @@ Sample content: ${c.contentSnippets.slice(0, 2).join('\n')}
 
 Analyze what competitors are doing better and what content gaps exist.`;
 
-    const result = await generateObject({
-      model: openai(model),
-      schema: ComparisonSchema,
-      system: systemPrompt,
-      prompt: userPrompt,
-      temperature: 0,
-      abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
-    });
+    console.log(`[${AGENT_NAME}] Starting LLM call with ${competitorContent.length} competitors...`);
+    console.log(`[${AGENT_NAME}] Calling LLM (timeout: ${LLM_TIMEOUT_MS / 1000}s)...`);
+    const startTime = Date.now();
+
+    const result = await withProviderFallback(
+      (provider) =>
+        generateObject({
+          model: provider(model),
+          schema: ComparisonSchema,
+          system: systemPrompt,
+          prompt: userPrompt,
+          temperature: 0,
+          abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
+        }),
+      AGENT_NAME
+    );
+
+    const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+    console.log(`[${AGENT_NAME}] LLM call completed in ${duration}s`);
+    console.log(`[${AGENT_NAME}] Token usage: ${result.usage?.promptTokens} prompt, ${result.usage?.completionTokens} completion`);
 
     const normalized = normalizeComparisonResult(result.object);
 
@@ -206,12 +206,22 @@ Analyze what competitors are doing better and what content gaps exist.`;
       recommendations: normalized.recommendations,
     };
 
+    console.log(`[${AGENT_NAME}] ✅ Complete! Found ${comparisonResult.contentGaps.length} content gaps, ${comparisonResult.recommendations.length} recommendations`);
+
     return comparisonResult;
   } catch (error) {
+    const errorMessage = (error as Error).message;
+    console.error(`[${AGENT_NAME}] ❌ Error: ${errorMessage}`);
+    
+    // Check for timeout
+    if (errorMessage.includes('abort') || errorMessage.includes('timeout')) {
+      console.error(`[${AGENT_NAME}] LLM call timed out after ${LLM_TIMEOUT_MS / 1000}s`);
+    }
+
     generation.end({
       output: null,
       level: 'ERROR',
-      statusMessage: (error as Error).message,
+      statusMessage: errorMessage,
     });
     // Non-blocking flush - still try to log errors
     void safeFlush();

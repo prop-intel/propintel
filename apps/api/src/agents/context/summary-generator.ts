@@ -6,25 +6,13 @@
  * for planning and reasoning without loading full data.
  */
 
-import { createOpenAI } from '@ai-sdk/openai';
 import { generateObject } from 'ai';
 import { z } from 'zod';
 import { createTrace, safeFlush } from '../../lib/langfuse';
+import { withProviderFallback, LLM_TIMEOUT_MS } from '../../lib/llm-utils';
 
-// ===================
-// Timeout Configuration
-// ===================
-
-// 60 second timeout for LLM API calls to prevent indefinite hangs
-const LLM_TIMEOUT_MS = 60_000;
-
-// ===================
-// Client Initialization
-// ===================
-
-const openai = createOpenAI({
-  apiKey: process.env.OPENAI_API_KEY || '',
-});
+// Agent name for logging
+const AGENT_NAME = 'Summary Generator';
 
 // ===================
 // Schema Definition
@@ -111,14 +99,20 @@ ${resultJson.length > 4000 ? `\n[Result truncated - showing first 4000 chars of 
 
 Generate a structured summary with key findings, metrics, and status.`;
 
-    const result = await generateObject({
-      model: openai(model),
-      schema: AgentSummarySchema,
-      system: systemPrompt,
-      prompt: userPrompt,
-      temperature: 0,
-      abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
-    });
+    console.log(`[${AGENT_NAME}] Calling LLM for agent summary (timeout: ${LLM_TIMEOUT_MS / 1000}s)...`);
+
+    const result = await withProviderFallback(
+      (provider) =>
+        generateObject({
+          model: provider(model),
+          schema: AgentSummarySchema,
+          system: systemPrompt,
+          prompt: userPrompt,
+          temperature: 0,
+          abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
+        }),
+      AGENT_NAME
+    );
 
     const normalized = normalizeAgentSummary(result.object);
 
@@ -174,24 +168,30 @@ export async function generateBriefSummary(
 
     const userPrompt = `Agent: ${agentId}\nResult preview:\n${resultPreview}`;
 
-    const result = await generateObject({
-      model: openai(model),
-      schema: z.object({
-        summary: z.string().describe('One sentence summary'),
-      }),
-      system: systemPrompt,
-      prompt: userPrompt,
-      temperature: 0,
-      abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
-    });
+    const result = await withProviderFallback(
+      (provider) =>
+        generateObject({
+          model: provider(model),
+          schema: z.object({
+            summary: z.string().describe('One sentence summary'),
+          }),
+          system: systemPrompt,
+          prompt: userPrompt,
+          temperature: 0,
+          abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
+        }),
+      AGENT_NAME
+    );
+
+    const briefResult = result.object as { summary: string };
 
     generation.end({
-      output: result.object,
+      output: briefResult,
     });
 
     void safeFlush();
 
-    return result.object.summary;
+    return briefResult.summary;
   } catch (error) {
     generation.end({
       output: null,

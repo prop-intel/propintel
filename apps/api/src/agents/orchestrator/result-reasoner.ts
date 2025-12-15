@@ -8,15 +8,11 @@
 import { generateObject } from "ai";
 import { z } from "zod";
 import { type AgentContext } from "../context";
-import { openai } from "../../lib/openai";
 import { createTrace, safeFlush } from "../../lib/langfuse";
+import { withProviderFallback, LLM_TIMEOUT_MS } from "../../lib/llm-utils";
 
-// ===================
-// Timeout Configuration
-// ===================
-
-// 60 second timeout for LLM API calls to prevent indefinite hangs
-const LLM_TIMEOUT_MS = 60_000;
+// Agent name for logging
+const AGENT_NAME = "Result Reasoner";
 
 // ===================
 // Schema Definition
@@ -97,17 +93,25 @@ Provide reasoning about:
 4. What are the recommended next steps?
 5. How confident are we in the results so far?`;
 
-    const result = await generateObject({
-      model: openai(model),
-      schema: ReasoningResultSchema,
-      system: systemPrompt,
-      prompt: userPrompt,
-      temperature: 0.2,
-      abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
-    });
+    console.log(`[${AGENT_NAME}] Calling LLM for reasoning (timeout: ${LLM_TIMEOUT_MS / 1000}s)...`);
+
+    const result = await withProviderFallback(
+      (provider) =>
+        generateObject({
+          model: provider(model),
+          schema: ReasoningResultSchema,
+          system: systemPrompt,
+          prompt: userPrompt,
+          temperature: 0.2,
+          abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
+        }),
+      AGENT_NAME
+    );
+
+    const reasoningResult = result.object;
 
     generation.end({
-      output: result.object,
+      output: reasoningResult,
       usage: {
         promptTokens: result.usage?.promptTokens,
         completionTokens: result.usage?.completionTokens,
@@ -116,7 +120,7 @@ Provide reasoning about:
 
     void safeFlush();
 
-    return result.object;
+    return reasoningResult;
   } catch (error) {
     generation.end({
       output: null,

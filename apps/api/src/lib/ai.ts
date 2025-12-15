@@ -6,15 +6,11 @@ import {
   type SEOAnalysis,
   type Recommendation,
 } from "../types";
-import { openai } from "./openai";
 import { createTrace, safeFlush } from "./langfuse";
+import { withProviderFallback, LLM_TIMEOUT_MS } from "./llm-utils";
 
-// ===================
-// Timeout Configuration
-// ===================
-
-// 60 second timeout for LLM API calls to prevent indefinite hangs
-const LLM_TIMEOUT_MS = 60_000;
+// Agent name for logging
+const AGENT_NAME = "AI Lib";
 
 // ===================
 // Schema Definitions
@@ -125,17 +121,23 @@ SEO Analysis:
 
 Generate a comprehensive summary with specific, actionable insights.`;
 
-    const result = await generateObject({
-      model: openai(model),
-      schema: SummarySchema,
-      system: systemPrompt,
-      prompt: userPrompt,
-      temperature: 0,
-      abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
-    });
+    const result = await withProviderFallback(
+      (provider) =>
+        generateObject({
+          model: provider(model),
+          schema: SummarySchema,
+          system: systemPrompt,
+          prompt: userPrompt,
+          temperature: 0,
+          abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
+        }),
+      AGENT_NAME
+    );
+
+    const summaryResult = result.object;
 
     generation.end({
-      output: result.object,
+      output: summaryResult,
       usage: {
         promptTokens: result.usage?.promptTokens,
         completionTokens: result.usage?.completionTokens,
@@ -144,7 +146,7 @@ Generate a comprehensive summary with specific, actionable insights.`;
 
     void safeFlush();
 
-    return result.object;
+    return summaryResult;
   } catch (error) {
     generation.end({
       output: null,
@@ -204,17 +206,23 @@ SEO Issues:
 
 Generate 5-10 prioritized recommendations with code snippets where applicable.`;
 
-    const result = await generateObject({
-      model: openai(model),
-      schema: RecommendationsSchema,
-      system: systemPrompt,
-      prompt: userPrompt,
-      temperature: 0,
-      abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
-    });
+    const result = await withProviderFallback(
+      (provider) =>
+        generateObject({
+          model: provider(model),
+          schema: RecommendationsSchema,
+          system: systemPrompt,
+          prompt: userPrompt,
+          temperature: 0,
+          abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
+        }),
+      AGENT_NAME
+    );
+
+    const recsResult = result.object;
 
     generation.end({
-      output: result.object,
+      output: recsResult,
       usage: {
         promptTokens: result.usage?.promptTokens,
         completionTokens: result.usage?.completionTokens,
@@ -224,7 +232,7 @@ Generate 5-10 prioritized recommendations with code snippets where applicable.`;
     void safeFlush();
 
     // Add IDs and affected pages, normalize enum values to lowercase
-    return result.object.recommendations.map((rec, index) => ({
+    return recsResult.recommendations.map((rec: z.infer<typeof RecommendationSchema>, index: number) => ({
       ...rec,
       id: `rec-${index + 1}`,
       effort: (rec.effort?.toLowerCase() || "medium") as
@@ -294,17 +302,23 @@ Next Steps: ${summary.nextSteps.join("; ")}
 
 Generate a comprehensive prompt that the content team can use to improve their site.`;
 
-    const result = await generateObject({
-      model: openai(model),
-      schema: CopyReadyPromptSchema,
-      system: systemPrompt,
-      prompt: userPrompt,
-      temperature: 0,
-      abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
-    });
+    const result = await withProviderFallback(
+      (provider) =>
+        generateObject({
+          model: provider(model),
+          schema: CopyReadyPromptSchema,
+          system: systemPrompt,
+          prompt: userPrompt,
+          temperature: 0,
+          abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
+        }),
+      AGENT_NAME
+    );
+
+    const promptResult = result.object;
 
     generation.end({
-      output: result.object,
+      output: promptResult,
       usage: {
         promptTokens: result.usage?.promptTokens,
         completionTokens: result.usage?.completionTokens,
@@ -313,7 +327,7 @@ Generate a comprehensive prompt that the content team can use to improve their s
 
     void safeFlush();
 
-    return result.object.prompt;
+    return promptResult.prompt;
   } catch (error) {
     generation.end({
       output: null,
@@ -333,15 +347,19 @@ export async function detectLanguage(
   text: string,
   model = "gpt-4o-mini",
 ): Promise<string> {
-  const result = await generateText({
-    model: openai(model),
-    prompt: `Detect the primary language of this text and respond with only the ISO 639-1 language code (e.g., "en", "es", "fr"):
+  const result = await withProviderFallback(
+    (provider) =>
+      generateText({
+        model: provider(model),
+        prompt: `Detect the primary language of this text and respond with only the ISO 639-1 language code (e.g., "en", "es", "fr"):
 
 ${text.slice(0, 1000)}`,
-    temperature: 0,
-    maxTokens: 10,
-    abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
-  });
+        temperature: 0,
+        maxTokens: 10,
+        abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
+      }),
+    AGENT_NAME
+  );
 
   return result.text.trim().toLowerCase().slice(0, 2);
 }

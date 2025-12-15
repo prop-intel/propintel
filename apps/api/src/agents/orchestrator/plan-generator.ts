@@ -11,14 +11,10 @@ import { type ExecutionPlan, type ExecutionPhase } from '../../types';
 import { type AgentContext } from '../context';
 import { createTrace, safeFlush } from '../../lib/langfuse';
 import { getAgentMetadata } from '../registry';
-import { openai } from '../../lib/openai';
+import { withProviderFallback, LLM_TIMEOUT_MS } from '../../lib/llm-utils';
 
-// ===================
-// Timeout Configuration
-// ===================
-
-// 60 second timeout for LLM API calls to prevent indefinite hangs
-const LLM_TIMEOUT_MS = 60_000;
+// Agent name for logging
+const AGENT_NAME = 'Plan Generator';
 
 // ===================
 // Schema Definition
@@ -290,16 +286,26 @@ Generate a plan that:
 3. Parallelizes agents when possible
 4. Estimates realistic duration`;
 
-    const result = await generateObject({
-      model: openai(model),
-      schema: ExecutionPlanSchema,
-      system: systemPrompt,
-      prompt: userPrompt,
-      temperature: 0.3, // Slight creativity for plan optimization
-      abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
-    });
+    console.log(`[${AGENT_NAME}] Calling LLM for execution plan (timeout: ${LLM_TIMEOUT_MS / 1000}s)...`);
+    const startTime = Date.now();
 
-    let finalPlan = result.object;
+    const result = await withProviderFallback(
+      (provider) =>
+        generateObject({
+          model: provider(model),
+          schema: ExecutionPlanSchema,
+          system: systemPrompt,
+          prompt: userPrompt,
+          temperature: 0.3, // Slight creativity for plan optimization
+          abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
+        }),
+      AGENT_NAME
+    );
+
+    const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+    console.log(`[${AGENT_NAME}] LLM call completed in ${duration}s`);
+
+    let finalPlan = result.object as ExecutionPlan;
     
     // First, sanitize the plan to remove disabled agents
     finalPlan = sanitizePlan(finalPlan);

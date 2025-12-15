@@ -1,6 +1,8 @@
 export { AgentPipeline } from "./agent-pipeline";
 export type { AgentStatus, PipelinePhase } from "./agent-pipeline";
 
+export { AnalysisProgressSteps } from "./analysis-progress-steps";
+
 export { ScoreDashboard } from "./score-dashboard";
 
 export { PageAnalysisCard } from "./page-analysis-card";

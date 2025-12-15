@@ -9,26 +9,14 @@
  * - Summary and key points
  */
 
-import { createOpenAI } from '@ai-sdk/openai';
 import { generateObject } from 'ai';
 import { z } from 'zod';
 import { type CrawledPage, type PageAnalysis } from '../../types';
 import { createTrace, safeFlush } from '../../lib/langfuse';
+import { withProviderFallback, LLM_TIMEOUT_MS } from '../../lib/llm-utils';
 
-// ===================
-// Timeout Configuration
-// ===================
-
-// 60 second timeout for LLM API calls to prevent indefinite hangs
-const LLM_TIMEOUT_MS = 60_000;
-
-// ===================
-// Client Initialization
-// ===================
-
-const openai = createOpenAI({
-  apiKey: process.env.OPENAI_API_KEY || '',
-});
+// Agent name for logging
+const AGENT_NAME = 'Page Analysis';
 
 // ===================
 // Schema Definition
@@ -144,14 +132,24 @@ Extract:
    - businessModel: How they operate and acquire customers (be specific)
    - competitorProfile: Describe what a REAL business competitor looks like - another company a customer would evaluate alongside this one (NOT content platforms like YouTube/Medium, NOT general information sites)`;
 
-    const result = await generateObject({
-      model: openai(model),
-      schema: PageAnalysisSchema,
-      system: systemPrompt,
-      prompt: userPrompt,
-      temperature: 0,
-      abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
-    });
+    console.log(`[${AGENT_NAME}] Calling LLM (timeout: ${LLM_TIMEOUT_MS / 1000}s)...`);
+    const startTime = Date.now();
+
+    const result = await withProviderFallback(
+      (provider) =>
+        generateObject({
+          model: provider(model),
+          schema: PageAnalysisSchema,
+          system: systemPrompt,
+          prompt: userPrompt,
+          temperature: 0,
+          abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
+        }),
+      AGENT_NAME
+    );
+
+    const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+    console.log(`[${AGENT_NAME}] LLM call completed in ${duration}s`);
 
     const normalized = normalizePageAnalysis(result.object);
 

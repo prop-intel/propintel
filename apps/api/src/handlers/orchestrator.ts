@@ -2,7 +2,7 @@ import type { SQSHandler, SQSEvent, SQSRecord } from 'aws-lambda';
 import { ECSClient, RunTaskCommand, DescribeTasksCommand } from '@aws-sdk/client-ecs';
 import { type CrawlJobMessage } from '../lib/sqs';
 import { getJobById, updateJob, saveReportReference, saveAnalysis } from '../lib/db';
-import { uploadAEOReport } from '../lib/s3';
+import { uploadAEOReport, getReport } from '../lib/s3';
 import { generateSummary, generateRecommendations, generateCopyReadyPrompt } from '../lib/ai';
 import { analyzeLLMEO } from '../analysis/llmeo';
 import { analyzeSEO } from '../analysis/seo';
@@ -13,7 +13,7 @@ import { gracefulShutdown } from '../lib/langfuse';
 
 // AEO Agent imports
 import { analyzePages, generateTargetQueries, discoverCompetitors } from '../agents/discovery';
-import { researchQueries, analyzeCitations } from '../agents/research';
+import { researchQueries, analyzeCitations, searchCommunitySignalsNew, type CommunityEngagementResult } from '../agents/research';
 import { analyzeCitationPatterns, compareContent, calculateVisibilityScore, buildAEOAnalysis } from '../agents/analysis';
 import { generateAEORecommendations, generateCursorPrompt, generateAEOReport } from '../agents/output';
 
@@ -131,6 +131,13 @@ async function processRecord(record: SQSRecord): Promise<void> {
     console.log(`[${jobId}] Uploading report to S3...`);
     const { jsonKey, markdownKey } = await uploadAEOReport(userId, jobId, aeoReport);
     console.log(`[${jobId}] Report uploaded to S3:`, { jsonKey, markdownKey, bucket: process.env.S3_BUCKET || 'propintel-api-dev-storage' });
+    
+    // Verify report was actually uploaded before marking complete
+    const verifyReport = await getReport(userId, jobId, 'json');
+    if (!verifyReport) {
+      throw new Error(`Report upload verification failed - report not found at ${jsonKey}`);
+    }
+    console.log(`[${jobId}] Report upload verified successfully`);
     
     console.log(`[${jobId}] Saving report reference to database...`);
     await saveReportReference(jobId, jsonKey, markdownKey);
@@ -326,6 +333,7 @@ async function runAEOPipelineWithOrchestrator(
   const visibilityScoreResult = await contextManager.getAgentResult<{ score: number }>('visibility-scoring');
   const aeoRecommendations = await contextManager.getAgentResult<AEORecommendation[]>('recommendations');
   const cursorPrompt = await contextManager.getAgentResult<CursorPrompt>('cursor-prompt');
+  const communityEngagement = await contextManager.getAgentResult<CommunityEngagementResult>('community-signals');
 
   if (!pageAnalysis || !targetQueries) {
     throw new Error('Required analysis results not available: pageAnalysis and targetQueries are required');
@@ -362,7 +370,8 @@ async function runAEOPipelineWithOrchestrator(
     safeCompetitors,
     citationAnalysis.gaps || [],
     visibilityScoreResult?.score || 0,
-    citationAnalysis
+    citationAnalysis,
+    communityEngagement ?? undefined
   );
 
   // Generate final report
@@ -449,6 +458,16 @@ async function runAEOPipeline(
     { searchResults }
   );
 
+  // Search for community engagement opportunities
+  console.log(`[${jobId}] AEO Research: Searching for community engagement opportunities...`);
+  let communityEngagement: CommunityEngagementResult | undefined;
+  try {
+    communityEngagement = await searchCommunitySignalsNew(targetQueries, domain, userId, jobId);
+    console.log(`[${jobId}] AEO Research: Found ${communityEngagement.totalOpportunities} engagement opportunities`);
+  } catch (error) {
+    console.warn(`[${jobId}] AEO Research: Community signals search failed, continuing without:`, (error as Error).message);
+  }
+
   // ----- Phase 3: Analysis -----
   console.log(`[${jobId}] AEO Analysis: Analyzing citations and visibility...`);
 
@@ -491,7 +510,8 @@ async function runAEOPipeline(
     competitors,
     citationAnalysis.gaps,
     visibilityScore,
-    citationAnalysis
+    citationAnalysis,
+    communityEngagement
   );
 
   // ----- Phase 4: Output -----

@@ -9,19 +9,15 @@
  * use business context to identify actual competitors.
  */
 
-import { createOpenAI } from '@ai-sdk/openai';
 import { generateObject } from 'ai';
 import { z } from 'zod';
 import { type TargetQuery, type CompetitorVisibility, type TavilySearchResult, type BusinessCategory } from '../../types';
 import { searchBatch } from '../../lib/tavily';
 import { createTrace, safeFlush } from '../../lib/langfuse';
+import { withProviderFallback, LLM_TIMEOUT_MS } from '../../lib/llm-utils';
 
-// ===================
-// Timeout Configuration
-// ===================
-
-// 60 second timeout for LLM API calls to prevent indefinite hangs
-const LLM_TIMEOUT_MS = 60_000;
+// Agent name for logging
+const AGENT_NAME = 'Competitor Discovery';
 
 // ===================
 // Configuration
@@ -29,6 +25,10 @@ const LLM_TIMEOUT_MS = 60_000;
 
 const MAX_COMPETITORS = 10;
 const MIN_APPEARANCES = 1; // Lowered since we filter more aggressively
+
+// ===================
+// Client Initialization (removed - using shared llm-utils)
+// ===================
 
 // Content platforms to always exclude - these are never real business competitors
 const CONTENT_PLATFORMS = new Set([
@@ -73,14 +73,6 @@ const INFO_SITES = new Set([
   'capterra.com',
   'trustpilot.com',
 ]);
-
-// ===================
-// Client Initialization
-// ===================
-
-const openai = createOpenAI({
-  apiKey: process.env.OPENAI_API_KEY || '',
-});
 
 // ===================
 // Types
@@ -300,22 +292,28 @@ ${candidates.map(c => `- ${c.domain} (appeared in ${c.citationCount} queries)`).
 
 For each domain, determine if it's a REAL business competitor or just a content/visibility competitor.`;
 
-    console.log(`[Competitor Discovery] Calling OpenAI gpt-4o-mini for validation (timeout: ${LLM_TIMEOUT_MS}ms)...`);
+    console.log(`[${AGENT_NAME}] Calling LLM for validation (timeout: ${LLM_TIMEOUT_MS / 1000}s)...`);
     const llmStartTime = Date.now();
     
-    const result = await generateObject({
-      model: openai('gpt-4o-mini'),
-      schema: CompetitorValidationSchema,
-      system: systemPrompt,
-      prompt: userPrompt,
-      temperature: 0,
-      abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
-    });
+    const result = await withProviderFallback(
+      (provider) =>
+        generateObject({
+          model: provider('gpt-4o-mini'),
+          schema: CompetitorValidationSchema,
+          system: systemPrompt,
+          prompt: userPrompt,
+          temperature: 0,
+          abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
+        }),
+      AGENT_NAME
+    );
 
-    console.log(`[Competitor Discovery] OpenAI response received in ${Date.now() - llmStartTime}ms`);
+    console.log(`[${AGENT_NAME}] LLM response received in ${Date.now() - llmStartTime}ms`);
+
+    const validationResult = result.object;
 
     generation.end({
-      output: result.object,
+      output: validationResult,
       usage: {
         promptTokens: result.usage?.promptTokens,
         completionTokens: result.usage?.completionTokens,
@@ -324,16 +322,16 @@ For each domain, determine if it's a REAL business competitor or just a content/
 
     // Filter to only real competitors
     const validDomains = new Set(
-      result.object.validCompetitors
-        .filter(v => v.isRealCompetitor)
-        .map(v => v.domain)
+      validationResult.validCompetitors
+        .filter((v: { isRealCompetitor: boolean }) => v.isRealCompetitor)
+        .map((v: { domain: string }) => v.domain)
     );
 
     // Update competitor info with validation results
     return candidates
       .filter(c => validDomains.has(c.domain))
       .map(c => {
-        const validation = result.object.validCompetitors.find(v => v.domain === c.domain);
+        const validation = validationResult.validCompetitors.find((v: { domain: string }) => v.domain === c.domain);
         return {
           ...c,
           strengths: [
@@ -348,7 +346,7 @@ For each domain, determine if it's a REAL business competitor or just a content/
       statusMessage: (error as Error).message,
     });
     // On error, return candidates without LLM filtering
-    console.warn('[CompetitorDiscovery] LLM validation failed, returning unfiltered results:', error);
+    console.warn(`[${AGENT_NAME}] LLM validation failed, returning unfiltered results:`, error);
     return candidates;
   }
 }

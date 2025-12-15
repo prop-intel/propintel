@@ -3,9 +3,9 @@ import { api } from "@/trpc/server";
 import { auth } from "@/server/auth";
 import { redirect } from "next/navigation";
 import {
-  DashboardContent,
-  DashboardEmpty,
-} from "@/components/dashboard/dashboard-content";
+  MonitorContent,
+  MonitorEmpty,
+} from "@/components/dashboard/monitor-content";
 
 type TimeFramePreset = "12h" | "24h" | "3d" | "7d" | "30d" | "90d";
 
@@ -54,7 +54,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const sites = await api.site.list();
 
   if (sites.length === 0) {
-    return <DashboardEmpty />;
+    return <MonitorEmpty />;
   }
 
   // Get active site from cookie or default to first
@@ -65,7 +65,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     : sites[0];
 
   if (!activeSite) {
-    return <DashboardEmpty />;
+    return <MonitorEmpty />;
   }
 
   // Build query params for analytics
@@ -87,7 +87,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   ]);
 
   return (
-    <DashboardContent
+    <MonitorContent
       site={activeSite}
       sites={sites}
       initialData={{

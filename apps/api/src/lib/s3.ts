@@ -12,10 +12,12 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 const BUCKET_NAME = process.env.S3_BUCKET || 'propintel-api-dev-storage';
-const IS_LOCAL = !process.env.S3_BUCKET || process.env.USE_LOCAL_STORAGE === 'true';
+// Use local storage only if explicitly requested via USE_LOCAL_STORAGE=true
+// Otherwise, always try to use S3 (with the default bucket name if S3_BUCKET not set)
+const IS_LOCAL = process.env.USE_LOCAL_STORAGE === 'true';
 const LOCAL_STORAGE_DIR = path.join(process.cwd(), '.local-storage');
 
-// Only create S3 client if we have credentials configured
+// Create S3 client unless explicitly using local storage
 let s3Client: S3Client | null = null;
 if (!IS_LOCAL) {
   const clientConfig: ConstructorParameters<typeof S3Client>[0] = {
@@ -31,6 +33,9 @@ if (!IS_LOCAL) {
   }
 
   s3Client = new S3Client(clientConfig);
+  console.log(`[S3] Client initialized for bucket: ${BUCKET_NAME}`);
+} else {
+  console.log(`[S3] Using local storage at: ${LOCAL_STORAGE_DIR}`);
 }
 
 // ===================

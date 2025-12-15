@@ -13,15 +13,11 @@
 import { generateObject, generateText } from "ai";
 import { z } from "zod";
 import { createTrace, safeFlush } from "../../lib/langfuse";
-import { openai } from "../../lib/openai";
+import { withProviderFallback, withRetry, openai, LLM_TIMEOUT_MS } from "../../lib/llm-utils";
 import { type PageAnalysis, type TargetQuery } from "../../types";
 
-// ===================
-// Timeout Configuration
-// ===================
-
-// 60 second timeout for LLM API calls to prevent indefinite hangs
-const LLM_TIMEOUT_MS = 60_000;
+// Agent name for logging
+const AGENT_NAME = "LLM Brand Probe";
 
 // ===================
 // Configuration
@@ -356,16 +352,23 @@ ${input.targetQueries
 Generate ${promptCount} natural prompts that real users might ask an AI assistant.
 Focus on prompts where this brand SHOULD appear if it's well-known in its space.`;
 
-    const result = await generateObject({
-      model: openai("gpt-4o-mini"),
-      schema: GeneratedPromptsSchema,
-      system: systemPrompt,
-      prompt: userPrompt,
-      temperature: 0.7, // Some creativity for diverse prompts
-      abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
-    });
+    console.log(`[${AGENT_NAME}] Generating probe prompts (timeout: ${LLM_TIMEOUT_MS / 1000}s)...`);
 
-    const prompts: ProbePrompt[] = result.object.prompts.map((p) => ({
+    const result = await withProviderFallback(
+      (provider) =>
+        generateObject({
+          model: provider("gpt-4o-mini"),
+          schema: GeneratedPromptsSchema,
+          system: systemPrompt,
+          prompt: userPrompt,
+          temperature: 0.7, // Some creativity for diverse prompts
+          abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
+        }),
+      AGENT_NAME
+    );
+
+    const promptsResult = result.object;
+    const prompts: ProbePrompt[] = promptsResult.prompts.map((p: z.infer<typeof GeneratedPromptsSchema>["prompts"][0]) => ({
       prompt: p.prompt,
       category: p.category as PromptCategory,
       targetBrand: input.brand.name,
@@ -436,14 +439,19 @@ async function probeSinglePrompt(
   _jobId: string,
 ): Promise<LLMProbeResult> {
   try {
-    // Step 1: Get response from LLM
-    const response = await generateText({
-      model: openai(model),
-      prompt: probePrompt.prompt,
-      maxTokens: 500,
-      temperature: 0.3, // Lower temperature for more consistent responses
-      abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
-    });
+    // Step 1: Get response from LLM (with retries - no fallback since we're testing specific model)
+    const response = await withRetry(
+      () =>
+        generateText({
+          model: openai(model),
+          prompt: probePrompt.prompt,
+          maxTokens: 500,
+          temperature: 0.3, // Lower temperature for more consistent responses
+          abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
+        }),
+      AGENT_NAME,
+      "OpenAI"
+    );
 
     const responseText = response.text;
 
@@ -534,21 +542,26 @@ Determine:
 4. What's the sentiment toward the brand?
 5. Which competitors are mentioned?`;
 
-    const result = await generateObject({
-      model: openai("gpt-4o-mini"),
-      schema: MentionAnalysisSchema,
-      prompt: analysisPrompt,
-      temperature: 0,
-      abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
-    });
+    const result = await withProviderFallback(
+      (provider) =>
+        generateObject({
+          model: provider("gpt-4o-mini"),
+          schema: MentionAnalysisSchema,
+          prompt: analysisPrompt,
+          temperature: 0,
+          abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
+        }),
+      AGENT_NAME
+    );
 
+    const analysisResult = result.object;
     return {
-      brandMentioned: result.object.brandMentioned,
-      mentionType: result.object.mentionType,
-      mentionPosition: result.object.mentionPosition ?? undefined,
-      mentionContext: result.object.mentionContext ?? undefined,
-      sentiment: result.object.sentiment,
-      competitorsMentioned: result.object.competitorsMentioned.map((c) => ({
+      brandMentioned: analysisResult.brandMentioned,
+      mentionType: analysisResult.mentionType,
+      mentionPosition: analysisResult.mentionPosition ?? undefined,
+      mentionContext: analysisResult.mentionContext ?? undefined,
+      sentiment: analysisResult.sentiment,
+      competitorsMentioned: analysisResult.competitorsMentioned.map((c: z.infer<typeof MentionAnalysisSchema>["competitorsMentioned"][0]) => ({
         name: c.name,
         mentioned: c.mentioned,
         mentionType: c.mentionType,

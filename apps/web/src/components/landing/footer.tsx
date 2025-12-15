@@ -15,7 +15,7 @@ export function Footer() {
               <div className="p-1.5 bg-primary rounded-lg text-primary-foreground">
                 <Bot className="size-5" />
               </div>
-              BrandSight
+              Brandsight
             </Link>
             <p className="text-sm text-muted-foreground">
               Clear insights for brand visibility.
@@ -51,7 +51,7 @@ export function Footer() {
         </div>
 
         <div className="mt-12 pt-8 border-t text-center text-sm text-muted-foreground">
-          © {new Date().getFullYear()} BrandSight. All rights reserved.
+          © {new Date().getFullYear()} Brandsight. All rights reserved.
         </div>
       </div>
     </footer>
