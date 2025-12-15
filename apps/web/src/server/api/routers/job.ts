@@ -1,11 +1,12 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { api } from "@/lib/api/client";
+import { getReport as getReportFromStorage } from "@/lib/storage/s3";
 import { TRPCError } from "@trpc/server";
 import { jobs, sites } from "@propintel/database";
 import { and, desc, eq } from "drizzle-orm";
 
-// Helper to extract cookie header from tRPC context
+// Helper to extract cookie header from tRPC context (still needed for job create)
 function getCookieFromHeaders(headers: Headers): string | null {
   const cookieHeader = headers.get("cookie");
   return cookieHeader;
@@ -182,31 +183,42 @@ export const jobRouter = createTRPCRouter({
       })
     )
     .query(async ({ input, ctx }) => {
-      try {
-        const cookie = getCookieFromHeaders(ctx.headers);
-        const result = await api.jobs.getReport(input.id, input.format, cookie);
-        return result;
-      } catch (error) {
-        if (error instanceof Error && error.message.includes("404")) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "Report not found",
-          });
-        }
-        if (
-          error instanceof Error &&
-          error.message.includes("not completed")
-        ) {
-          throw new TRPCError({
-            code: "PRECONDITION_FAILED",
-            message: "Job is not completed yet",
-          });
-        }
+      // First verify the job exists and belongs to user
+      const job = await ctx.db.query.jobs.findFirst({
+        where: and(
+          eq(jobs.id, input.id),
+          eq(jobs.userId, ctx.session.user.id)
+        ),
+      });
+
+      if (!job) {
         throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message:
-            error instanceof Error ? error.message : "Failed to get report",
+          code: "NOT_FOUND",
+          message: "Job not found",
         });
       }
+
+      if (job.status !== "completed") {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "Job is not completed yet",
+        });
+      }
+
+      // Read directly from storage
+      const reportContent = await getReportFromStorage(ctx.session.user.id, input.id, input.format);
+
+      if (!reportContent) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Report not found",
+        });
+      }
+
+      if (input.format === "md") {
+        return reportContent;
+      }
+
+      return JSON.parse(reportContent) as Record<string, unknown>;
     }),
 });

@@ -20,6 +20,13 @@ export const env = createEnv({
     // Backend API configuration (server-side only)
     API_URL: z.string().url().optional(),
     API_KEY: z.string().optional(),
+    // S3 Storage (for direct report reads - server-side only)
+    AWS_REGION: z.string().optional(),
+    AWS_ACCESS_KEY_ID: z.string().optional(),
+    AWS_SECRET_ACCESS_KEY: z.string().optional(),
+    S3_BUCKET: z.string().optional(),
+    USE_LOCAL_STORAGE: z.string().optional(),
+    LOCAL_STORAGE_PATH: z.string().optional(),
   },
 
   /**
@@ -44,6 +51,12 @@ export const env = createEnv({
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
     API_URL: process.env.API_URL,
     API_KEY: process.env.API_KEY,
+    AWS_REGION: process.env.AWS_REGION,
+    AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID,
+    AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY,
+    S3_BUCKET: process.env.S3_BUCKET,
+    USE_LOCAL_STORAGE: process.env.USE_LOCAL_STORAGE,
+    LOCAL_STORAGE_PATH: process.env.LOCAL_STORAGE_PATH,
   },
   /**
    * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially

@@ -64,14 +64,15 @@ export function JobCreator() {
 ```typescript
 "use client";
 
-import { useJobReport } from "@/hooks/use-jobs";
+import { api } from "@/trpc/react";
 import type { Report } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export function ReportScores({ jobId }: { jobId: string }) {
-  const { data: report, isLoading } = useJobReport(
-    jobId,
-    "json"
+  // Use tRPC to fetch report (reads directly from S3)
+  const { data: report, isLoading } = api.job.getReport.useQuery(
+    { id: jobId, format: "json" },
+    { enabled: !!jobId }
   ) as { data: Report | null; isLoading: boolean };
 
   if (isLoading) return <div>Loading report...</div>;
@@ -283,7 +284,7 @@ export function ScoreTrendsChart({ domain }: { domain?: string }) {
 ```typescript
 "use client";
 
-import { useJobReport } from "@/hooks/use-jobs";
+import { api } from "@/trpc/react";
 import type { Report } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -295,9 +296,11 @@ import {
 } from "@/components/ui/card";
 
 export function RecommendationsList({ jobId }: { jobId: string }) {
-  const { data: report } = useJobReport(jobId, "json") as {
-    data: Report | null;
-  };
+  // Use tRPC to fetch report (reads directly from S3)
+  const { data: report } = api.job.getReport.useQuery(
+    { id: jobId, format: "json" },
+    { enabled: !!jobId }
+  ) as { data: Report | null };
 
   if (!report) return null;
 

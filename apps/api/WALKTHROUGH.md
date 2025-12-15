@@ -295,34 +295,11 @@ function Wait-ForJobCompletion {
 
 ## Retrieving Reports
 
-### Step 1: Get JSON Report
+> **Note**: Reports are now accessed via the web dashboard or tRPC routes for better performance and security. The tRPC routes read directly from S3 storage.
 
-Once the job status is `completed`, retrieve the report:
+Once the job status is `completed`, view the report in the PropIntel dashboard at `/results/{job-id}`.
 
-**Using curl:**
-```bash
-curl -H "X-Api-Key: your-api-key-here" \
-  "https://your-api-endpoint.execute-api.us-west-2.amazonaws.com/jobs/{job-id}/report?format=json" \
-  -o report.json
-```
-
-**Using PowerShell:**
-```powershell
-$headers = @{"X-Api-Key" = "your-api-key-here"}
-$jobId = "f9904399-84db-4200-9a2a-185c58431356"
-$report = Invoke-RestMethod -Uri "https://your-api-endpoint.execute-api.us-west-2.amazonaws.com/jobs/$jobId/report?format=json" -Method GET -Headers $headers
-$report | ConvertTo-Json -Depth 10 | Out-File report.json
-```
-
-### Step 2: Get Markdown Report
-
-For a human-readable format:
-
-```bash
-curl -H "X-Api-Key: your-api-key-here" \
-  "https://your-api-endpoint.execute-api.us-west-2.amazonaws.com/jobs/{job-id}/report?format=md" \
-  -o report.md
-```
+For programmatic access, use the tRPC `job.getReport` endpoint from an authenticated session.
 
 ## Understanding the Report
 
@@ -605,13 +582,11 @@ JOB_ID=$(curl -X POST \
 # 2. Wait for completion (simplified - use polling in production)
 sleep 60
 
-# 3. Get report
-curl -H "X-Api-Key: $API_KEY" \
-  "https://your-api-endpoint/jobs/$JOB_ID/report?format=json" \
-  > report.json
+# 3. View report in dashboard
+echo "View report at: https://your-dashboard/results/$JOB_ID"
 
-# 4. Extract key scores
-jq '.scores' report.json
+# Note: Reports are accessed via the web dashboard or tRPC routes
+# for better performance and direct S3 access.
 ```
 
 ### Workflow 2: Competitor Benchmarking
@@ -634,13 +609,14 @@ $response = Invoke-RestMethod -Uri "https://your-api-endpoint/jobs" `
 
 $jobId = $response.data.job.id
 
-# Wait and retrieve report
+# Wait for completion
 $job = Wait-ForJobCompletion -ApiKey $API_KEY -JobId $jobId
-$report = Invoke-RestMethod -Uri "https://your-api-endpoint/jobs/$jobId/report" `
-    -Headers @{"X-Api-Key" = $API_KEY}
 
-# Analyze competitor comparison
-$report.competitorComparison | Format-Table
+# View report in dashboard
+Write-Host "View report at: https://your-dashboard/results/$jobId"
+
+# Note: Reports are accessed via the web dashboard or tRPC routes
+# for better performance and direct S3 access.
 ```
 
 ### Workflow 3: Integration with CI/CD
@@ -656,7 +632,7 @@ $report.competitorComparison | Format-Table
       -H "Content-Type: application/json" \
       -d '{"targetUrl": "https://staging.example.com"}' \
       https://api.propintel.com/jobs | jq -r '.data.job.id')
-    
+
     echo "JOB_ID=$JOB_ID" >> $GITHUB_ENV
 
 - name: Wait for Analysis
@@ -665,22 +641,16 @@ $report.competitorComparison | Format-Table
     while true; do
       STATUS=$(curl -H "X-Api-Key: ${{ secrets.PROPINTEL_API_KEY }}" \
         https://api.propintel.com/jobs/${{ env.JOB_ID }} | jq -r '.data.job.status')
-      
+
       if [ "$STATUS" = "completed" ]; then
+        echo "Analysis complete. View report at: https://dashboard.propintel.com/results/${{ env.JOB_ID }}"
         break
       fi
       sleep 10
     done
 
-- name: Check Scores
-  run: |
-    SCORE=$(curl -H "X-Api-Key: ${{ secrets.PROPINTEL_API_KEY }}" \
-      https://api.propintel.com/jobs/${{ env.JOB_ID }}/report | jq -r '.scores.overallScore')
-    
-    if [ "$SCORE" -lt 70 ]; then
-      echo "Score below threshold: $SCORE"
-      exit 1
-    fi
+# Note: For score validation in CI, use the tRPC API from an authenticated
+# session or add a webhook notification to receive the score.
 ```
 
 ## Troubleshooting

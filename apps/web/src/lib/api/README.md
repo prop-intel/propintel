@@ -8,8 +8,9 @@ The backend API client provides type-safe access to the PropIntel analysis servi
 
 - **Authentication**: Session token validation via NextAuth cookies
 - **Job Management**: Create analysis jobs (listing and status via tRPC)
-- **Reports**: Fetch analysis reports in JSON or Markdown format
 - **Dashboard**: Get summary metrics, trends, and alerts
+
+> **Note**: Reports are now fetched via tRPC routes that read directly from S3 storage for better performance.
 
 ## Files
 
@@ -30,12 +31,6 @@ const { job } = await api.jobs.create({
   config: { maxPages: 50 },
 });
 
-// Get report (JSON)
-const report = await api.jobs.getReport(jobId, "json");
-
-// Get report (Markdown)
-const markdown = await api.jobs.getReport(jobId, "md");
-
 // Dashboard summary
 const summary = await api.dashboard.getSummary();
 
@@ -43,15 +38,16 @@ const summary = await api.dashboard.getSummary();
 const trends = await api.dashboard.getTrends("example.com", 30);
 ```
 
-> **Note**: Job listing and status polling should use tRPC routes for better performance.
+> **Note**: Job listing, status polling, and **reports** should use tRPC routes for better performance.
 
 ### React Hooks
 
 Use the provided React hooks for data fetching with automatic caching:
 
 ```typescript
-import { useCreateJob, useJobReport } from "@/hooks/use-jobs";
+import { useCreateJob } from "@/hooks/use-jobs";
 import { useDashboardSummary, useScoreTrends } from "@/hooks/use-dashboard";
+import { api } from "@/trpc/react";
 
 // Create a new job
 const createJob = useCreateJob();
@@ -59,8 +55,11 @@ createJob.mutate({
   targetUrl: "https://example.com",
 });
 
-// Get report (only fetches when job is completed)
-const { data: report } = useJobReport(jobId, "json");
+// Get report via tRPC (reads directly from S3)
+const { data: report } = api.job.getReport.useQuery(
+  { id: jobId, format: "json" },
+  { enabled: !!jobId }
+);
 
 // Dashboard data
 const { data: summary } = useDashboardSummary();
@@ -173,13 +172,17 @@ function AnalyzeSite() {
 ### Displaying Report Data
 
 ```typescript
-import { useJobReport } from "@/hooks/use-jobs";
+import { api } from "@/trpc/react";
 import type { Report } from "@/lib/api";
 
 function ReportView({ jobId }: { jobId: string }) {
-  const { data: report } = useJobReport(jobId, "json") as { data: Report | null };
+  const { data: report, isLoading } = api.job.getReport.useQuery(
+    { id: jobId, format: "json" },
+    { enabled: !!jobId }
+  ) as { data: Report | null; isLoading: boolean };
 
-  if (!report) return <div>Loading...</div>;
+  if (isLoading) return <div>Loading...</div>;
+  if (!report) return <div>No report available</div>;
 
   return (
     <div>
