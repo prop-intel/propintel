@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 
 const phases = [
@@ -261,6 +262,58 @@ export function HowItWorks() {
                             </div>
                         </motion.div>
                     ))}
+                </div>
+            </section>
+
+            {/* See It In Action - Demo Video & Screenshots */}
+            <section className="py-20">
+                <div className="container px-4 mx-auto max-w-5xl">
+                    <div className="text-center mb-12">
+                        <h2 className="text-3xl font-bold mb-4">See It In Action</h2>
+                        <p className="text-muted-foreground text-lg">Watch how BrandSight analyzes and optimizes your content for AI visibility.</p>
+                    </div>
+
+                    {/* Demo Video */}
+                    <div className="mb-16">
+                        <div className="rounded-xl overflow-hidden shadow-2xl border bg-black">
+                            <video
+                                src="/how-it-works/User__Experience.mp4"
+                                autoPlay
+                                muted
+                                loop
+                                playsInline
+                                controls
+                                className="w-full"
+                            />
+                        </div>
+                    </div>
+
+                    {/* Track Your Progress */}
+                    <div className="text-center mb-8">
+                        <h3 className="text-2xl font-bold mb-2">Track Your Progress</h3>
+                        <p className="text-muted-foreground">Monitor the increase in AI bot traffic as you implement our recommendations.</p>
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-6">
+                        <div className="rounded-xl overflow-hidden shadow-lg border bg-card">
+                            <Image
+                                src="/how-it-works/Tracking.png"
+                                alt="Track bot traffic changes over time"
+                                width={800}
+                                height={600}
+                                className="w-full h-auto"
+                            />
+                        </div>
+                        <div className="rounded-xl overflow-hidden shadow-lg border bg-card">
+                            <Image
+                                src="/how-it-works/Trends.png"
+                                alt="View traffic trends and growth patterns"
+                                width={800}
+                                height={600}
+                                className="w-full h-auto"
+                            />
+                        </div>
+                    </div>
                 </div>
             </section>
 
