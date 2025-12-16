@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
-import { sites, crawlerVisits } from "@propintel/database";
-import { eq, and, gte, count } from "drizzle-orm";
+import { sites, crawlerVisits, unmatchedUserAgents } from "@propintel/database";
+import { eq, and, gte, count, like } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { TRPCError } from "@trpc/server";
 import { fetchExternal } from "@/lib/fetch-external";
@@ -106,7 +106,7 @@ export async function middleware(request: NextRequest) {
       }
     }),
 
-  // Test middleware endpoint
+  // Test middleware installation
   testMiddleware: protectedProcedure
     .input(z.object({ siteId: z.string() }))
     .mutation(async ({ ctx, input }) => {
@@ -119,33 +119,120 @@ export async function middleware(request: NextRequest) {
 
       if (!site) throw new TRPCError({ code: "NOT_FOUND" });
 
+      // Generate unique test user agent with timestamp
+      const timestamp = Date.now();
+      const testUserAgent = `PropIntel-Middleware-Test-${timestamp}`;
+
       try {
-        const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-        const response = await fetch(`${baseUrl}/api/middleware-track`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            trackingId: site.trackingId,
-            userAgent: "PropIntel-Test/1.0",
-            path: "/test",
-          }),
+        // Make a request to the user's site with the test user agent
+        const response = await fetchExternal(`https://${site.domain}`, {
+          userAgent: testUserAgent,
         });
 
         if (!response.ok) {
-          return { working: false, error: `Endpoint returned ${response.status}` };
+          return {
+            installed: false,
+            error: `Could not reach your site. Check if it's online. (HTTP ${response.status})`,
+            testUserAgent,
+          };
         }
 
-        const data = await response.json() as { tracked: boolean; error?: string };
+        // Wait 4 seconds for middleware to process and send tracking event
+        await new Promise((resolve) => setTimeout(resolve, 4000));
+
+        // Query for tracking event with our test user agent
+        // Check both crawlerVisits and unmatchedUserAgents since test user agent
+        // won't match known crawlers and will be recorded in unmatchedUserAgents
+        const tenSecondsAgo = new Date();
+        tenSecondsAgo.setSeconds(tenSecondsAgo.getSeconds() - 10);
+
+        // Check crawlerVisits first
+        const visitResult = await ctx.db
+          .select()
+          .from(crawlerVisits)
+          .where(
+            and(
+              eq(crawlerVisits.siteId, input.siteId),
+              eq(crawlerVisits.source, "middleware"),
+              like(crawlerVisits.userAgent, `%${testUserAgent}%`),
+              gte(crawlerVisits.visitedAt, tenSecondsAgo)
+            )
+          )
+          .limit(1);
+
+        if (visitResult.length > 0) {
+          return {
+            installed: true,
+            error: null,
+            testUserAgent,
+          };
+        }
+
+        // Check unmatchedUserAgents (where test user agent will be recorded)
+        const unmatchedResult = await ctx.db
+          .select()
+          .from(unmatchedUserAgents)
+          .where(
+            and(
+              eq(unmatchedUserAgents.siteId, input.siteId),
+              eq(unmatchedUserAgents.source, "middleware"),
+              like(unmatchedUserAgents.userAgent, `%${testUserAgent}%`),
+              gte(unmatchedUserAgents.createdAt, tenSecondsAgo)
+            )
+          )
+          .limit(1);
+
+        if (unmatchedResult.length > 0) {
+          return {
+            installed: true,
+            error: null,
+            testUserAgent,
+          };
+        }
+
+        // Check if there are any recent middleware visits (wrong user agent)
+        const recentMiddlewareResult = await ctx.db
+          .select()
+          .from(crawlerVisits)
+          .where(
+            and(
+              eq(crawlerVisits.siteId, input.siteId),
+              eq(crawlerVisits.source, "middleware"),
+              gte(crawlerVisits.visitedAt, tenSecondsAgo)
+            )
+          )
+          .limit(1);
+
+        if (recentMiddlewareResult.length > 0) {
+          return {
+            installed: false,
+            error: "Tracking detected but not from middleware. Check your configuration.",
+            testUserAgent,
+          };
+        }
+
         return {
-          working: true,
-          tracked: data.tracked,
+          installed: false,
+          error: "Middleware not detected. Make sure you've installed the code and deployed your changes.",
+          testUserAgent,
         };
       } catch (error) {
-        console.error("Failed to test middleware endpoint:", error);
-        const errorMessage = error instanceof Error ? error.message : "Failed to reach endpoint";
+        console.error(`Failed to test middleware installation for ${site.domain}:`, error);
+        const errorMessage = error instanceof Error ? error.message : "Failed to fetch site";
+
+        // Check if it's a network/connection error
+        if (errorMessage.includes("timeout") || errorMessage.includes("ECONNREFUSED") || errorMessage.includes("ENOTFOUND")) {
+          return {
+            installed: false,
+            error: "Could not reach your site. Check if it's online.",
+            testUserAgent,
+          };
+        }
+
         return {
-          working: false,
-          error: `Failed to reach endpoint: ${errorMessage}`,
+          installed: false,
+          error: `Failed to test installation: ${errorMessage}`,
+          testUserAgent,
         };
       }
     }),

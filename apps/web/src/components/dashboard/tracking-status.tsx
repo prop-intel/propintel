@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   AlertCircle,
   Check,
@@ -22,7 +22,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Empty,
@@ -111,8 +115,14 @@ export function TrackingSetupDialog({
     { enabled: !!siteId && open },
   );
 
-  const testPixelMutation = api.tracking.testInstallation.useMutation();
   const testMiddlewareMutation = api.tracking.testMiddleware.useMutation();
+
+  // Reset test results when modal opens or closes
+  useEffect(() => {
+    if (!open) {
+      testMiddlewareMutation.reset();
+    }
+  }, [open, testMiddlewareMutation]);
 
   const copyToClipboard = async (text: string, type: string) => {
     await navigator.clipboard.writeText(text);
@@ -126,138 +136,78 @@ export function TrackingSetupDialog({
         <DialogHeader>
           <DialogTitle>Install Tracking</DialogTitle>
           <DialogDescription>
-            Choose a method to track AI crawler visits.
+            Install middleware to track AI crawler visits.
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs defaultValue="pixel" className="mt-2">
-          <TabsList className="w-full">
-            <TabsTrigger value="pixel" className="flex-1">
-              Pixel
-            </TabsTrigger>
-            <TabsTrigger value="middleware" className="flex-1">
-              Middleware
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="pixel" className="mt-4 space-y-3">
-            <div className="relative">
-              <pre className="bg-muted whitespace-pre-wrap break-all rounded-md p-3 pr-12 text-sm">
-                <code>{scriptData?.pixelSnippet}</code>
-              </pre>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="absolute right-1.5 top-1.5 h-7 w-7"
-                onClick={() =>
-                  copyToClipboard(scriptData?.pixelSnippet ?? "", "pixel")
+        <div className="mt-4 space-y-3">
+          <div className="relative">
+            <pre className="bg-muted max-h-48 overflow-y-auto whitespace-pre-wrap break-all rounded-md p-3 pr-12 text-sm">
+              <code>{scriptData?.middlewareSnippet}</code>
+            </pre>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="absolute right-1.5 top-1.5 h-7 w-7"
+              onClick={() =>
+                copyToClipboard(
+                  scriptData?.middlewareSnippet ?? "",
+                  "middleware",
+                )
+              }
+            >
+              {copied === "middleware" ? (
+                <Check className="h-3.5 w-3.5" />
+              ) : (
+                <Copy className="h-3.5 w-3.5" />
+              )}
+            </Button>
+          </div>
+          <p className="text-muted-foreground text-sm">
+            For Next.js/Express. Catches text-only AI agents.
+          </p>
+          <div className="flex items-center gap-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => testMiddlewareMutation.mutate({ siteId })}
+                  disabled={testMiddlewareMutation.isPending}
+                >
+                  {testMiddlewareMutation.isPending ? (
+                    <RefreshCw className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <TestTube className="mr-1.5 h-3.5 w-3.5" />
+                  )}
+                  Test Installation
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Verifies that your middleware is installed and working by making a test request to your site</p>
+              </TooltipContent>
+            </Tooltip>
+            {testMiddlewareMutation.data && (
+              <Badge
+                variant={
+                  testMiddlewareMutation.data.installed
+                    ? "default"
+                    : "destructive"
                 }
               >
-                {copied === "pixel" ? (
-                  <Check className="h-3.5 w-3.5" />
-                ) : (
-                  <Copy className="h-3.5 w-3.5" />
-                )}
-              </Button>
-            </div>
-            <p className="text-muted-foreground text-sm">
-              Add to your HTML body. Works without JavaScript.
-            </p>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => testPixelMutation.mutate({ siteId })}
-                disabled={testPixelMutation.isPending}
-              >
-                {testPixelMutation.isPending ? (
-                  <RefreshCw className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <TestTube className="mr-1.5 h-3.5 w-3.5" />
-                )}
-                Test
-              </Button>
-              {testPixelMutation.data && (
-                <Badge
-                  variant={
-                    testPixelMutation.data.installed ? "default" : "destructive"
-                  }
-                >
-                  {testPixelMutation.data.installed ? "Detected" : "Not found"}
-                </Badge>
-              )}
-            </div>
-            {testPixelMutation.data && !testPixelMutation.data.installed && (
+                {testMiddlewareMutation.data.installed ? "Installed ✓" : "Not detected"}
+              </Badge>
+            )}
+          </div>
+          {testMiddlewareMutation.data &&
+            !testMiddlewareMutation.data.installed && (
               <Alert variant="destructive" className="py-2">
                 <AlertDescription className="text-xs">
-                  {testPixelMutation.data.error}
+                  {testMiddlewareMutation.data.error}
                 </AlertDescription>
               </Alert>
             )}
-          </TabsContent>
-
-          <TabsContent value="middleware" className="mt-4 space-y-3">
-            <div className="relative">
-              <pre className="bg-muted max-h-48 overflow-y-auto whitespace-pre-wrap break-all rounded-md p-3 pr-12 text-sm">
-                <code>{scriptData?.middlewareSnippet}</code>
-              </pre>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="absolute right-1.5 top-1.5 h-7 w-7"
-                onClick={() =>
-                  copyToClipboard(
-                    scriptData?.middlewareSnippet ?? "",
-                    "middleware",
-                  )
-                }
-              >
-                {copied === "middleware" ? (
-                  <Check className="h-3.5 w-3.5" />
-                ) : (
-                  <Copy className="h-3.5 w-3.5" />
-                )}
-              </Button>
-            </div>
-            <p className="text-muted-foreground text-sm">
-              For Next.js/Express. Catches text-only AI agents.
-            </p>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => testMiddlewareMutation.mutate({ siteId })}
-                disabled={testMiddlewareMutation.isPending}
-              >
-                {testMiddlewareMutation.isPending ? (
-                  <RefreshCw className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <TestTube className="mr-1.5 h-3.5 w-3.5" />
-                )}
-                Test Endpoint
-              </Button>
-              {testMiddlewareMutation.data && (
-                <Badge
-                  variant={
-                    testMiddlewareMutation.data.working
-                      ? "default"
-                      : "destructive"
-                  }
-                >
-                  {testMiddlewareMutation.data.working ? "Working" : "Error"}
-                </Badge>
-              )}
-            </div>
-            {testMiddlewareMutation.data &&
-              !testMiddlewareMutation.data.working && (
-                <Alert variant="destructive" className="py-2">
-                  <AlertDescription className="text-xs">
-                    {testMiddlewareMutation.data.error}
-                  </AlertDescription>
-                </Alert>
-              )}
-          </TabsContent>
-        </Tabs>
+        </div>
       </DialogContent>
     </Dialog>
   );
