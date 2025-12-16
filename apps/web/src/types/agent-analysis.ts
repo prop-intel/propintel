@@ -12,7 +12,7 @@ export interface SummaryScores {
 }
 
 export interface EngagementOpportunity {
-  platform: "reddit" | "twitter" | "hackernews" | "other";
+  platform: "reddit" | "twitter" | "other";
   url: string;
   title: string;
   snippet: string;
@@ -33,7 +33,6 @@ export interface CommunityEngagement {
   platforms: {
     reddit: EngagementOpportunity[];
     twitter: EngagementOpportunity[];
-    hackernews: EngagementOpportunity[];
     other: EngagementOpportunity[];
   };
   topOpportunities: EngagementOpportunity[];

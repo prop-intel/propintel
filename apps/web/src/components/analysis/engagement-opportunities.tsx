@@ -29,7 +29,7 @@ import Image from "next/image";
 // ===================
 
 export interface EngagementOpportunity {
-  platform: "reddit" | "twitter" | "hackernews" | "other";
+  platform: "reddit" | "twitter" | "other";
   url: string;
   title: string;
   snippet: string;
@@ -49,7 +49,6 @@ export interface EngagementOpportunity {
 export interface PlatformOpportunities {
   reddit: EngagementOpportunity[];
   twitter: EngagementOpportunity[];
-  hackernews: EngagementOpportunity[];
   other: EngagementOpportunity[];
 }
 
@@ -96,17 +95,6 @@ function PlatformIcon({
           height={16}
           className={cn("dark:invert", className)}
         />
-      );
-    case "hackernews":
-      return (
-        <span
-          className={cn(
-            "flex h-5 w-5 items-center justify-center rounded-sm bg-[#FF6600] text-[10px] font-bold text-white",
-            className
-          )}
-        >
-          Y
-        </span>
       );
     default:
       return <MessageCircle className={cn("h-5 w-5", className)} />;
@@ -174,8 +162,6 @@ function getPlatformName(platform: EngagementOpportunity["platform"]) {
       return "Reddit";
     case "twitter":
       return "X";
-    case "hackernews":
-      return "Hacker News";
     default:
       return "Web";
   }
@@ -327,13 +313,12 @@ export function EngagementOpportunities({
 }: EngagementOpportunitiesProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("top");
-  const [platformFilter, setPlatformFilter] = useState<"all" | "reddit" | "twitter" | "hackernews">("all");
+  const [platformFilter, setPlatformFilter] = useState<"all" | "reddit" | "twitter">("all");
 
   // Get counts from platforms prop or calculate from opportunities
   const redditCount = platforms?.reddit?.length ?? opportunities.filter((o) => o.platform === "reddit").length;
   const twitterCount = platforms?.twitter?.length ?? opportunities.filter((o) => o.platform === "twitter").length;
-  const hnCount = platforms?.hackernews?.length ?? opportunities.filter((o) => o.platform === "hackernews").length;
-  const totalCount = redditCount + twitterCount + hnCount + (platforms?.other?.length ?? 0);
+  const totalCount = redditCount + twitterCount + (platforms?.other?.length ?? 0);
 
   // Sort by relevance score
   const sortedOpportunities = [...opportunities].sort(
@@ -341,7 +326,7 @@ export function EngagementOpportunities({
   );
 
   // Get platform-specific opportunities
-  const getPlatformOpportunities = (platform: "reddit" | "twitter" | "hackernews") => {
+  const getPlatformOpportunities = (platform: "reddit" | "twitter") => {
     if (platforms?.[platform]) {
       return [...platforms[platform]].sort((a, b) => b.relevanceScore - a.relevanceScore);
     }
@@ -356,7 +341,6 @@ export function EngagementOpportunities({
         const all = [
           ...platforms.reddit,
           ...platforms.twitter,
-          ...platforms.hackernews,
           ...platforms.other,
         ];
         return all.sort((a, b) => b.relevanceScore - a.relevanceScore);
@@ -384,7 +368,7 @@ export function EngagementOpportunities({
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Platform breakdown - clickable to filter */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 gap-4">
           <motion.button
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -420,25 +404,6 @@ export function EngagementOpportunities({
             <div className="text-left">
               <div className="text-2xl font-bold">{twitterCount}</div>
               <div className="text-xs text-muted-foreground">X (Twitter)</div>
-            </div>
-          </motion.button>
-          <motion.button
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            onClick={() => {
-              setActiveTab("platforms");
-              setPlatformFilter("hackernews");
-            }}
-            className={cn(
-              "flex items-center gap-3 p-4 rounded-lg bg-[#FF6600]/10 border border-[#FF6600]/30 transition-all hover:bg-[#FF6600]/20",
-              platformFilter === "hackernews" && activeTab === "platforms" && "ring-2 ring-[#FF6600]"
-            )}
-          >
-            <PlatformIcon platform="hackernews" className="h-5 w-5" />
-            <div className="text-left">
-              <div className="text-2xl font-bold text-[#FF6600]">{hnCount}</div>
-              <div className="text-xs text-muted-foreground">Hacker News</div>
             </div>
           </motion.button>
         </div>
@@ -520,18 +485,6 @@ export function EngagementOpportunities({
               >
                 <PlatformIcon platform="twitter" className="h-3.5 w-3.5" />
                 X ({twitterCount})
-              </button>
-              <button
-                onClick={() => setPlatformFilter("hackernews")}
-                className={cn(
-                  "px-3 py-1.5 text-sm rounded-md border transition-colors flex items-center gap-1.5",
-                  platformFilter === "hackernews"
-                    ? "bg-[#FF6600] text-white border-[#FF6600]"
-                    : "hover:bg-muted"
-                )}
-              >
-                <PlatformIcon platform="hackernews" className="h-4 w-4" />
-                HN ({hnCount})
               </button>
             </div>
 

@@ -205,9 +205,9 @@ export function ScoreDashboard({ scores, confidence = 0.6, className }: ScoreDas
           description="How often your content appears in AI search results"
         />
         <ScoreCard
-          label="LLMEO"
+          label="Content Clarity"
           score={scores.llmeoScore ?? 0}
-          description="LLM optimization readiness (schema, clarity, depth)"
+          description="How well AI models can read and understand your content (schema, structure, depth)"
         />
         <ScoreCard
           label="SEO"
@@ -225,7 +225,7 @@ export function ScoreDashboard({ scores, confidence = 0.6, className }: ScoreDas
       <div className="space-y-2">
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <span>Score composition</span>
-          <span>AEO 50% • LLMEO 30% • SEO 20%</span>
+          <span>AEO 50% • Content Clarity 30% • SEO 20%</span>
         </div>
         <div className="h-3 rounded-full overflow-hidden flex">
           <motion.div
@@ -257,7 +257,7 @@ export function ScoreDashboard({ scores, confidence = 0.6, className }: ScoreDas
           </div>
           <div className="flex items-center gap-1.5">
             <div className="h-2 w-2 rounded-full bg-blue-500" />
-            <span className="text-muted-foreground">LLMEO</span>
+            <span className="text-muted-foreground">Content Clarity</span>
           </div>
           <div className="flex items-center gap-1.5">
             <div className="h-2 w-2 rounded-full bg-purple-500" />

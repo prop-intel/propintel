@@ -73,7 +73,7 @@ export function KeyFindings({
         </div>
 
         {/* SWOT-style breakdown */}
-        {(strengths?.length || weaknesses?.length || opportunities?.length) && (
+        {!!(strengths?.length || weaknesses?.length || opportunities?.length) && (
           <div className="grid md:grid-cols-3 gap-4 pt-4 border-t">
             {/* Strengths */}
             {strengths && strengths.length > 0 && (
