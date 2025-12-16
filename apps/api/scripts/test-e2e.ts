@@ -6,8 +6,10 @@
  * Tests the complete job lifecycle:
  * - Creates a job
  * - Polls for completion (via direct DB query)
- * - Validates report structure
- * - Verifies all expected data is present
+ * - Validates job metrics
+ *
+ * Note: Report retrieval is now handled via tRPC routes that read S3 directly.
+ * This test focuses on job creation and orchestration.
  *
  * Usage:
  *   npm run test:e2e                    # Test against local serverless-offline
@@ -330,117 +332,9 @@ async function waitForJobCompletion(config: TestConfig, jobId: string): Promise<
   throw new Error(`Job did not complete within ${config.timeout / 1000} seconds. Last status: ${lastStatus}`);
 }
 
-async function getReport(config: TestConfig, jobId: string, format: 'json' | 'md' = 'json'): Promise<any> {
-  const response = await makeRequest(`${config.apiUrl}/jobs/${jobId}/report?format=${format}`, {
-    method: 'GET',
-    path: `/jobs/${jobId}/report?format=${format}`,
-    headers: {
-      'X-Api-Key': config.apiKey,
-    },
-  });
-
-  if (response.statusCode !== 200) {
-    const errorBody = JSON.parse(response.body);
-    throw new Error(`Failed to get report: ${response.statusCode}: ${errorBody.error?.message || response.body}`);
-  }
-
-  if (format === 'json') {
-    return JSON.parse(response.body);
-  }
-
-  return response.body;
-}
-
 // ===================
 // Validation Functions
 // ===================
-
-function validateReportStructure(report: any): void {
-  // Validate meta
-  if (!report.meta) {
-    throw new Error('Report missing meta field');
-  }
-  if (!report.meta.jobId) {
-    throw new Error('Report meta missing jobId');
-  }
-  if (!report.meta.domain) {
-    throw new Error('Report meta missing domain');
-  }
-  if (typeof report.meta.pagesAnalyzed !== 'number') {
-    throw new Error('Report meta missing or invalid pagesAnalyzed');
-  }
-
-  // Validate scores
-  if (!report.scores) {
-    throw new Error('Report missing scores field');
-  }
-  if (typeof report.scores.aeoVisibilityScore !== 'number') {
-    throw new Error('Report scores missing or invalid aeoVisibilityScore');
-  }
-  if (typeof report.scores.llmeoScore !== 'number') {
-    throw new Error('Report scores missing or invalid llmeoScore');
-  }
-  if (typeof report.scores.seoScore !== 'number') {
-    throw new Error('Report scores missing or invalid seoScore');
-  }
-  if (typeof report.scores.overallScore !== 'number') {
-    throw new Error('Report scores missing or invalid overallScore');
-  }
-
-  // Validate AEO analysis
-  if (!report.aeoAnalysis) {
-    throw new Error('Report missing aeoAnalysis field');
-  }
-  if (typeof report.aeoAnalysis.visibilityScore !== 'number') {
-    throw new Error('Report aeoAnalysis missing or invalid visibilityScore');
-  }
-  if (!Array.isArray(report.aeoAnalysis.targetQueries)) {
-    throw new Error('Report aeoAnalysis missing or invalid targetQueries');
-  }
-  if (!Array.isArray(report.aeoAnalysis.citations)) {
-    throw new Error('Report aeoAnalysis missing or invalid citations');
-  }
-
-  // Validate recommendations
-  if (!Array.isArray(report.aeoRecommendations)) {
-    throw new Error('Report missing or invalid aeoRecommendations array');
-  }
-
-  // Validate cursor prompt
-  if (!report.cursorPrompt) {
-    throw new Error('Report missing cursorPrompt field');
-  }
-  if (typeof report.cursorPrompt.prompt !== 'string' || report.cursorPrompt.prompt.length === 0) {
-    throw new Error('Report cursorPrompt missing or invalid prompt');
-  }
-
-  // Validate LLMEO and SEO analysis
-  if (!report.llmeoAnalysis) {
-    throw new Error('Report missing llmeoAnalysis field');
-  }
-  if (!report.seoAnalysis) {
-    throw new Error('Report missing seoAnalysis field');
-  }
-}
-
-function validateScoreRanges(report: any): void {
-  const scores = report.scores;
-
-  // Scores should be between 0 and 100
-  const scoreFields = ['aeoVisibilityScore', 'llmeoScore', 'seoScore', 'overallScore'];
-  for (const field of scoreFields) {
-    if (scores[field] < 0 || scores[field] > 100) {
-      throw new Error(`Score ${field} is out of range (0-100): ${scores[field]}`);
-    }
-  }
-
-  // Confidence should be between 0 and 1
-  if (scores.confidence !== undefined) {
-    if (scores.confidence < 0 || scores.confidence > 1) {
-      throw new Error(`Confidence score is out of range (0-1): ${scores.confidence}`);
-    }
-  }
-}
 
 function validateJobMetrics(job: any): void {
   if (!job.metrics) {
@@ -474,61 +368,6 @@ async function testCreateAndWaitForJob(config: TestConfig): Promise<{ jobId: str
   return { jobId, job };
 }
 
-async function testReportRetrieval(config: TestConfig, jobId: string): Promise<any> {
-  const report = await getReport(config, jobId, 'json');
-  
-  if (config.verbose) {
-    console.log('\n   Report scores:', JSON.stringify(report.scores, null, 2));
-    console.log('   AEO visibility:', report.aeoAnalysis.visibilityScore);
-    console.log('   Queries analyzed:', report.aeoAnalysis.queriesAnalyzed);
-    console.log('   Citation rate:', report.aeoAnalysis.citationRate);
-  }
-
-  return report;
-}
-
-async function testMarkdownReport(config: TestConfig, jobId: string): Promise<void> {
-  const markdown = await getReport(config, jobId, 'md');
-  
-  if (typeof markdown !== 'string' || markdown.length === 0) {
-    throw new Error('Markdown report is empty or invalid');
-  }
-
-  // Check for key sections in markdown (using actual section names from the report generator)
-  const requiredSections = [
-    'AEO Analysis Report',
-    'Executive Summary',
-    'AEO Visibility',
-    'LLMEO Score',
-    'SEO Score',
-  ];
-  
-  const missingSections: string[] = [];
-  for (const section of requiredSections) {
-    if (!markdown.includes(section)) {
-      missingSections.push(section);
-    }
-  }
-
-  if (missingSections.length > 0) {
-    // Only fail if critical sections are missing - be flexible with exact wording
-    const criticalSections = ['Executive Summary', 'AEO Visibility'];
-    const missingCritical = missingSections.filter(s => criticalSections.includes(s));
-    if (missingCritical.length > 0) {
-      throw new Error(`Markdown report missing critical sections: ${missingCritical.join(', ')}`);
-    }
-    // Warn about non-critical missing sections
-    if (config.verbose) {
-      console.log(`   ⚠️  Note: Some sections not found: ${missingSections.join(', ')}`);
-    }
-  }
-
-  if (config.verbose) {
-    console.log(`   Markdown report length: ${markdown.length} characters`);
-    console.log(`   Contains key sections: ${requiredSections.filter(s => markdown.includes(s)).join(', ')}`);
-  }
-}
-
 // ===================
 // Main Test Runner
 // ===================
@@ -551,7 +390,6 @@ async function main(): Promise<void> {
 
   let jobId: string | null = null;
   let job: any = null;
-  let report: any = null;
 
   try {
     // Step 1: Create job and wait for completion
@@ -570,59 +408,14 @@ async function main(): Promise<void> {
       validateJobMetrics(job);
     });
 
-    // Step 3: Retrieve and validate report
-    await runTest('Retrieve Report', async () => {
-      report = await testReportRetrieval(config, jobId!);
-    });
-
-    if (!report) {
-      throw new Error('Report retrieval failed');
-    }
-
-    // Step 4: Validate report structure
-    await runTest('Validate Report Structure', async () => {
-      validateReportStructure(report);
-    });
-
-    // Step 5: Validate score ranges
-    await runTest('Validate Score Ranges', async () => {
-      validateScoreRanges(report);
-    });
-
-    // Step 6: Test markdown report
-    await runTest('Retrieve Markdown Report', async () => {
-      await testMarkdownReport(config, jobId!);
-    });
-
-    // Step 7: Validate report content quality
-    await runTest('Validate Report Content Quality', async () => {
-      if (report.aeoAnalysis.queriesAnalyzed === 0) {
-        throw new Error('No queries were analyzed');
-      }
-      if (report.aeoRecommendations.length === 0) {
-        console.log('   ⚠️  Warning: No recommendations generated');
-      }
-      if (!report.cursorPrompt.prompt || report.cursorPrompt.prompt.length < 100) {
-        throw new Error('Cursor prompt is too short or missing');
-      }
-    });
-
     console.log('\n' + '='.repeat(60));
     console.log('E2E Test Results Summary');
     console.log('='.repeat(60));
     console.log(`Job ID: ${jobId}`);
     console.log(`Target URL: ${config.targetUrl}`);
-    console.log(`Pages Analyzed: ${report.meta.pagesAnalyzed}`);
-    console.log(`\nScores:`);
-    console.log(`  AEO Visibility: ${report.scores.aeoVisibilityScore}/100`);
-    console.log(`  LLMEO: ${report.scores.llmeoScore}/100`);
-    console.log(`  SEO: ${report.scores.seoScore}/100`);
-    console.log(`  Overall: ${report.scores.overallScore}/100`);
-    console.log(`\nAEO Metrics:`);
-    console.log(`  Queries Analyzed: ${report.aeoAnalysis.queriesAnalyzed}`);
-    console.log(`  Citation Rate: ${report.aeoAnalysis.citationRate}%`);
-    console.log(`  Recommendations: ${report.aeoRecommendations.length}`);
-    console.log(`\nJob Duration: ${(job.metrics.durationMs / 1000).toFixed(2)}s`);
+    console.log(`Pages Crawled: ${job.progress?.pagesCrawled || 0}`);
+    console.log(`Job Duration: ${(job.metrics.durationMs / 1000).toFixed(2)}s`);
+    console.log('\nNote: Report validation is now handled via tRPC routes.');
 
   } catch (error) {
     console.error('\n❌ E2E test failed:', error instanceof Error ? error.message : String(error));

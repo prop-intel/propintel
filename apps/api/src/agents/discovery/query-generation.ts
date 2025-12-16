@@ -6,14 +6,13 @@
  * result in the analyzed page being cited.
  */
 
-import { generateObject } from 'ai';
-import { z } from 'zod';
-import { type PageAnalysis, type TargetQuery } from '../../types';
-import { createTrace, safeFlush } from '../../lib/langfuse';
-import { withProviderFallback, LLM_TIMEOUT_MS } from '../../lib/llm-utils';
+import { generateObject } from "ai";
+import { z } from "zod";
+import { type PageAnalysis, type TargetQuery } from "../../types";
+import { withProviderFallback, LLM_TIMEOUT_MS } from "../../lib/llm-utils";
 
 // Agent name for logging
-const AGENT_NAME = 'Query Generation';
+const AGENT_NAME = "Query Generation";
 
 // ===================
 // Configuration
@@ -26,23 +25,35 @@ const DEFAULT_QUERY_COUNT = 10;
 // ===================
 
 const QuerySchema = z.object({
-  query: z.string().describe('The natural language query a user might ask'),
-  type: z.string().describe('The type of query (how-to, what-is, comparison, best, why, other)'),
-  relevanceScore: z.number().min(0).max(100)
-    .describe('How relevant this query is to the page content (0-100)'),
+  query: z.string().describe("The natural language query a user might ask"),
+  type: z
+    .string()
+    .describe(
+      "The type of query (how-to, what-is, comparison, best, why, other)",
+    ),
+  relevanceScore: z
+    .number()
+    .min(0)
+    .max(100)
+    .describe("How relevant this query is to the page content (0-100)"),
 });
 
 const QueriesSchema = z.object({
-  queries: z.array(QuerySchema).optional()
-    .describe('List of target queries'),
+  queries: z.array(QuerySchema).optional().describe("List of target queries"),
 });
 
 // Normalize queries result
 function normalizeQueries(data: z.infer<typeof QueriesSchema>) {
   return {
-    queries: (data.queries ?? []).map(q => ({
+    queries: (data.queries ?? []).map((q) => ({
       query: q.query,
-      type: (q.type?.toLowerCase() || 'other') as 'how-to' | 'what-is' | 'comparison' | 'best' | 'why' | 'other',
+      type: (q.type?.toLowerCase() || "other") as
+        | "how-to"
+        | "what-is"
+        | "comparison"
+        | "best"
+        | "why"
+        | "other",
       relevanceScore: q.relevanceScore,
     })),
   };
@@ -63,21 +74,9 @@ export async function generateTargetQueries(
   options: {
     queryCount?: number;
     model?: string;
-  } = {}
+  } = {},
 ): Promise<TargetQuery[]> {
-  const { queryCount = DEFAULT_QUERY_COUNT, model = 'gpt-4o-mini' } = options;
-
-  const trace = createTrace({
-    name: 'aeo-query-generation',
-    userId: tenantId,
-    metadata: { jobId, domain, topic: pageAnalysis.topic },
-  });
-
-  const generation = trace.generation({
-    name: 'query-generation',
-    model,
-    input: { topic: pageAnalysis.topic, queryCount },
-  });
+  const { queryCount = DEFAULT_QUERY_COUNT, model = "gpt-4o-mini" } = options;
 
   try {
     const systemPrompt = `You are an expert in AI search optimization and user intent analysis.
@@ -102,16 +101,18 @@ Domain: ${domain}
 Topic: ${pageAnalysis.topic}
 Content Type: ${pageAnalysis.contentType}
 User Intent: ${pageAnalysis.intent}
-Key Entities: ${pageAnalysis.entities.join(', ')}
+Key Entities: ${pageAnalysis.entities.join(", ")}
 Summary: ${pageAnalysis.summary}
 Key Points:
-${pageAnalysis.keyPoints.map(p => `- ${p}`).join('\n')}
+${pageAnalysis.keyPoints.map((p) => `- ${p}`).join("\n")}
 
 Generate ${queryCount} diverse queries that should lead AI systems to cite this page.
 Prioritize queries with high search volume potential.
 Assign relevance scores based on how well the page content answers each query.`;
 
-    console.log(`[${AGENT_NAME}] Calling LLM (timeout: ${LLM_TIMEOUT_MS / 1000}s)...`);
+    console.log(
+      `[${AGENT_NAME}] Calling LLM (timeout: ${LLM_TIMEOUT_MS / 1000}s)...`,
+    );
     const startTime = Date.now();
 
     const result = await withProviderFallback(
@@ -124,7 +125,7 @@ Assign relevance scores based on how well the page content answers each query.`;
           temperature: 0.3, // Slight variation for query diversity
           abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
         }),
-      AGENT_NAME
+      AGENT_NAME,
     );
 
     const duration = ((Date.now() - startTime) / 1000).toFixed(1);
@@ -132,30 +133,12 @@ Assign relevance scores based on how well the page content answers each query.`;
 
     const normalized = normalizeQueries(result.object);
 
-    generation.end({
-      output: normalized,
-      usage: {
-        promptTokens: result.usage?.promptTokens,
-        completionTokens: result.usage?.completionTokens,
-      },
-    });
-
-    // Non-blocking flush - observability should never block business logic
-    void safeFlush();
-
     // Sort by relevance score descending
     const queries = normalized.queries as TargetQuery[];
     queries.sort((a, b) => b.relevanceScore - a.relevanceScore);
 
     return queries;
   } catch (error) {
-    generation.end({
-      output: null,
-      level: 'ERROR',
-      statusMessage: (error as Error).message,
-    });
-    // Non-blocking flush - still try to log errors
-    void safeFlush();
     throw error;
   }
 }
@@ -166,39 +149,27 @@ Assign relevance scores based on how well the page content answers each query.`;
 export async function generateFocusedQueries(
   pageAnalysis: PageAnalysis,
   domain: string,
-  focusArea: 'comparison' | 'how-to' | 'problems' | 'benefits',
+  focusArea: "comparison" | "how-to" | "problems" | "benefits",
   tenantId: string,
   jobId: string,
   options: {
     queryCount?: number;
     model?: string;
-  } = {}
+  } = {},
 ): Promise<TargetQuery[]> {
-  const { queryCount = 5, model = 'gpt-4o-mini' } = options;
-
-  const trace = createTrace({
-    name: 'aeo-focused-query-generation',
-    userId: tenantId,
-    metadata: { jobId, domain, focusArea },
-  });
-
-  const generation = trace.generation({
-    name: 'focused-query-generation',
-    model,
-    input: { topic: pageAnalysis.topic, focusArea, queryCount },
-  });
+  const { queryCount = 5, model = "gpt-4o-mini" } = options;
 
   try {
     const focusPrompts: Record<string, string> = {
       comparison: `Generate comparison queries (X vs Y, alternatives to, differences between) 
 related to ${pageAnalysis.topic}. Users asking these want to compare options.`,
-      
-      'how-to': `Generate step-by-step "how to" queries related to ${pageAnalysis.topic}.
+
+      "how-to": `Generate step-by-step "how to" queries related to ${pageAnalysis.topic}.
 Users asking these want practical guidance and tutorials.`,
-      
+
       problems: `Generate problem-solving queries related to ${pageAnalysis.topic}.
 Users asking these are experiencing issues and need solutions.`,
-      
+
       benefits: `Generate queries about benefits, advantages, and reasons to use/choose
 something related to ${pageAnalysis.topic}. Users asking these are evaluating options.`,
     };
@@ -211,8 +182,8 @@ Generate natural queries that real users would ask AI assistants.`;
     const userPrompt = `Generate ${queryCount} ${focusArea} queries for:
 
 Topic: ${pageAnalysis.topic}
-Entities: ${pageAnalysis.entities.join(', ')}
-Key Points: ${pageAnalysis.keyPoints.join('; ')}
+Entities: ${pageAnalysis.entities.join(", ")}
+Key Points: ${pageAnalysis.keyPoints.join("; ")}
 
 These queries should be answerable by the page content.`;
 
@@ -226,32 +197,13 @@ These queries should be answerable by the page content.`;
           temperature: 0.4,
           abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
         }),
-      AGENT_NAME
+      AGENT_NAME,
     );
 
     const normalized = normalizeQueries(result.object);
 
-    generation.end({
-      output: normalized,
-      usage: {
-        promptTokens: result.usage?.promptTokens,
-        completionTokens: result.usage?.completionTokens,
-      },
-    });
-
-    // Non-blocking flush - observability should never block business logic
-    void safeFlush();
-
     return normalized.queries as TargetQuery[];
   } catch (error) {
-    generation.end({
-      output: null,
-      level: 'ERROR',
-      statusMessage: (error as Error).message,
-    });
-    // Non-blocking flush - still try to log errors
-    void safeFlush();
     throw error;
   }
 }
-

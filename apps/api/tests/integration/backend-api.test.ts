@@ -209,23 +209,27 @@ describe("Backend API Integration", () => {
     });
 
     it("should return proper error format", async () => {
-      // Test error format using report endpoint with invalid job ID
-      const response = await makeBackendApiRequest(API_URL, "/jobs/invalid-id/report", {
-        method: "GET",
+      // Test error format by requesting with invalid URL format
+      const response = await makeBackendApiRequest(API_URL, "/jobs", {
+        method: "POST",
         apiKey: API_KEY,
+        body: {
+          userId: testUser.user.id,
+          targetUrl: "not-a-valid-url", // Invalid URL format
+        },
       });
 
-      if (response.status !== 200) {
-        const error = await parseApiResponse<{
-          success: boolean;
-          error: { code: string; message: string };
-        }>(response);
+      expect(response.status).toBe(400);
 
-        expect(error.success).toBe(false);
-        expect(error.error).toBeDefined();
-        expect(error.error.code).toBeDefined();
-        expect(error.error.message).toBeDefined();
-      }
+      const error = await parseApiResponse<{
+        success: boolean;
+        error: { code: string; message: string };
+      }>(response);
+
+      expect(error.success).toBe(false);
+      expect(error.error).toBeDefined();
+      expect(error.error.code).toBeDefined();
+      expect(error.error.message).toBeDefined();
     });
   });
 });

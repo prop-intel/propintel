@@ -6,24 +6,37 @@
  * for planning and reasoning without loading full data.
  */
 
-import { generateObject } from 'ai';
-import { z } from 'zod';
-import { createTrace, safeFlush } from '../../lib/langfuse';
-import { withProviderFallback, LLM_TIMEOUT_MS } from '../../lib/llm-utils';
+import { generateObject } from "ai";
+import { z } from "zod";
+import { withProviderFallback, LLM_TIMEOUT_MS } from "../../lib/llm-utils";
 
 // Agent name for logging
-const AGENT_NAME = 'Summary Generator';
+const AGENT_NAME = "Summary Generator";
 
 // ===================
 // Schema Definition
 // ===================
 
 const AgentSummarySchema = z.object({
-  summary: z.string().describe('A concise 2-3 sentence summary of the agent result'),
-  keyFindings: z.array(z.string()).optional().describe('Top 3-5 key findings or insights'),
-  metrics: z.record(z.number()).optional().describe('Key numeric metrics extracted from the result'),
-  status: z.enum(['completed', 'partial', 'failed']).optional().describe('Overall status of the agent execution'),
-  nextSteps: z.array(z.string()).optional().describe('Suggested next steps based on this result'),
+  summary: z
+    .string()
+    .describe("A concise 2-3 sentence summary of the agent result"),
+  keyFindings: z
+    .array(z.string())
+    .optional()
+    .describe("Top 3-5 key findings or insights"),
+  metrics: z
+    .record(z.number())
+    .optional()
+    .describe("Key numeric metrics extracted from the result"),
+  status: z
+    .enum(["completed", "partial", "failed"])
+    .optional()
+    .describe("Overall status of the agent execution"),
+  nextSteps: z
+    .array(z.string())
+    .optional()
+    .describe("Suggested next steps based on this result"),
 });
 
 // Post-process to ensure required fields have defaults
@@ -31,14 +44,14 @@ function normalizeAgentSummary(data: z.infer<typeof AgentSummarySchema>): {
   summary: string;
   keyFindings: string[];
   metrics: Record<string, number>;
-  status: 'completed' | 'partial' | 'failed';
+  status: "completed" | "partial" | "failed";
   nextSteps?: string[];
 } {
   return {
     summary: data.summary,
     keyFindings: data.keyFindings ?? [],
     metrics: data.metrics ?? {},
-    status: data.status ?? 'completed',
+    status: data.status ?? "completed",
     nextSteps: data.nextSteps,
   };
 }
@@ -55,26 +68,14 @@ export async function generateAgentSummary(
   agentResult: unknown,
   tenantId: string,
   jobId: string,
-  model = 'gpt-4o-mini'
+  model = "gpt-4o-mini",
 ): Promise<{
   summary: string;
   keyFindings: string[];
   metrics: Record<string, number>;
-  status: 'completed' | 'partial' | 'failed';
+  status: "completed" | "partial" | "failed";
   nextSteps?: string[];
 }> {
-  const trace = createTrace({
-    name: 'agent-summary-generation',
-    userId: tenantId,
-    metadata: { jobId, agentId },
-  });
-
-  const generation = trace.generation({
-    name: 'summary-generation',
-    model,
-    input: { agentId },
-  });
-
   try {
     // Serialize result to JSON string for LLM
     const resultJson = JSON.stringify(agentResult, null, 2);
@@ -95,11 +96,13 @@ Be concise but informative.`;
 
 ${resultPreview}
 
-${resultJson.length > 4000 ? `\n[Result truncated - showing first 4000 chars of ${resultJson.length} total]` : ''}
+${resultJson.length > 4000 ? `\n[Result truncated - showing first 4000 chars of ${resultJson.length} total]` : ""}
 
 Generate a structured summary with key findings, metrics, and status.`;
 
-    console.log(`[${AGENT_NAME}] Calling LLM for agent summary (timeout: ${LLM_TIMEOUT_MS / 1000}s)...`);
+    console.log(
+      `[${AGENT_NAME}] Calling LLM for agent summary (timeout: ${LLM_TIMEOUT_MS / 1000}s)...`,
+    );
 
     const result = await withProviderFallback(
       (provider) =>
@@ -111,30 +114,13 @@ Generate a structured summary with key findings, metrics, and status.`;
           temperature: 0,
           abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
         }),
-      AGENT_NAME
+      AGENT_NAME,
     );
 
     const normalized = normalizeAgentSummary(result.object);
 
-    generation.end({
-      output: normalized,
-      usage: {
-        promptTokens: result.usage?.promptTokens,
-        completionTokens: result.usage?.completionTokens,
-      },
-    });
-
-    // Non-blocking flush - observability should never block business logic
-    void safeFlush();
-
     return normalized;
   } catch (error) {
-    generation.end({
-      output: null,
-      level: 'ERROR',
-      statusMessage: (error as Error).message,
-    });
-    void safeFlush();
     throw error;
   }
 }
@@ -147,19 +133,8 @@ export async function generateBriefSummary(
   agentResult: unknown,
   tenantId: string,
   jobId: string,
-  model = 'gpt-4o-mini'
+  model = "gpt-4o-mini",
 ): Promise<string> {
-  const trace = createTrace({
-    name: 'brief-summary-generation',
-    userId: tenantId,
-    metadata: { jobId, agentId },
-  });
-
-  const generation = trace.generation({
-    name: 'brief-summary',
-    model,
-  });
-
   try {
     const resultJson = JSON.stringify(agentResult, null, 2);
     const resultPreview = resultJson.slice(0, 2000);
@@ -173,32 +148,20 @@ export async function generateBriefSummary(
         generateObject({
           model: provider(model),
           schema: z.object({
-            summary: z.string().describe('One sentence summary'),
+            summary: z.string().describe("One sentence summary"),
           }),
           system: systemPrompt,
           prompt: userPrompt,
           temperature: 0,
           abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
         }),
-      AGENT_NAME
+      AGENT_NAME,
     );
 
     const briefResult = result.object as { summary: string };
 
-    generation.end({
-      output: briefResult,
-    });
-
-    void safeFlush();
-
     return briefResult.summary;
   } catch (error) {
-    generation.end({
-      output: null,
-      level: 'ERROR',
-      statusMessage: (error as Error).message,
-    });
-    void safeFlush();
     throw error;
   }
 }

@@ -48,36 +48,6 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
-  /jobs/{id}/report:
-    get:
-      summary: Get analysis report
-      operationId: getReport
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - name: format
-          in: query
-          schema:
-            type: string
-            enum: [json, md]
-            default: json
-      responses:
-        '200':
-          description: Analysis report
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Report'
-            text/markdown:
-              schema:
-                type: string
-        '404':
-          $ref: '#/components/responses/NotFound'
-
   /health:
     get:
       summary: Health check

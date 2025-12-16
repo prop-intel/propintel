@@ -7,7 +7,6 @@ import type {
   ApiResponse,
   ApiError,
   Job,
-  Report,
   DashboardSummary,
   ScoreTrends,
   Alert,
@@ -161,51 +160,6 @@ export const api = {
       );
     },
 
-    /**
-     * Get analysis report for a completed job
-     * @param id Job ID
-     * @param format 'json' (default) or 'md' for markdown
-     * @param cookie Optional cookie string for server-side calls
-     */
-    getReport: async (
-      id: string,
-      format: "json" | "md" = "json",
-      cookie?: string | null
-    ): Promise<Report | string> => {
-      if (format === "md") {
-        // For markdown, return as text
-        const headers: HeadersInit = {};
-        if (cookie) {
-          headers.Cookie = cookie;
-        } else if (
-          process.env.NODE_ENV === "development" &&
-          process.env.API_KEY
-        ) {
-          headers["X-Api-Key"] = process.env.API_KEY;
-        }
-
-        const response = await fetch(
-          `${API_URL}/jobs/${id}/report?format=md`,
-          {
-            credentials: "include",
-            headers,
-          }
-        );
-
-        if (!response.ok) {
-          const error = (await response.json()) as ApiError;
-          throw new ApiClientError(
-            error.error.code,
-            error.error.message,
-            error.error.details
-          );
-        }
-
-        return response.text();
-      }
-
-      return apiRequest<Report>(`/jobs/${id}/report?format=json`, {}, null, cookie);
-    },
   },
 
   /**

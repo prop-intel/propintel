@@ -17,7 +17,6 @@ import {
 } from "../../types";
 import { type CitationAnalysisResult } from "./citation-analysis";
 import { type ContentComparisonResult } from "./content-comparison";
-import { createTrace, safeFlush } from "../../lib/langfuse";
 
 // ===================
 // Configuration
@@ -79,16 +78,6 @@ export async function calculateVisibilityScore(
   grade: string;
   summary: string;
 }> {
-  const trace = createTrace({
-    name: "aeo-visibility-scoring",
-    userId: tenantId,
-    metadata: { jobId, includesGeo: geoScore !== undefined },
-  });
-
-  const span = trace.span({
-    name: "calculate-score",
-  });
-
   try {
     // Choose weights based on whether GEO score is available
     const weights = geoScore !== undefined ? WEIGHTS_WITH_GEO : WEIGHTS_LEGACY;
@@ -168,12 +157,6 @@ export async function calculateVisibilityScore(
       geoScore,
     );
 
-    span.end({
-      output: { score: finalScore, grade, geoIncluded: geoScore !== undefined },
-    });
-
-    void safeFlush();
-
     return {
       score: finalScore,
       breakdown,
@@ -181,11 +164,6 @@ export async function calculateVisibilityScore(
       summary,
     };
   } catch (error) {
-    span.end({
-      level: "ERROR",
-      statusMessage: (error as Error).message,
-    });
-    void safeFlush();
     throw error;
   }
 }

@@ -5,14 +5,17 @@
  * to identify what they're doing differently.
  */
 
-import { generateObject } from 'ai';
-import { z } from 'zod';
-import { type TavilySearchResult, type PageAnalysis, type CompetitorVisibility } from '../../types';
-import { createTrace, safeFlush } from '../../lib/langfuse';
-import { withProviderFallback, LLM_TIMEOUT_MS } from '../../lib/llm-utils';
+import { generateObject } from "ai";
+import { z } from "zod";
+import {
+  type TavilySearchResult,
+  type PageAnalysis,
+  type CompetitorVisibility,
+} from "../../types";
+import { withProviderFallback, LLM_TIMEOUT_MS } from "../../lib/llm-utils";
 
 // Agent name for logging
-const AGENT_NAME = 'Content Comparison';
+const AGENT_NAME = "Content Comparison";
 
 // ===================
 // Types
@@ -36,7 +39,7 @@ export interface ContentGap {
   topic: string;
   description: string;
   competitorsCovering: string[];
-  priority: 'high' | 'medium' | 'low';
+  priority: "high" | "medium" | "low";
 }
 
 // ===================
@@ -46,20 +49,30 @@ export interface ContentGap {
 const GapSchema = z.object({
   topic: z.string(),
   description: z.string(),
-  priority: z.string().describe('Priority level (high, medium, low)'),
+  priority: z.string().describe("Priority level (high, medium, low)"),
 });
 
 const ComparisonSchema = z.object({
-  competitorStrengths: z.array(z.string()).optional()
-    .describe('What the competitor content does well'),
-  contentPatterns: z.array(z.string()).optional()
-    .describe('Common patterns in winning content'),
-  gapsIdentified: z.array(GapSchema).optional()
-    .describe('Content gaps to address'),
-  structuralDifferences: z.array(z.string()).optional()
-    .describe('Structural differences between your content and competitors'),
-  recommendations: z.array(z.string()).optional()
-    .describe('Specific recommendations to improve'),
+  competitorStrengths: z
+    .array(z.string())
+    .optional()
+    .describe("What the competitor content does well"),
+  contentPatterns: z
+    .array(z.string())
+    .optional()
+    .describe("Common patterns in winning content"),
+  gapsIdentified: z
+    .array(GapSchema)
+    .optional()
+    .describe("Content gaps to address"),
+  structuralDifferences: z
+    .array(z.string())
+    .optional()
+    .describe("Structural differences between your content and competitors"),
+  recommendations: z
+    .array(z.string())
+    .optional()
+    .describe("Specific recommendations to improve"),
 });
 
 // Normalize comparison result
@@ -67,10 +80,13 @@ function normalizeComparisonResult(data: z.infer<typeof ComparisonSchema>) {
   return {
     competitorStrengths: data.competitorStrengths ?? [],
     contentPatterns: data.contentPatterns ?? [],
-    gapsIdentified: (data.gapsIdentified ?? []).map(g => ({
+    gapsIdentified: (data.gapsIdentified ?? []).map((g) => ({
       topic: g.topic,
       description: g.description,
-      priority: (g.priority?.toLowerCase() || 'medium') as 'high' | 'medium' | 'low',
+      priority: (g.priority?.toLowerCase() || "medium") as
+        | "high"
+        | "medium"
+        | "low",
     })),
     structuralDifferences: data.structuralDifferences ?? [],
     recommendations: data.recommendations ?? [],
@@ -90,43 +106,40 @@ export async function compareContent(
   searchResults: TavilySearchResult[],
   tenantId: string,
   jobId: string,
-  model = 'gpt-4o-mini'
+  model = "gpt-4o-mini",
 ): Promise<ContentComparisonResult> {
-  const trace = createTrace({
-    name: 'aeo-content-comparison',
-    userId: tenantId,
-    metadata: { jobId, competitorCount: competitors.length },
-  });
-
-  const generation = trace.generation({
-    name: 'content-comparison',
-    model,
-  });
-
   try {
     // Extract competitor content snippets from search results
-    const competitorContent = extractCompetitorContent(competitors, searchResults);
+    const competitorContent = extractCompetitorContent(
+      competitors,
+      searchResults,
+    );
 
     // Early return if no meaningful data to compare
     // This prevents the LLM from receiving an empty prompt and hanging
-    if (competitorContent.length === 0 || competitorContent.every(c => c.contentSnippets.length === 0)) {
-      console.log(`[${AGENT_NAME}] No competitor content to compare - returning default result`);
-      generation.end({
-        output: { skipped: true, reason: 'No competitor content available for comparison' },
-      });
-      // Non-blocking flush - observability should never block business logic
-      void safeFlush();
+    if (
+      competitorContent.length === 0 ||
+      competitorContent.every((c) => c.contentSnippets.length === 0)
+    ) {
+      console.log(
+        `[${AGENT_NAME}] No competitor content to compare - returning default result`,
+      );
 
       return {
         competitorInsights: [],
-        contentGaps: [{
-          topic: 'Competitor Analysis',
-          description: 'No competitor content was found in search results. Consider researching competitors manually.',
-          competitorsCovering: [],
-          priority: 'medium',
-        }],
+        contentGaps: [
+          {
+            topic: "Competitor Analysis",
+            description:
+              "No competitor content was found in search results. Consider researching competitors manually.",
+            competitorsCovering: [],
+            priority: "medium",
+          },
+        ],
         structuralDifferences: [],
-        recommendations: ['Insufficient competitor data for detailed comparison. Run analysis again with more queries.'],
+        recommendations: [
+          "Insufficient competitor data for detailed comparison. Run analysis again with more queries.",
+        ],
       };
     }
 
@@ -144,20 +157,28 @@ Focus on actionable insights that would help AI systems better understand and ci
     const userPrompt = `Your Page Analysis:
 Topic: ${yourPageAnalysis.topic}
 Content Type: ${yourPageAnalysis.contentType}
-Key Points: ${yourPageAnalysis.keyPoints.join('; ')}
+Key Points: ${yourPageAnalysis.keyPoints.join("; ")}
 Summary: ${yourPageAnalysis.summary}
 
 Top Competitors and Their Content:
-${competitorContent.map(c => `
+${competitorContent
+  .map(
+    (c) => `
 --- ${c.domain} ---
 Appears in ${c.citationCount} queries
-Sample content: ${c.contentSnippets.slice(0, 2).join('\n')}
-`).join('\n')}
+Sample content: ${c.contentSnippets.slice(0, 2).join("\n")}
+`,
+  )
+  .join("\n")}
 
 Analyze what competitors are doing better and what content gaps exist.`;
 
-    console.log(`[${AGENT_NAME}] Starting LLM call with ${competitorContent.length} competitors...`);
-    console.log(`[${AGENT_NAME}] Calling LLM (timeout: ${LLM_TIMEOUT_MS / 1000}s)...`);
+    console.log(
+      `[${AGENT_NAME}] Starting LLM call with ${competitorContent.length} competitors...`,
+    );
+    console.log(
+      `[${AGENT_NAME}] Calling LLM (timeout: ${LLM_TIMEOUT_MS / 1000}s)...`,
+    );
     const startTime = Date.now();
 
     const result = await withProviderFallback(
@@ -170,61 +191,49 @@ Analyze what competitors are doing better and what content gaps exist.`;
           temperature: 0,
           abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
         }),
-      AGENT_NAME
+      AGENT_NAME,
     );
 
     const duration = ((Date.now() - startTime) / 1000).toFixed(1);
     console.log(`[${AGENT_NAME}] LLM call completed in ${duration}s`);
-    console.log(`[${AGENT_NAME}] Token usage: ${result.usage?.promptTokens} prompt, ${result.usage?.completionTokens} completion`);
+    console.log(
+      `[${AGENT_NAME}] Token usage: ${result.usage?.promptTokens} prompt, ${result.usage?.completionTokens} completion`,
+    );
 
     const normalized = normalizeComparisonResult(result.object);
 
-    generation.end({
-      output: normalized,
-      usage: {
-        promptTokens: result.usage?.promptTokens,
-        completionTokens: result.usage?.completionTokens,
-      },
-    });
-
-    // Non-blocking flush - observability should never block business logic
-    void safeFlush();
-
     // Transform to our format
     const comparisonResult: ContentComparisonResult = {
-      competitorInsights: competitors.slice(0, 5).map(c => ({
+      competitorInsights: competitors.slice(0, 5).map((c) => ({
         domain: c.domain,
         strengths: normalized.competitorStrengths,
         contentPatterns: normalized.contentPatterns,
         uniqueElements: c.strengths,
       })),
-      contentGaps: normalized.gapsIdentified.map(g => ({
+      contentGaps: normalized.gapsIdentified.map((g) => ({
         ...g,
-        competitorsCovering: competitors.slice(0, 3).map(c => c.domain),
+        competitorsCovering: competitors.slice(0, 3).map((c) => c.domain),
       })),
       structuralDifferences: normalized.structuralDifferences,
       recommendations: normalized.recommendations,
     };
 
-    console.log(`[${AGENT_NAME}] ✅ Complete! Found ${comparisonResult.contentGaps.length} content gaps, ${comparisonResult.recommendations.length} recommendations`);
+    console.log(
+      `[${AGENT_NAME}] ✅ Complete! Found ${comparisonResult.contentGaps.length} content gaps, ${comparisonResult.recommendations.length} recommendations`,
+    );
 
     return comparisonResult;
   } catch (error) {
     const errorMessage = (error as Error).message;
     console.error(`[${AGENT_NAME}] ❌ Error: ${errorMessage}`);
-    
+
     // Check for timeout
-    if (errorMessage.includes('abort') || errorMessage.includes('timeout')) {
-      console.error(`[${AGENT_NAME}] LLM call timed out after ${LLM_TIMEOUT_MS / 1000}s`);
+    if (errorMessage.includes("abort") || errorMessage.includes("timeout")) {
+      console.error(
+        `[${AGENT_NAME}] LLM call timed out after ${LLM_TIMEOUT_MS / 1000}s`,
+      );
     }
 
-    generation.end({
-      output: null,
-      level: 'ERROR',
-      statusMessage: errorMessage,
-    });
-    // Non-blocking flush - still try to log errors
-    void safeFlush();
     throw error;
   }
 }
@@ -234,7 +243,7 @@ Analyze what competitors are doing better and what content gaps exist.`;
  */
 export function quickCompare(
   competitors: CompetitorVisibility[],
-  searchResults: TavilySearchResult[]
+  searchResults: TavilySearchResult[],
 ): {
   topCompetitors: string[];
   commonPatterns: string[];
@@ -242,7 +251,7 @@ export function quickCompare(
 } {
   // Find domains that appear most frequently in top positions
   const topPositionCounts = new Map<string, number>();
-  
+
   for (const result of searchResults) {
     for (let i = 0; i < Math.min(3, result.results.length); i++) {
       const item = result.results[i];
@@ -254,21 +263,23 @@ export function quickCompare(
 
   // Identify common patterns in winning content
   const patterns: string[] = [];
-  const allTitles = searchResults.flatMap(r => r.results.slice(0, 3).map(res => res.title));
-  
-  // Check for common title patterns
-  const hasHowTo = allTitles.some(t => t.toLowerCase().includes('how to'));
-  const hasGuide = allTitles.some(t => t.toLowerCase().includes('guide'));
-  const hasList = allTitles.some(t => /\d+/.test(t)); // Contains numbers (listicles)
-  const hasYear = allTitles.some(t => /202\d/.test(t)); // Contains year
+  const allTitles = searchResults.flatMap((r) =>
+    r.results.slice(0, 3).map((res) => res.title),
+  );
 
-  if (hasHowTo) patterns.push('How-to format');
-  if (hasGuide) patterns.push('Comprehensive guides');
-  if (hasList) patterns.push('Numbered lists/listicles');
-  if (hasYear) patterns.push('Updated/dated content');
+  // Check for common title patterns
+  const hasHowTo = allTitles.some((t) => t.toLowerCase().includes("how to"));
+  const hasGuide = allTitles.some((t) => t.toLowerCase().includes("guide"));
+  const hasList = allTitles.some((t) => /\d+/.test(t)); // Contains numbers (listicles)
+  const hasYear = allTitles.some((t) => /202\d/.test(t)); // Contains year
+
+  if (hasHowTo) patterns.push("How-to format");
+  if (hasGuide) patterns.push("Comprehensive guides");
+  if (hasList) patterns.push("Numbered lists/listicles");
+  if (hasYear) patterns.push("Updated/dated content");
 
   return {
-    topCompetitors: competitors.slice(0, 5).map(c => c.domain),
+    topCompetitors: competitors.slice(0, 5).map((c) => c.domain),
     commonPatterns: patterns,
     dominantDomains: topPositionCounts,
   };
@@ -283,7 +294,7 @@ export function quickCompare(
  */
 function extractCompetitorContent(
   competitors: CompetitorVisibility[],
-  searchResults: TavilySearchResult[]
+  searchResults: TavilySearchResult[],
 ): Array<{
   domain: string;
   citationCount: number;
@@ -315,4 +326,3 @@ function extractCompetitorContent(
 
   return competitorContent;
 }
-

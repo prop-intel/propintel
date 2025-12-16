@@ -5,14 +5,18 @@
  * that will help optimize content for AEO.
  */
 
-import { generateObject } from 'ai';
-import { z } from 'zod';
-import { type AEOAnalysis, type AEORecommendation, type CursorPrompt, type PageAnalysis } from '../../types';
-import { createTrace, safeFlush } from '../../lib/langfuse';
-import { withProviderFallback, LLM_TIMEOUT_MS } from '../../lib/llm-utils';
+import { generateObject } from "ai";
+import { z } from "zod";
+import {
+  type AEOAnalysis,
+  type AEORecommendation,
+  type CursorPrompt,
+  type PageAnalysis,
+} from "../../types";
+import { withProviderFallback, LLM_TIMEOUT_MS } from "../../lib/llm-utils";
 
 // Agent name for logging
-const AGENT_NAME = 'Cursor Prompt Agent';
+const AGENT_NAME = "Cursor Prompt Agent";
 
 // ===================
 // Schema Definition
@@ -20,23 +24,28 @@ const AGENT_NAME = 'Cursor Prompt Agent';
 
 const SectionSchema = z.object({
   name: z.string(),
-  action: z.string().describe('Action to take (add, modify, remove)'),
+  action: z.string().describe("Action to take (add, modify, remove)"),
   content: z.string(),
 });
 
 const CursorPromptSchema = z.object({
-  prompt: z.string().describe('The complete prompt to paste into Cursor'),
-  sections: z.array(SectionSchema).optional()
-    .describe('Specific sections to add/modify'),
+  prompt: z.string().describe("The complete prompt to paste into Cursor"),
+  sections: z
+    .array(SectionSchema)
+    .optional()
+    .describe("Specific sections to add/modify"),
 });
 
 // Normalize cursor prompt data
 function normalizeCursorPrompt(data: z.infer<typeof CursorPromptSchema>) {
   return {
     prompt: data.prompt,
-    sections: (data.sections ?? []).map(s => ({
+    sections: (data.sections ?? []).map((s) => ({
       name: s.name,
-      action: (s.action?.toLowerCase() || 'modify') as 'add' | 'modify' | 'remove',
+      action: (s.action?.toLowerCase() || "modify") as
+        | "add"
+        | "modify"
+        | "remove",
       content: s.content,
     })),
   };
@@ -56,7 +65,7 @@ export async function generateCursorPrompt(
   recommendations: AEORecommendation[],
   tenantId: string,
   jobId: string,
-  model = 'gpt-4o-mini'
+  model = "gpt-4o-mini",
 ): Promise<CursorPrompt> {
   console.log(`[${AGENT_NAME}] Starting cursor prompt generation`);
   console.log(`[${AGENT_NAME}] Input data:`);
@@ -65,25 +74,18 @@ export async function generateCursorPrompt(
   console.log(`[${AGENT_NAME}]   - Recommendations: ${recommendations.length}`);
   console.log(`[${AGENT_NAME}]   - Model: ${model}`);
 
-  const trace = createTrace({
-    name: 'aeo-cursor-prompt',
-    userId: tenantId,
-    metadata: { jobId, domain },
-  });
-
-  const generation = trace.generation({
-    name: 'generate-cursor-prompt',
-    model,
-  });
-
   try {
     // Get high priority recommendations
     const highPriorityRecs = recommendations
-      .filter(r => r.priority === 'high')
+      .filter((r) => r.priority === "high")
       .slice(0, 5);
-    
-    console.log(`[${AGENT_NAME}] High priority recommendations to include: ${highPriorityRecs.length}`);
-    console.log(`[${AGENT_NAME}] Calling LLM (timeout: ${LLM_TIMEOUT_MS / 1000}s)...`);
+
+    console.log(
+      `[${AGENT_NAME}] High priority recommendations to include: ${highPriorityRecs.length}`,
+    );
+    console.log(
+      `[${AGENT_NAME}] Calling LLM (timeout: ${LLM_TIMEOUT_MS / 1000}s)...`,
+    );
     const startTime = Date.now();
 
     const systemPrompt = `You are an expert at creating actionable prompts for AI coding assistants like Cursor.
@@ -107,18 +109,22 @@ Content Type: ${pageAnalysis.contentType}
 Current Visibility Score: ${aeoAnalysis.visibilityScore}/100
 
 Queries to Target (not currently winning):
-${aeoAnalysis.missedOpportunities.map(q => `- "${q}"`).join('\n')}
+${aeoAnalysis.missedOpportunities.map((q) => `- "${q}"`).join("\n")}
 
 High Priority Recommendations:
-${highPriorityRecs.map(r => `
+${highPriorityRecs
+  .map(
+    (r) => `
 ## ${r.title}
 ${r.description}
-Target queries: ${r.targetQueries.join(', ')}
-${r.competitorExample ? `Competitor example: ${r.competitorExample.domain} - ${r.competitorExample.whatTheyDoBetter}` : ''}
-`).join('\n')}
+Target queries: ${r.targetQueries.join(", ")}
+${r.competitorExample ? `Competitor example: ${r.competitorExample.domain} - ${r.competitorExample.whatTheyDoBetter}` : ""}
+`,
+  )
+  .join("\n")}
 
 Key Findings:
-${aeoAnalysis.keyFindings.map(f => `- ${f}`).join('\n')}
+${aeoAnalysis.keyFindings.map((f) => `- ${f}`).join("\n")}
 
 Create a prompt that will help improve visibility for these target queries.`;
 
@@ -132,50 +138,40 @@ Create a prompt that will help improve visibility for these target queries.`;
           temperature: 0,
           abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
         }),
-      AGENT_NAME
+      AGENT_NAME,
     );
 
     const duration = ((Date.now() - startTime) / 1000).toFixed(1);
     console.log(`[${AGENT_NAME}] LLM call completed in ${duration}s`);
-    console.log(`[${AGENT_NAME}] Token usage: ${result.usage?.promptTokens} prompt, ${result.usage?.completionTokens} completion`);
-
-    generation.end({
-      output: result.object,
-      usage: {
-        promptTokens: result.usage?.promptTokens,
-        completionTokens: result.usage?.completionTokens,
-      },
-    });
-
-    // Non-blocking flush - observability should never block business logic
-    void safeFlush();
+    console.log(
+      `[${AGENT_NAME}] Token usage: ${result.usage?.promptTokens} prompt, ${result.usage?.completionTokens} completion`,
+    );
 
     const normalized = normalizeCursorPrompt(result.object);
-    console.log(`[${AGENT_NAME}] ✅ Complete! Generated prompt with ${normalized.sections.length} sections`);
-    console.log(`[${AGENT_NAME}]   - Prompt length: ${normalized.prompt.length} chars`);
-    
+    console.log(
+      `[${AGENT_NAME}] ✅ Complete! Generated prompt with ${normalized.sections.length} sections`,
+    );
+    console.log(
+      `[${AGENT_NAME}]   - Prompt length: ${normalized.prompt.length} chars`,
+    );
+
     return {
       prompt: normalized.prompt,
       sections: normalized.sections,
-      version: 'v1.0',
+      version: "v1.0",
       generatedAt: new Date().toISOString(),
     };
   } catch (error) {
     const errorMessage = (error as Error).message;
     console.error(`[${AGENT_NAME}] ❌ Error: ${errorMessage}`);
-    
+
     // Check for timeout
-    if (errorMessage.includes('abort') || errorMessage.includes('timeout')) {
-      console.error(`[${AGENT_NAME}] LLM call timed out after ${LLM_TIMEOUT_MS / 1000}s`);
+    if (errorMessage.includes("abort") || errorMessage.includes("timeout")) {
+      console.error(
+        `[${AGENT_NAME}] LLM call timed out after ${LLM_TIMEOUT_MS / 1000}s`,
+      );
     }
-    
-    generation.end({
-      output: null,
-      level: 'ERROR',
-      statusMessage: errorMessage,
-    });
-    // Non-blocking flush - still try to log errors
-    void safeFlush();
+
     throw error;
   }
 }
@@ -187,15 +183,15 @@ export function generateQuickCursorPrompt(
   domain: string,
   pageAnalysis: PageAnalysis,
   aeoAnalysis: AEOAnalysis,
-  recommendations: AEORecommendation[]
+  recommendations: AEORecommendation[],
 ): CursorPrompt {
   const highPriorityRecs = recommendations
-    .filter(r => r.priority === 'high')
+    .filter((r) => r.priority === "high")
     .slice(0, 3);
 
   const targetQueries = aeoAnalysis.missedOpportunities.slice(0, 5);
-  
-  const sections: CursorPrompt['sections'] = [];
+
+  const sections: CursorPrompt["sections"] = [];
 
   // Build the prompt
   const promptParts: string[] = [
@@ -207,7 +203,7 @@ export function generateQuickCursorPrompt(
     ``,
     `## Target Queries to Win`,
     `The following queries should lead AI systems to cite this content:`,
-    ...targetQueries.map(q => `- "${q}"`),
+    ...targetQueries.map((q) => `- "${q}"`),
     ``,
     `## Required Changes`,
   ];
@@ -217,69 +213,81 @@ export function generateQuickCursorPrompt(
   for (const rec of highPriorityRecs) {
     promptParts.push(`### ${taskNum}. ${rec.title}`);
     promptParts.push(rec.description);
-    
+
     if (rec.targetQueries.length > 0) {
-      promptParts.push(`**Target queries:** ${rec.targetQueries.slice(0, 3).join(', ')}`);
+      promptParts.push(
+        `**Target queries:** ${rec.targetQueries.slice(0, 3).join(", ")}`,
+      );
     }
-    
+
     if (rec.competitorExample) {
-      promptParts.push(`**Reference:** ${rec.competitorExample.domain} - ${rec.competitorExample.whatTheyDoBetter}`);
+      promptParts.push(
+        `**Reference:** ${rec.competitorExample.domain} - ${rec.competitorExample.whatTheyDoBetter}`,
+      );
     }
-    
-    promptParts.push('');
-    
+
+    promptParts.push("");
+
     sections.push({
       name: rec.title,
-      action: rec.category === 'content' ? 'add' : 'modify',
+      action: rec.category === "content" ? "add" : "modify",
       content: rec.description,
     });
-    
+
     taskNum++;
   }
 
   // Add structure improvements if needed
   if (aeoAnalysis.visibilityScore < 50) {
     promptParts.push(`### ${taskNum}. Add FAQ Section`);
-    promptParts.push(`Add a FAQ section that directly answers these questions:`);
-    targetQueries.slice(0, 3).forEach(q => {
+    promptParts.push(
+      `Add a FAQ section that directly answers these questions:`,
+    );
+    targetQueries.slice(0, 3).forEach((q) => {
       promptParts.push(`- ${q}`);
     });
-    promptParts.push('');
-    
+    promptParts.push("");
+
     sections.push({
-      name: 'FAQ Section',
-      action: 'add',
-      content: 'Add FAQ schema markup with direct answers to target queries',
+      name: "FAQ Section",
+      action: "add",
+      content: "Add FAQ schema markup with direct answers to target queries",
     });
   }
 
   // Add key points section
   promptParts.push(`## Key Points to Emphasize`);
-  pageAnalysis.keyPoints.forEach(point => {
+  pageAnalysis.keyPoints.forEach((point) => {
     promptParts.push(`- ${point}`);
   });
-  promptParts.push('');
+  promptParts.push("");
 
   // Add schema markup suggestion
   promptParts.push(`## Schema Markup`);
-  promptParts.push(`Add or update the following schema types for better AI understanding:`);
+  promptParts.push(
+    `Add or update the following schema types for better AI understanding:`,
+  );
   promptParts.push(`- Article or BlogPosting schema`);
   promptParts.push(`- FAQPage schema for Q&A content`);
   promptParts.push(`- HowTo schema for tutorial content`);
-  promptParts.push('');
+  promptParts.push("");
 
   // Add success criteria
   promptParts.push(`## Success Criteria`);
   promptParts.push(`After implementing these changes, the content should:`);
-  promptParts.push(`- Directly answer the target queries in the first 2-3 paragraphs`);
+  promptParts.push(
+    `- Directly answer the target queries in the first 2-3 paragraphs`,
+  );
   promptParts.push(`- Have clear, scannable headings matching query intent`);
   promptParts.push(`- Include structured data for AI systems`);
-  promptParts.push(`- Be comprehensive enough to be cited as an authoritative source`);
+  promptParts.push(
+    `- Be comprehensive enough to be cited as an authoritative source`,
+  );
 
   return {
-    prompt: promptParts.join('\n'),
+    prompt: promptParts.join("\n"),
     sections,
-    version: 'v1.0-quick',
+    version: "v1.0-quick",
     generatedAt: new Date().toISOString(),
   };
 }
@@ -296,4 +304,3 @@ export function formatCursorPromptForCopy(prompt: CursorPrompt): string {
 
 ${prompt.prompt}`;
 }
-

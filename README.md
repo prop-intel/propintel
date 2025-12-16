@@ -430,10 +430,9 @@ propintel/
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | `POST` | `/jobs` | Create a new analysis job |
-| `GET` | `/jobs` | List all jobs for user |
-| `GET` | `/jobs/{id}` | Get job status and progress |
-| `GET` | `/jobs/{id}/report` | Download analysis report (JSON or Markdown) |
 | `GET` | `/health` | Health check |
+
+> **Note**: Job status, listing, and **reports** are accessed via tRPC through the Next.js frontend for better performance and direct S3 access.
 
 ### Dashboard Endpoints
 

@@ -1,28 +1,71 @@
-import type { SQSHandler, SQSEvent, SQSRecord } from 'aws-lambda';
-import { ECSClient, RunTaskCommand, DescribeTasksCommand } from '@aws-sdk/client-ecs';
-import { type CrawlJobMessage } from '../lib/sqs';
-import { getJobById, updateJob, saveReportReference, saveAnalysis } from '../lib/db';
-import { uploadAEOReport, getReport } from '../lib/s3';
-import { generateSummary, generateRecommendations, generateCopyReadyPrompt } from '../lib/ai';
-import { analyzeLLMEO } from '../analysis/llmeo';
-import { analyzeSEO } from '../analysis/seo';
-import { type Report, type CrawledPage as CrawledPageType, type AEOReport, type PageAnalysis, type TargetQuery, type CrawlConfig, type Job as LegacyJob, type TavilySearchResult, type CompetitorVisibility, type QueryCitation, type AEORecommendation, type CursorPrompt } from '../types';
-import type { Job } from '@propintel/database';
-import { type CitationAnalysisResult } from '../agents/analysis';
-import { gracefulShutdown } from '../lib/langfuse';
+import type { SQSHandler, SQSEvent, SQSRecord } from "aws-lambda";
+import {
+  ECSClient,
+  RunTaskCommand,
+  DescribeTasksCommand,
+} from "@aws-sdk/client-ecs";
+import { type CrawlJobMessage } from "../lib/sqs";
+import {
+  getJobById,
+  updateJob,
+  saveReportReference,
+  saveAnalysis,
+} from "../lib/db";
+import { uploadAEOReport, getReport } from "../lib/s3";
+import {
+  generateSummary,
+  generateRecommendations,
+  generateCopyReadyPrompt,
+} from "../lib/ai";
+import { analyzeLLMEO } from "../analysis/llmeo";
+import { analyzeSEO } from "../analysis/seo";
+import {
+  type Report,
+  type CrawledPage as CrawledPageType,
+  type AEOReport,
+  type PageAnalysis,
+  type TargetQuery,
+  type CrawlConfig,
+  type Job as LegacyJob,
+  type TavilySearchResult,
+  type CompetitorVisibility,
+  type QueryCitation,
+  type AEORecommendation,
+  type CursorPrompt,
+} from "../types";
+import type { Job } from "@propintel/database";
+import { type CitationAnalysisResult } from "../agents/analysis";
 
 // AEO Agent imports
-import { analyzePages, generateTargetQueries, discoverCompetitors } from '../agents/discovery';
-import { researchQueries, analyzeCitations, searchCommunitySignalsNew, type CommunityEngagementResult } from '../agents/research';
-import { analyzeCitationPatterns, compareContent, calculateVisibilityScore, buildAEOAnalysis } from '../agents/analysis';
-import { generateAEORecommendations, generateCursorPrompt, generateAEOReport } from '../agents/output';
+import {
+  analyzePages,
+  generateTargetQueries,
+  discoverCompetitors,
+} from "../agents/discovery";
+import {
+  researchQueries,
+  analyzeCitations,
+  searchCommunitySignalsNew,
+  type CommunityEngagementResult,
+} from "../agents/research";
+import {
+  analyzeCitationPatterns,
+  compareContent,
+  calculateVisibilityScore,
+  buildAEOAnalysis,
+} from "../agents/analysis";
+import {
+  generateAEORecommendations,
+  generateCursorPrompt,
+  generateAEOReport,
+} from "../agents/output";
 
 // Orchestrator Agent imports
-import { OrchestratorAgent } from '../agents/orchestrator';
+import { OrchestratorAgent } from "../agents/orchestrator";
 
 // SPA Detection and Rendering
-import { detectSPASite } from '../lib/spa-detector';
-import { renderWithECS, isECSRenderingAvailable } from '../lib/renderer';
+import { detectSPASite } from "../lib/spa-detector";
+import { renderWithECS, isECSRenderingAvailable } from "../lib/renderer";
 
 const ecsClient = new ECSClient({});
 
@@ -30,10 +73,10 @@ const ecsClient = new ECSClient({});
 // Environment Config
 // ===================
 
-const ECS_CLUSTER_ARN = process.env.ECS_CLUSTER_ARN || '';
-const ECS_TASK_DEFINITION = process.env.ECS_TASK_DEFINITION || '';
-const ECS_SUBNET_IDS = (process.env.ECS_SUBNET_IDS || '').split(',');
-const ECS_SECURITY_GROUP = process.env.ECS_SECURITY_GROUP || '';
+const ECS_CLUSTER_ARN = process.env.ECS_CLUSTER_ARN || "";
+const ECS_TASK_DEFINITION = process.env.ECS_TASK_DEFINITION || "";
+const ECS_SUBNET_IDS = (process.env.ECS_SUBNET_IDS || "").split(",");
+const ECS_SECURITY_GROUP = process.env.ECS_SECURITY_GROUP || "";
 
 // AEO Configuration
 const AEO_QUERY_COUNT = 10; // Number of queries to generate per job
@@ -48,8 +91,6 @@ export const handler: SQSHandler = async (event: SQSEvent): Promise<void> => {
       await processRecord(record);
     }
   } finally {
-    // Ensure all Langfuse events are flushed before Lambda terminates
-    await gracefulShutdown();
   }
 };
 
@@ -71,8 +112,12 @@ async function processRecord(record: SQSRecord): Promise<void> {
       if (!job) {
         attempts++;
         if (attempts < maxAttempts) {
-          console.log(`[${jobId}] Job not found, retrying (attempt ${attempts}/${maxAttempts})...`);
-          await new Promise(resolve => setTimeout(resolve, retryDelay * attempts));
+          console.log(
+            `[${jobId}] Job not found, retrying (attempt ${attempts}/${maxAttempts})...`,
+          );
+          await new Promise((resolve) =>
+            setTimeout(resolve, retryDelay * attempts),
+          );
         }
       }
     }
@@ -83,14 +128,16 @@ async function processRecord(record: SQSRecord): Promise<void> {
 
     // Verify the job belongs to the correct user
     if (job.userId !== userId) {
-      throw new Error(`Job ${jobId} belongs to different user. Expected ${userId}, got ${job.userId}`);
+      throw new Error(
+        `Job ${jobId} belongs to different user. Expected ${userId}, got ${job.userId}`,
+      );
     }
 
     // Update job status to crawling
     await updateJob(userId, jobId, {
-      status: 'crawling',
-      'metrics.startedAt': new Date().toISOString(),
-      'progress.currentPhase': 'crawling',
+      status: "crawling",
+      "metrics.startedAt": new Date().toISOString(),
+      "progress.currentPhase": "crawling",
     });
 
     // Phase 1: Crawl the site
@@ -98,9 +145,9 @@ async function processRecord(record: SQSRecord): Promise<void> {
     const pages = await runCrawler(job);
 
     await updateJob(userId, jobId, {
-      'progress.pagesCrawled': pages.length,
-      'progress.pagesTotal': pages.length,
-      'progress.currentPhase': 'analyzing',
+      "progress.pagesCrawled": pages.length,
+      "progress.pagesTotal": pages.length,
+      "progress.currentPhase": "analyzing",
     });
 
     // Phase 2: Run traditional LLMEO/SEO analysis
@@ -109,36 +156,53 @@ async function processRecord(record: SQSRecord): Promise<void> {
     const seoAnalysis = analyzeSEO(pages);
 
     // Phase 3: Run AEO Pipeline (with orchestrator agent)
-    console.log(`[${jobId}] Phase 3: Running AEO pipeline with orchestrator agent...`);
+    console.log(
+      `[${jobId}] Phase 3: Running AEO pipeline with orchestrator agent...`,
+    );
     await updateJob(userId, jobId, {
-      status: 'analyzing',
-      'progress.currentPhase': 'aeo-discovery',
+      status: "analyzing",
+      "progress.currentPhase": "aeo-discovery",
     });
 
     // Use new orchestrator-based pipeline (with fallback to old pipeline)
-    const useOrchestrator = process.env.USE_ORCHESTRATOR_AGENT !== 'false'; // Default to true
+    const useOrchestrator = process.env.USE_ORCHESTRATOR_AGENT !== "false"; // Default to true
     const aeoReport = useOrchestrator
-      ? await runAEOPipelineWithOrchestrator(job, pages, llmeoAnalysis, seoAnalysis)
+      ? await runAEOPipelineWithOrchestrator(
+          job,
+          pages,
+          llmeoAnalysis,
+          seoAnalysis,
+        )
       : await runAEOPipeline(job, pages, llmeoAnalysis, seoAnalysis);
 
     // Phase 4: Generate final report
     console.log(`[${jobId}] Phase 4: Generating final report...`);
     await updateJob(userId, jobId, {
-      'progress.currentPhase': 'generating-report',
+      "progress.currentPhase": "generating-report",
     });
 
     // Upload AEO report to S3
     console.log(`[${jobId}] Uploading report to S3...`);
-    const { jsonKey, markdownKey } = await uploadAEOReport(userId, jobId, aeoReport);
-    console.log(`[${jobId}] Report uploaded to S3:`, { jsonKey, markdownKey, bucket: process.env.S3_BUCKET || 'propintel-api-dev-storage' });
-    
+    const { jsonKey, markdownKey } = await uploadAEOReport(
+      userId,
+      jobId,
+      aeoReport,
+    );
+    console.log(`[${jobId}] Report uploaded to S3:`, {
+      jsonKey,
+      markdownKey,
+      bucket: process.env.S3_BUCKET || "propintel-api-dev-storage",
+    });
+
     // Verify report was actually uploaded before marking complete
-    const verifyReport = await getReport(userId, jobId, 'json');
+    const verifyReport = await getReport(userId, jobId, "json");
     if (!verifyReport) {
-      throw new Error(`Report upload verification failed - report not found at ${jsonKey}`);
+      throw new Error(
+        `Report upload verification failed - report not found at ${jsonKey}`,
+      );
     }
     console.log(`[${jobId}] Report upload verified successfully`);
-    
+
     console.log(`[${jobId}] Saving report reference to database...`);
     await saveReportReference(jobId, jsonKey, markdownKey);
     console.log(`[${jobId}] Report reference saved to database`);
@@ -149,10 +213,10 @@ async function processRecord(record: SQSRecord): Promise<void> {
     // Update job as completed
     const startedAt = job.metrics?.startedAt || job.createdAt.toISOString();
     await updateJob(userId, jobId, {
-      status: 'completed',
-      'metrics.completedAt': new Date().toISOString(),
-      'metrics.durationMs': Date.now() - new Date(startedAt).getTime(),
-      'progress.currentPhase': 'completed',
+      status: "completed",
+      "metrics.completedAt": new Date().toISOString(),
+      "metrics.durationMs": Date.now() - new Date(startedAt).getTime(),
+      "progress.currentPhase": "completed",
     });
 
     // Send webhook if configured
@@ -160,23 +224,26 @@ async function processRecord(record: SQSRecord): Promise<void> {
       await sendWebhook(job.webhookUrl, aeoReport);
     }
 
-    console.log(`[${jobId}] Job completed successfully. AEO Score: ${aeoReport.scores.aeoVisibilityScore}`);
+    console.log(
+      `[${jobId}] Job completed successfully. AEO Score: ${aeoReport.scores.aeoVisibilityScore}`,
+    );
   } catch (error) {
     console.error(`Job ${jobId} failed:`, error);
     console.error(`Job ${jobId} error stack:`, (error as Error).stack);
 
     const errorMessage = (error as Error).message;
-    const isBlocked = errorMessage.includes('CAPTCHA') || errorMessage.includes('blocked');
+    const isBlocked =
+      errorMessage.includes("CAPTCHA") || errorMessage.includes("blocked");
 
     try {
       await updateJob(userId, jobId, {
-        status: isBlocked ? 'blocked' : 'failed',
+        status: isBlocked ? "blocked" : "failed",
         error: {
-          code: isBlocked ? 'SITE_BLOCKED' : 'PROCESSING_ERROR',
+          code: isBlocked ? "SITE_BLOCKED" : "PROCESSING_ERROR",
           message: errorMessage,
           details: (error as Error).stack,
         },
-        'progress.currentPhase': 'error',
+        "progress.currentPhase": "error",
       });
     } catch (updateError) {
       console.error(`Job ${jobId} failed to update error status:`, updateError);
@@ -190,8 +257,8 @@ async function processRecord(record: SQSRecord): Promise<void> {
 // ===================
 
 async function runCrawler(job: Job): Promise<CrawledPageType[]> {
-  const { crawlSite } = await import('../lib/crawler-simple');
-  
+  const { crawlSite } = await import("../lib/crawler-simple");
+
   const defaultConfig: CrawlConfig = {
     maxPages: 50,
     maxDepth: 3,
@@ -199,14 +266,14 @@ async function runCrawler(job: Job): Promise<CrawledPageType[]> {
     crawlDelay: 1000,
     maxJobDuration: 15 * 60 * 1000,
     viewport: { width: 1920, height: 1080 },
-    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+    userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
     followCanonical: true,
     respectRobotsTxt: true,
     skipExactDuplicates: true,
     urlExclusions: [],
     maxFileSize: 5 * 1024 * 1024,
   };
-  
+
   const crawlerJob: LegacyJob = {
     id: job.id,
     userId: job.userId,
@@ -216,20 +283,26 @@ async function runCrawler(job: Job): Promise<CrawledPageType[]> {
     config: (job.config as CrawlConfig) || defaultConfig,
     competitors: job.competitors || [],
     webhookUrl: job.webhookUrl || undefined,
-    llmModel: job.llmModel || 'gpt-4o-mini',
-    progress: job.progress || { pagesCrawled: 0, pagesTotal: 0, currentPhase: 'pending' },
+    llmModel: job.llmModel || "gpt-4o-mini",
+    progress: job.progress || {
+      pagesCrawled: 0,
+      pagesTotal: 0,
+      currentPhase: "pending",
+    },
     metrics: job.metrics || { apiCallsCount: 0, storageUsedBytes: 0 },
     createdAt: job.createdAt.toISOString(),
     updatedAt: job.updatedAt.toISOString(),
   };
-  
+
   const pages = await crawlSite(crawlerJob);
 
   // Check if this looks like an SPA that needs rendering
   const spaDetection = detectSPASite(pages);
 
   if (spaDetection.isSPASite && isECSRenderingAvailable()) {
-    console.log(`[${job.id}] SPA detected (confidence: ${spaDetection.overallConfidence}%). Launching ECS renderer...`);
+    console.log(
+      `[${job.id}] SPA detected (confidence: ${spaDetection.overallConfidence}%). Launching ECS renderer...`,
+    );
 
     try {
       const renderResult = await renderWithECS(crawlerJob, {
@@ -239,17 +312,23 @@ async function runCrawler(job: Job): Promise<CrawledPageType[]> {
       });
 
       if (renderResult.success && renderResult.pages.length > 0) {
-        console.log(`[${job.id}] ECS render complete. Using ${renderResult.pages.length} rendered pages.`);
+        console.log(
+          `[${job.id}] ECS render complete. Using ${renderResult.pages.length} rendered pages.`,
+        );
         return renderResult.pages;
       } else {
-        console.log(`[${job.id}] ECS render failed or returned no pages. Using HTTP-crawled pages.`);
+        console.log(
+          `[${job.id}] ECS render failed or returned no pages. Using HTTP-crawled pages.`,
+        );
       }
     } catch (error) {
       console.error(`[${job.id}] ECS render error:`, error);
       // Fall back to HTTP-crawled pages
     }
   } else if (spaDetection.isSPASite) {
-    console.log(`[${job.id}] SPA detected but ECS rendering not available. Using HTTP-crawled pages.`);
+    console.log(
+      `[${job.id}] SPA detected but ECS rendering not available. Using HTTP-crawled pages.`,
+    );
   }
 
   return pages;
@@ -266,12 +345,12 @@ async function runAEOPipelineWithOrchestrator(
   job: Job,
   pages: CrawledPageType[],
   llmeoAnalysis: ReturnType<typeof analyzeLLMEO>,
-  seoAnalysis: ReturnType<typeof analyzeSEO>
+  seoAnalysis: ReturnType<typeof analyzeSEO>,
 ): Promise<AEOReport> {
   const domain = new URL(job.targetUrl).hostname;
   const userId = job.userId;
   const jobId = job.id;
-  const llmModel = job.llmModel || 'gpt-4o-mini';
+  const llmModel = job.llmModel || "gpt-4o-mini";
 
   console.log(`[${jobId}] Initializing orchestrator agent...`);
 
@@ -280,18 +359,20 @@ async function runAEOPipelineWithOrchestrator(
 
   // Store pages in context (needed for page-analysis agent)
   const contextManager = orchestrator.getContextManager();
-  await contextManager.storeAgentResult('pages', pages, llmModel);
+  await contextManager.storeAgentResult("pages", pages, llmModel);
 
   // Initialize and create execution plan
   const plan = await orchestrator.initialize(job.targetUrl, domain, llmModel);
-  console.log(`[${jobId}] Execution plan created: ${plan.phases.length} phases, estimated ${plan.estimatedDuration}s`);
+  console.log(
+    `[${jobId}] Execution plan created: ${plan.phases.length} phases, estimated ${plan.estimatedDuration}s`,
+  );
 
   // Update job with initial plan info
   await updateJob(userId, jobId, {
     progress: {
       pagesCrawled: 0,
       pagesTotal: 0,
-      currentPhase: 'aeo-discovery',
+      currentPhase: "aeo-discovery",
       executionPlan: plan,
       agentSummaries: orchestrator.getAllAgentSummaries(),
     },
@@ -315,34 +396,54 @@ async function runAEOPipelineWithOrchestrator(
   orchestrator.getContext();
 
   // Extract all results needed for report generation
-  const pageAnalysis = await contextManager.getAgentResult<PageAnalysis>('page-analysis');
-  const targetQueries = await contextManager.getAgentResult<TargetQuery[]>('query-generation');
-  const searchResults = await contextManager.getAgentResult<TavilySearchResult[]>('tavily-research');
-  
+  const pageAnalysis =
+    await contextManager.getAgentResult<PageAnalysis>("page-analysis");
+  const targetQueries =
+    await contextManager.getAgentResult<TargetQuery[]>("query-generation");
+  const searchResults =
+    await contextManager.getAgentResult<TavilySearchResult[]>(
+      "tavily-research",
+    );
+
   // Generate citations if not already stored
-  let citations = await contextManager.getAgentResult<QueryCitation[]>('citations');
+  let citations =
+    await contextManager.getAgentResult<QueryCitation[]>("citations");
   if (!citations && searchResults && searchResults.length > 0) {
     citations = analyzeCitations(searchResults, domain);
-    await contextManager.storeAgentResult('citations', citations, llmModel);
+    await contextManager.storeAgentResult("citations", citations, llmModel);
   }
-  
-  const competitors = await contextManager.getAgentResult<CompetitorVisibility[]>('competitor-discovery');
-  let citationAnalysis = await contextManager.getAgentResult<CitationAnalysisResult>('citation-analysis');
+
+  const competitors = await contextManager.getAgentResult<
+    CompetitorVisibility[]
+  >("competitor-discovery");
+  let citationAnalysis =
+    await contextManager.getAgentResult<CitationAnalysisResult>(
+      "citation-analysis",
+    );
   // Content comparison result stored in context for downstream agents
-  await contextManager.getAgentResult('content-comparison');
-  const visibilityScoreResult = await contextManager.getAgentResult<{ score: number }>('visibility-scoring');
-  const aeoRecommendations = await contextManager.getAgentResult<AEORecommendation[]>('recommendations');
-  const cursorPrompt = await contextManager.getAgentResult<CursorPrompt>('cursor-prompt');
-  const communityEngagement = await contextManager.getAgentResult<CommunityEngagementResult>('community-signals');
+  await contextManager.getAgentResult("content-comparison");
+  const visibilityScoreResult = await contextManager.getAgentResult<{
+    score: number;
+  }>("visibility-scoring");
+  const aeoRecommendations =
+    await contextManager.getAgentResult<AEORecommendation[]>("recommendations");
+  const cursorPrompt =
+    await contextManager.getAgentResult<CursorPrompt>("cursor-prompt");
+  const communityEngagement =
+    await contextManager.getAgentResult<CommunityEngagementResult>(
+      "community-signals",
+    );
 
   if (!pageAnalysis || !targetQueries) {
-    throw new Error('Required analysis results not available: pageAnalysis and targetQueries are required');
+    throw new Error(
+      "Required analysis results not available: pageAnalysis and targetQueries are required",
+    );
   }
 
   const safeSearchResults = searchResults || [];
   const safeCitations = citations || [];
   const safeCompetitors = competitors || [];
-  
+
   if (!citationAnalysis) {
     console.log(`[${jobId}] No citation analysis available, using defaults`);
     citationAnalysis = {
@@ -371,7 +472,7 @@ async function runAEOPipelineWithOrchestrator(
     citationAnalysis.gaps || [],
     visibilityScoreResult?.score || 0,
     citationAnalysis,
-    communityEngagement ?? undefined
+    communityEngagement ?? undefined,
   );
 
   // Generate final report
@@ -383,9 +484,9 @@ async function runAEOPipelineWithOrchestrator(
     aeoAnalysis,
     aeoRecommendations || [],
     cursorPrompt || {
-      prompt: '',
+      prompt: "",
       sections: [],
-      version: 'v1.0',
+      version: "v1.0",
       generatedAt: new Date().toISOString(),
     },
     llmeoAnalysis,
@@ -400,7 +501,7 @@ async function runAEOPipelineWithOrchestrator(
         pagesAnalyzed: pages.length,
         crawlDuration: job.metrics?.durationMs || 0,
       },
-    }
+    },
   );
 
   return aeoReport;
@@ -414,12 +515,12 @@ async function runAEOPipeline(
   job: Job,
   pages: CrawledPageType[],
   llmeoAnalysis: ReturnType<typeof analyzeLLMEO>,
-  seoAnalysis: ReturnType<typeof analyzeSEO>
+  seoAnalysis: ReturnType<typeof analyzeSEO>,
 ): Promise<AEOReport> {
   const domain = new URL(job.targetUrl).hostname;
   const userId = job.userId;
   const jobId = job.id;
-  const llmModel = job.llmModel || 'gpt-4o-mini';
+  const llmModel = job.llmModel || "gpt-4o-mini";
 
   // ----- Phase 1: Discovery -----
   console.log(`[${jobId}] AEO Discovery: Analyzing page content...`);
@@ -435,11 +536,13 @@ async function runAEOPipeline(
     domain,
     userId,
     jobId,
-    { queryCount: AEO_QUERY_COUNT, model: llmModel }
+    { queryCount: AEO_QUERY_COUNT, model: llmModel },
   );
 
   // ----- Phase 2: Research -----
-  console.log(`[${jobId}] AEO Research: Searching ${targetQueries.length} queries via Tavily...`);
+  console.log(
+    `[${jobId}] AEO Research: Searching ${targetQueries.length} queries via Tavily...`,
+  );
 
   // Search each query using Tavily
   const searchResults = await researchQueries(targetQueries, userId, jobId);
@@ -455,17 +558,29 @@ async function runAEOPipeline(
     domain,
     userId,
     jobId,
-    { searchResults }
+    { searchResults },
   );
 
   // Search for community engagement opportunities
-  console.log(`[${jobId}] AEO Research: Searching for community engagement opportunities...`);
+  console.log(
+    `[${jobId}] AEO Research: Searching for community engagement opportunities...`,
+  );
   let communityEngagement: CommunityEngagementResult | undefined;
   try {
-    communityEngagement = await searchCommunitySignalsNew(targetQueries, domain, userId, jobId);
-    console.log(`[${jobId}] AEO Research: Found ${communityEngagement.totalOpportunities} engagement opportunities`);
+    communityEngagement = await searchCommunitySignalsNew(
+      targetQueries,
+      domain,
+      userId,
+      jobId,
+    );
+    console.log(
+      `[${jobId}] AEO Research: Found ${communityEngagement.totalOpportunities} engagement opportunities`,
+    );
   } catch (error) {
-    console.warn(`[${jobId}] AEO Research: Community signals search failed, continuing without:`, (error as Error).message);
+    console.warn(
+      `[${jobId}] AEO Research: Community signals search failed, continuing without:`,
+      (error as Error).message,
+    );
   }
 
   // ----- Phase 3: Analysis -----
@@ -477,7 +592,7 @@ async function runAEOPipeline(
     searchResults,
     domain,
     userId,
-    jobId
+    jobId,
   );
 
   // Content comparison with competitors
@@ -487,16 +602,21 @@ async function runAEOPipeline(
     searchResults,
     userId,
     jobId,
-    llmModel
+    llmModel,
   );
 
   // Calculate visibility score
-  const { score: visibilityScore, breakdown: _breakdown, grade, summary: _summary } = await calculateVisibilityScore(
+  const {
+    score: visibilityScore,
+    breakdown: _breakdown,
+    grade,
+    summary: _summary,
+  } = await calculateVisibilityScore(
     citationAnalysis,
     competitors,
     contentComparison,
     userId,
-    jobId
+    jobId,
   );
 
   console.log(`[${jobId}] AEO Score: ${visibilityScore}/100 (${grade})`);
@@ -511,7 +631,7 @@ async function runAEOPipeline(
     citationAnalysis.gaps,
     visibilityScore,
     citationAnalysis,
-    communityEngagement
+    communityEngagement,
   );
 
   // ----- Phase 4: Output -----
@@ -523,7 +643,7 @@ async function runAEOPipeline(
     contentComparison,
     userId,
     jobId,
-    llmModel
+    llmModel,
   );
 
   console.log(`[${jobId}] AEO Output: Generating Cursor prompt...`);
@@ -536,7 +656,7 @@ async function runAEOPipeline(
     aeoRecommendations,
     userId,
     jobId,
-    llmModel
+    llmModel,
   );
 
   // Generate the complete AEO report
@@ -560,7 +680,7 @@ async function runAEOPipeline(
         pagesAnalyzed: pages.length,
         crawlDuration: job.metrics?.durationMs || 0,
       },
-    }
+    },
   );
 
   return aeoReport;
@@ -571,14 +691,19 @@ async function runAEOPipeline(
 // ===================
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-async function _runLegacyAnalysis(job: Job, pages: CrawledPageType[]): Promise<Report> {
+async function _runLegacyAnalysis(
+  job: Job,
+  pages: CrawledPageType[],
+): Promise<Report> {
   const domain = new URL(job.targetUrl).hostname;
   const userId = job.userId;
-  const llmModel = job.llmModel || 'gpt-4o-mini';
+  const llmModel = job.llmModel || "gpt-4o-mini";
 
   const llmeoAnalysis = analyzeLLMEO(pages);
   const seoAnalysis = analyzeSEO(pages);
-  const overallScore = Math.round(llmeoAnalysis.score * 0.7 + seoAnalysis.score * 0.3);
+  const overallScore = Math.round(
+    llmeoAnalysis.score * 0.7 + seoAnalysis.score * 0.3,
+  );
 
   const summary = await generateSummary(
     pages,
@@ -586,7 +711,7 @@ async function _runLegacyAnalysis(job: Job, pages: CrawledPageType[]): Promise<R
     seoAnalysis,
     userId,
     job.id,
-    llmModel
+    llmModel,
   );
 
   const recommendations = await generateRecommendations(
@@ -595,7 +720,7 @@ async function _runLegacyAnalysis(job: Job, pages: CrawledPageType[]): Promise<R
     seoAnalysis,
     userId,
     job.id,
-    llmModel
+    llmModel,
   );
 
   const copyReadyPrompt = await generateCopyReadyPrompt(
@@ -603,7 +728,7 @@ async function _runLegacyAnalysis(job: Job, pages: CrawledPageType[]): Promise<R
     summary,
     userId,
     job.id,
-    llmModel
+    llmModel,
   );
 
   const report: Report = {
@@ -627,10 +752,12 @@ async function _runLegacyAnalysis(job: Job, pages: CrawledPageType[]): Promise<R
     recommendations,
     llmSummary: summary,
     copyReadyPrompt,
-    promptVersion: 'v1.0',
+    promptVersion: "v1.0",
     warnings: collectWarnings(pages, llmeoAnalysis, seoAnalysis),
     artifacts: {
-      rawSnapshots: pages.filter(p => p.htmlSnapshot).map(p => p.htmlSnapshot!),
+      rawSnapshots: pages
+        .filter((p) => p.htmlSnapshot)
+        .map((p) => p.htmlSnapshot!),
       extractedData: `${userId}/${job.id}/data/pages.json`,
       fullReport: `${userId}/${job.id}/reports/report.json`,
     },
@@ -642,48 +769,48 @@ async function _runLegacyAnalysis(job: Job, pages: CrawledPageType[]): Promise<R
 function calculateConfidence(
   pagesCount: number,
   llmeo: { score: number },
-  seo: { score: number }
+  seo: { score: number },
 ): number {
   const pagesFactor = Math.min(pagesCount / 50, 1);
-  const scoreFactor = ((llmeo.score + seo.score) / 200);
+  const scoreFactor = (llmeo.score + seo.score) / 200;
   return Math.round((pagesFactor * 0.6 + scoreFactor * 0.4) * 100) / 100;
 }
 
 function collectWarnings(
   pages: CrawledPageType[],
   llmeo: { schemaAnalysis: { invalidSchemas: string[] } },
-  seo: { indexability: { issues: string[] } }
-): Report['warnings'] {
-  const warnings: Report['warnings'] = [];
+  seo: { indexability: { issues: string[] } },
+): Report["warnings"] {
+  const warnings: Report["warnings"] = [];
 
   if (llmeo.schemaAnalysis.invalidSchemas.length > 0) {
     warnings.push({
-      code: 'INVALID_SCHEMA',
-      message: 'Some pages have invalid structured data',
+      code: "INVALID_SCHEMA",
+      message: "Some pages have invalid structured data",
       affectedPages: llmeo.schemaAnalysis.invalidSchemas,
-      severity: 'warning',
+      severity: "warning",
     });
   }
 
-  pages.forEach(page => {
+  pages.forEach((page) => {
     if (page.warnings.length > 0) {
-      page.warnings.forEach(w => {
+      page.warnings.forEach((w) => {
         warnings.push({
-          code: 'PAGE_WARNING',
+          code: "PAGE_WARNING",
           message: w,
           affectedPages: [page.url],
-          severity: 'info',
+          severity: "info",
         });
       });
     }
   });
 
-  seo.indexability.issues.forEach(issue => {
+  seo.indexability.issues.forEach((issue) => {
     warnings.push({
-      code: 'SEO_ISSUE',
+      code: "SEO_ISSUE",
       message: issue,
       affectedPages: [],
-      severity: 'warning',
+      severity: "warning",
     });
   });
 
@@ -694,21 +821,24 @@ function collectWarnings(
 // Webhook
 // ===================
 
-async function sendWebhook(url: string, report: AEOReport | Report): Promise<void> {
+async function sendWebhook(
+  url: string,
+  report: AEOReport | Report,
+): Promise<void> {
   try {
     await fetch(url, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        event: 'job.completed',
+        event: "job.completed",
         timestamp: new Date().toISOString(),
         report,
       }),
     });
   } catch (error) {
-    console.error('Webhook delivery failed:', error);
+    console.error("Webhook delivery failed:", error);
   }
 }
 
@@ -723,34 +853,34 @@ async function saveAnalysisToDatabase(
   userId: string,
   jobId: string,
   report: AEOReport,
-  reportS3Key: string
+  reportS3Key: string,
 ): Promise<void> {
   try {
     // Extract top competitors
     const topCompetitors = report.aeoAnalysis.competitors
       .slice(0, 3)
-      .map(c => c.domain);
+      .map((c) => c.domain);
 
     // Extract top findings and recommendations
     const topFindings = report.aeoAnalysis.keyFindings.slice(0, 5);
     const topRecommendations = report.aeoRecommendations
-      .filter(r => r.priority === 'high')
+      .filter((r) => r.priority === "high")
       .slice(0, 5)
-      .map(r => r.title);
+      .map((r) => r.title);
 
     // Determine grade from visibility score
     const getGrade = (score: number): string => {
-      if (score >= 90) return 'A+';
-      if (score >= 85) return 'A';
-      if (score >= 80) return 'A-';
-      if (score >= 75) return 'B+';
-      if (score >= 70) return 'B';
-      if (score >= 65) return 'B-';
-      if (score >= 60) return 'C+';
-      if (score >= 55) return 'C';
-      if (score >= 50) return 'C-';
-      if (score >= 40) return 'D';
-      return 'F';
+      if (score >= 90) return "A+";
+      if (score >= 85) return "A";
+      if (score >= 80) return "A-";
+      if (score >= 75) return "B+";
+      if (score >= 70) return "B";
+      if (score >= 65) return "B-";
+      if (score >= 60) return "C+";
+      if (score >= 55) return "C";
+      if (score >= 50) return "C-";
+      if (score >= 40) return "D";
+      return "F";
     };
 
     await saveAnalysis(userId, jobId, {
@@ -792,33 +922,33 @@ async function _launchECSTask(job: Job): Promise<string> {
     new RunTaskCommand({
       cluster: ECS_CLUSTER_ARN,
       taskDefinition: ECS_TASK_DEFINITION,
-      launchType: 'FARGATE',
+      launchType: "FARGATE",
       networkConfiguration: {
         awsvpcConfiguration: {
           subnets: ECS_SUBNET_IDS,
           securityGroups: [ECS_SECURITY_GROUP],
-          assignPublicIp: 'ENABLED',
+          assignPublicIp: "ENABLED",
         },
       },
       overrides: {
         containerOverrides: [
           {
-            name: 'crawler',
+            name: "crawler",
             environment: [
-              { name: 'JOB_ID', value: job.id },
-              { name: 'USER_ID', value: job.userId },
-              { name: 'TARGET_URL', value: job.targetUrl },
-              { name: 'CONFIG', value: JSON.stringify(job.config) },
+              { name: "JOB_ID", value: job.id },
+              { name: "USER_ID", value: job.userId },
+              { name: "TARGET_URL", value: job.targetUrl },
+              { name: "CONFIG", value: JSON.stringify(job.config) },
             ],
           },
         ],
       },
-    })
+    }),
   );
 
   const taskArn = response.tasks?.[0]?.taskArn;
   if (!taskArn) {
-    throw new Error('Failed to launch ECS task');
+    throw new Error("Failed to launch ECS task");
   }
 
   return taskArn;
@@ -834,15 +964,15 @@ async function _waitForECSTask(taskArn: string): Promise<void> {
       new DescribeTasksCommand({
         cluster: ECS_CLUSTER_ARN,
         tasks: [taskArn],
-      })
+      }),
     );
 
     const task = response.tasks?.[0];
     if (!task) {
-      throw new Error('Task not found');
+      throw new Error("Task not found");
     }
 
-    if (task.lastStatus === 'STOPPED') {
+    if (task.lastStatus === "STOPPED") {
       const exitCode = task.containers?.[0]?.exitCode;
       if (exitCode !== 0) {
         throw new Error(`Task failed with exit code ${exitCode}`);
@@ -850,9 +980,9 @@ async function _waitForECSTask(taskArn: string): Promise<void> {
       return;
     }
 
-    await new Promise(resolve => setTimeout(resolve, 5000));
+    await new Promise((resolve) => setTimeout(resolve, 5000));
     attempts++;
   }
 
-  throw new Error('Task timed out');
+  throw new Error("Task timed out");
 }

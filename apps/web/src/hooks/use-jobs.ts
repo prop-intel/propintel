@@ -3,7 +3,7 @@
  * Uses React Query for caching and state management
  */
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api/client";
 import type { CreateJobRequest } from "@/lib/api/types";
 
@@ -27,21 +27,5 @@ export function useCreateJob() {
     onError: (error: Error) => {
       console.error("Failed to create job:", error);
     },
-  });
-}
-
-/**
- * Hook to get job report
- */
-export function useJobReport(jobId: string | null, format: "json" | "md" = "json") {
-  return useQuery({
-    queryKey: ["job-report", jobId, format],
-    queryFn: async () => {
-      if (!jobId) return null;
-      return api.jobs.getReport(jobId, format);
-    },
-    enabled: !!jobId,
-    // Only fetch if job is completed
-    staleTime: Infinity, // Reports don't change once generated
   });
 }

@@ -12,7 +12,6 @@ import {
   type QueryGap,
   type TavilySearchResult,
 } from "../../types";
-import { createTrace, safeFlush } from "../../lib/langfuse";
 
 // ===================
 // Types
@@ -56,16 +55,6 @@ export async function analyzeCitationPatterns(
   tenantId: string,
   jobId: string,
 ): Promise<CitationAnalysisResult> {
-  const trace = createTrace({
-    name: "aeo-citation-analysis",
-    userId: tenantId,
-    metadata: { jobId, targetDomain },
-  });
-
-  const span = trace.span({
-    name: "analyze-citations",
-  });
-
   try {
     // Calculate basic metrics
     const metrics = calculateBasicMetrics(citations);
@@ -87,25 +76,8 @@ export async function analyzeCitationPatterns(
       findings,
     };
 
-    span.end({
-      output: {
-        citationRate: result.citationRate,
-        gapsFound: result.gaps.length,
-        findingsCount: result.findings.length,
-      },
-    });
-
-    // Non-blocking flush - observability should never block business logic
-    void safeFlush();
-
     return result;
   } catch (error) {
-    span.end({
-      level: "ERROR",
-      statusMessage: (error as Error).message,
-    });
-    // Non-blocking flush - still try to log errors
-    void safeFlush();
     throw error;
   }
 }

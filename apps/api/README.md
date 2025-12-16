@@ -174,9 +174,8 @@ curl -H "X-Api-Key: your-api-key" https://your-api/endpoint
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | POST | `/jobs` | Create crawl job |
-| GET | `/jobs/{id}/report` | Get report (JSON or Markdown) |
 
-> **Note**: Job listing and status are accessed via tRPC through the Next.js frontend for better performance.
+> **Note**: Job listing, status, and **reports** are accessed via tRPC through the Next.js frontend for better performance and direct S3 access.
 
 #### Dashboard
 
@@ -361,10 +360,9 @@ The API test script validates:
 1. ✅ **Health Check** - Verifies `/health` endpoint
 2. ✅ **Authentication** - Tests unauthenticated request rejection
 3. ✅ **Create Job** - Creates a new crawl job
-4. ✅ **Get Job Status** - Retrieves job status by ID
-5. ✅ **List Jobs** - Lists all jobs for the tenant
-6. ✅ **Get Report** - Retrieves report (if job is completed)
-7. ✅ **Error Handling** - Tests invalid job ID handling
+4. ✅ **Error Handling** - Tests error response format
+
+> **Note**: Report retrieval is tested via tRPC integration tests in the web app.
 
 ### End-to-End Tests
 
@@ -402,10 +400,8 @@ The E2E test suite validates:
 1. ✅ **Job Creation** - Creates a crawl job
 2. ✅ **Job Completion** - Polls and waits for job to complete (with timeout)
 3. ✅ **Job Metrics** - Validates job metrics (duration, timestamps, progress)
-4. ✅ **Report Retrieval** - Retrieves JSON and Markdown reports
-5. ✅ **Report Structure** - Validates all required report fields
-6. ✅ **Score Validation** - Ensures scores are within valid ranges (0-100)
-7. ✅ **Content Quality** - Validates report content completeness
+
+> **Note**: Report validation is handled via tRPC routes that read S3 directly.
 
 #### E2E Test Example Output
 
@@ -420,31 +416,16 @@ Timeout: 1200s
 ✅ Create Job and Wait for Completion
    Status: pending → queued → crawling → analyzing → completed
 ✅ Validate Job Metrics
-✅ Retrieve Report
-✅ Validate Report Structure
-✅ Validate Score Ranges
-✅ Retrieve Markdown Report
-✅ Validate Report Content Quality
 
 ============================================================
 E2E Test Results Summary
 ============================================================
 Job ID: abc-123-def
 Target URL: https://example.com
-Pages Analyzed: 5
-
-Scores:
-  AEO Visibility: 65/100
-  LLMEO: 75/100
-  SEO: 82/100
-  Overall: 70/100
-
-AEO Metrics:
-  Queries Analyzed: 10
-  Citation Rate: 40%
-  Recommendations: 5
-
+Pages Crawled: 5
 Job Duration: 45.23s
+
+Note: Report validation is now handled via tRPC routes.
 ============================================================
 ```
 

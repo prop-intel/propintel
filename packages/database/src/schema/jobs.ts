@@ -89,7 +89,9 @@ export const jobs = createTable(
       type: "basic" | "cookie";
       credentials: Record<string, string>;
     }>(),
-    llmModel: d.varchar("llm_model", { length: 100 }).default("gpt-4o-mini"),
+    llmModel: d
+      .varchar("llm_model", { length: 100 })
+      .default("gpt-5.2-2025-12-11"),
     progress: d.jsonb("progress").$type<JobProgress>().default({
       pagesCrawled: 0,
       pagesTotal: 0,

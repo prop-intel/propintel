@@ -130,13 +130,6 @@ functions:
           path: /jobs
           method: post
 
-  getReport:
-    handler: src/handlers/job.getReport
-    events:
-      - httpApi:
-          path: /jobs/{id}/report
-          method: get
-
   # Orchestrator (SQS Consumer)
   orchestrator:
     handler: src/handlers/orchestrator.handler

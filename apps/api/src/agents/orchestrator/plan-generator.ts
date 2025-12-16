@@ -5,32 +5,38 @@
  * Analyzes the URL and context to create a dynamic execution plan.
  */
 
-import { generateObject } from 'ai';
-import { z } from 'zod';
-import { type ExecutionPlan, type ExecutionPhase } from '../../types';
-import { type AgentContext } from '../context';
-import { createTrace, safeFlush } from '../../lib/langfuse';
-import { getAgentMetadata } from '../registry';
-import { withProviderFallback, LLM_TIMEOUT_MS } from '../../lib/llm-utils';
+import { generateObject } from "ai";
+import { z } from "zod";
+import { type ExecutionPlan, type ExecutionPhase } from "../../types";
+import { type AgentContext } from "../context";
+import { getAgentMetadata } from "../registry";
+import { withProviderFallback, LLM_TIMEOUT_MS } from "../../lib/llm-utils";
 
 // Agent name for logging
-const AGENT_NAME = 'Plan Generator';
+const AGENT_NAME = "Plan Generator";
 
 // ===================
 // Schema Definition
 // ===================
 
 const ExecutionPhaseSchema = z.object({
-  name: z.string().describe('Phase name (e.g., "Discovery", "Research", "Analysis")'),
-  agents: z.array(z.string()).describe('Agent IDs to run in this phase'),
-  runInParallel: z.boolean().describe('Whether agents in this phase can run in parallel'),
-  dependsOn: z.array(z.string()).optional().describe('Phase names this phase depends on'),
+  name: z
+    .string()
+    .describe('Phase name (e.g., "Discovery", "Research", "Analysis")'),
+  agents: z.array(z.string()).describe("Agent IDs to run in this phase"),
+  runInParallel: z
+    .boolean()
+    .describe("Whether agents in this phase can run in parallel"),
+  dependsOn: z
+    .array(z.string())
+    .optional()
+    .describe("Phase names this phase depends on"),
 });
 
 const ExecutionPlanSchema = z.object({
   phases: z.array(ExecutionPhaseSchema),
-  estimatedDuration: z.number().describe('Estimated duration in seconds'),
-  reasoning: z.string().describe('Explanation of why this plan was chosen'),
+  estimatedDuration: z.number().describe("Estimated duration in seconds"),
+  reasoning: z.string().describe("Explanation of why this plan was chosen"),
 });
 
 // ===================
@@ -40,14 +46,14 @@ const ExecutionPlanSchema = z.object({
 // NOTE: perplexity, google-aio are disabled (require special setup)
 // community-signals is now enabled - finds Reddit/Twitter engagement opportunities
 const AVAILABLE_AGENTS = {
-  discovery: ['page-analysis', 'query-generation', 'competitor-discovery'],
-  research: ['tavily-research', 'community-signals'], // Disabled: 'google-aio', 'perplexity'
-  analysis: ['citation-analysis', 'content-comparison', 'visibility-scoring'],
-  output: ['recommendations', 'cursor-prompt', 'report-generator'],
+  discovery: ["page-analysis", "query-generation", "competitor-discovery"],
+  research: ["tavily-research", "community-signals"], // Disabled: 'google-aio', 'perplexity'
+  analysis: ["citation-analysis", "content-comparison", "visibility-scoring"],
+  output: ["recommendations", "cursor-prompt", "report-generator"],
 };
 
 // Agents that are stubs or require special setup
-export const DISABLED_AGENTS = new Set(['perplexity', 'google-aio']);
+export const DISABLED_AGENTS = new Set(["perplexity", "google-aio"]);
 
 // ===================
 // Static Fallback Plan (Optimized)
@@ -62,18 +68,35 @@ export const DISABLED_AGENTS = new Set(['perplexity', 'google-aio']);
 const STATIC_EXECUTION_PLAN: ExecutionPlan = {
   phases: [
     // Phase 1: Discovery (sequential - dependencies require ordering)
-    { name: 'Discovery', agents: ['page-analysis', 'query-generation', 'competitor-discovery'], runInParallel: false },
+    {
+      name: "Discovery",
+      agents: ["page-analysis", "query-generation", "competitor-discovery"],
+      runInParallel: false,
+    },
     // Phase 2: Research (can run in parallel - both depend only on query-generation)
-    { name: 'Research', agents: ['tavily-research', 'community-signals'], runInParallel: true },
+    {
+      name: "Research",
+      agents: ["tavily-research", "community-signals"],
+      runInParallel: true,
+    },
     // Phase 3: Analysis (can run in parallel)
-    { name: 'Analysis', agents: ['citation-analysis', 'content-comparison'], runInParallel: true },
+    {
+      name: "Analysis",
+      agents: ["citation-analysis", "content-comparison"],
+      runInParallel: true,
+    },
     // Phase 4: Scoring (depends on Analysis)
-    { name: 'Scoring', agents: ['visibility-scoring'], runInParallel: false },
+    { name: "Scoring", agents: ["visibility-scoring"], runInParallel: false },
     // Phase 5: Output (sequential)
-    { name: 'Output', agents: ['recommendations', 'cursor-prompt'], runInParallel: false },
+    {
+      name: "Output",
+      agents: ["recommendations", "cursor-prompt"],
+      runInParallel: false,
+    },
   ],
   estimatedDuration: 100,
-  reasoning: 'Full pipeline with Tavily research and community engagement discovery',
+  reasoning:
+    "Full pipeline with Tavily research and community engagement discovery",
 };
 
 // ===================
@@ -85,11 +108,11 @@ const STATIC_EXECUTION_PLAN: ExecutionPlan = {
  */
 function sanitizePlan(plan: ExecutionPlan): ExecutionPlan {
   const sanitizedPhases = plan.phases
-    .map(phase => ({
+    .map((phase) => ({
       ...phase,
-      agents: phase.agents.filter(agent => !DISABLED_AGENTS.has(agent)),
+      agents: phase.agents.filter((agent) => !DISABLED_AGENTS.has(agent)),
     }))
-    .filter(phase => phase.agents.length > 0); // Remove empty phases
+    .filter((phase) => phase.agents.length > 0); // Remove empty phases
 
   return {
     ...plan,
@@ -105,10 +128,13 @@ function sanitizePlan(plan: ExecutionPlan): ExecutionPlan {
  * Validate that an execution plan respects all agent dependencies.
  * Returns the plan if valid, or throws an error describing violations.
  */
-function validatePlan(plan: ExecutionPlan): { valid: boolean; errors: string[] } {
+function validatePlan(plan: ExecutionPlan): {
+  valid: boolean;
+  errors: string[];
+} {
   const errors: string[] = [];
   const willBeExecuted = new Set<string>();
-  
+
   for (const phase of plan.phases) {
     // Check each agent in this phase
     for (const agentId of phase.agents) {
@@ -117,27 +143,31 @@ function validatePlan(plan: ExecutionPlan): { valid: boolean; errors: string[] }
         errors.push(`Unknown agent: ${agentId}`);
         continue;
       }
-      
+
       // Check that all dependencies are either already executed OR in the same phase (if sequential)
       for (const dep of metadata.inputs) {
         const depInPreviousPhase = willBeExecuted.has(dep);
         const depInSamePhase = phase.agents.includes(dep);
-        
+
         if (!depInPreviousPhase && !depInSamePhase) {
-          errors.push(`Agent ${agentId} depends on ${dep} which hasn't been scheduled yet`);
+          errors.push(
+            `Agent ${agentId} depends on ${dep} which hasn't been scheduled yet`,
+          );
         }
-        
+
         // If dep is in the same phase AND running in parallel, that's a problem
         if (depInSamePhase && phase.runInParallel) {
-          errors.push(`Agent ${agentId} depends on ${dep} but both are in parallel phase ${phase.name}`);
+          errors.push(
+            `Agent ${agentId} depends on ${dep} but both are in parallel phase ${phase.name}`,
+          );
         }
       }
     }
-    
+
     // After this phase, all its agents will be executed
-    phase.agents.forEach(a => willBeExecuted.add(a));
+    phase.agents.forEach((a) => willBeExecuted.add(a));
   }
-  
+
   return { valid: errors.length === 0, errors };
 }
 
@@ -145,37 +175,41 @@ function validatePlan(plan: ExecutionPlan): { valid: boolean; errors: string[] }
  * Fix common plan issues by restructuring phases
  */
 function fixPlan(plan: ExecutionPlan): ExecutionPlan {
-  console.log('[Plan] Attempting to fix invalid plan...');
-  
+  console.log("[Plan] Attempting to fix invalid plan...");
+
   // The most common issue is visibility-scoring in parallel with its dependencies
   // Split any phase that has dependency violations
   const fixedPhases: ExecutionPhase[] = [];
-  
+
   for (const phase of plan.phases) {
     if (phase.runInParallel && phase.agents.length > 1) {
       // Check for internal dependencies
-      const needsSplitting = phase.agents.some(agentId => {
+      const needsSplitting = phase.agents.some((agentId) => {
         const metadata = getAgentMetadata(agentId);
-        return metadata?.inputs.some(dep => phase.agents.includes(dep));
+        return metadata?.inputs.some((dep) => phase.agents.includes(dep));
       });
-      
+
       if (needsSplitting) {
-        console.log(`[Plan] Splitting phase ${phase.name} due to internal dependencies`);
-        
+        console.log(
+          `[Plan] Splitting phase ${phase.name} due to internal dependencies`,
+        );
+
         // Find agents with dependencies on other agents in this phase
         const hasInternalDeps: string[] = [];
         const noInternalDeps: string[] = [];
-        
+
         for (const agentId of phase.agents) {
           const metadata = getAgentMetadata(agentId);
-          const hasDep = metadata?.inputs.some(dep => phase.agents.includes(dep));
+          const hasDep = metadata?.inputs.some((dep) =>
+            phase.agents.includes(dep),
+          );
           if (hasDep) {
             hasInternalDeps.push(agentId);
           } else {
             noInternalDeps.push(agentId);
           }
         }
-        
+
         // Add phase for agents without internal deps (can run in parallel)
         if (noInternalDeps.length > 0) {
           fixedPhases.push({
@@ -184,7 +218,7 @@ function fixPlan(plan: ExecutionPlan): ExecutionPlan {
             runInParallel: noInternalDeps.length > 1,
           });
         }
-        
+
         // Add separate phase for agents with internal deps (must run after)
         for (const agentId of hasInternalDeps) {
           fixedPhases.push({
@@ -200,7 +234,7 @@ function fixPlan(plan: ExecutionPlan): ExecutionPlan {
       fixedPhases.push(phase);
     }
   }
-  
+
   return {
     ...plan,
     phases: fixedPhases,
@@ -221,20 +255,8 @@ export async function createExecutionPlan(
   context: AgentContext,
   tenantId: string,
   jobId: string,
-  model = 'gpt-4o-mini'
+  model = "gpt-4o-mini",
 ): Promise<ExecutionPlan> {
-  const trace = createTrace({
-    name: 'execution-plan-generation',
-    userId: tenantId,
-    metadata: { jobId, domain, url: targetUrl },
-  });
-
-  const generation = trace.generation({
-    name: 'plan-generation',
-    model,
-    input: { url: targetUrl, domain },
-  });
-
   try {
     // Build context summary for LLM
     const contextSummary = buildContextSummary(context);
@@ -248,10 +270,10 @@ Your task is to create an execution plan that determines:
 4. Estimated duration
 
 Available agents (USE ONLY THESE):
-- Discovery: ${AVAILABLE_AGENTS.discovery.join(', ')}
-- Research: ${AVAILABLE_AGENTS.research.join(', ')}
-- Analysis: ${AVAILABLE_AGENTS.analysis.join(', ')}
-- Output: ${AVAILABLE_AGENTS.output.join(', ')}
+- Discovery: ${AVAILABLE_AGENTS.discovery.join(", ")}
+- Research: ${AVAILABLE_AGENTS.research.join(", ")}
+- Analysis: ${AVAILABLE_AGENTS.analysis.join(", ")}
+- Output: ${AVAILABLE_AGENTS.output.join(", ")}
 
 NOTE: Do NOT include these disabled agents: google-aio, perplexity
 
@@ -286,7 +308,9 @@ Generate a plan that:
 3. Parallelizes agents when possible
 4. Estimates realistic duration`;
 
-    console.log(`[${AGENT_NAME}] Calling LLM for execution plan (timeout: ${LLM_TIMEOUT_MS / 1000}s)...`);
+    console.log(
+      `[${AGENT_NAME}] Calling LLM for execution plan (timeout: ${LLM_TIMEOUT_MS / 1000}s)...`,
+    );
     const startTime = Date.now();
 
     const result = await withProviderFallback(
@@ -299,63 +323,53 @@ Generate a plan that:
           temperature: 0.3, // Slight creativity for plan optimization
           abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
         }),
-      AGENT_NAME
+      AGENT_NAME,
     );
 
     const duration = ((Date.now() - startTime) / 1000).toFixed(1);
     console.log(`[${AGENT_NAME}] LLM call completed in ${duration}s`);
 
     let finalPlan = result.object as ExecutionPlan;
-    
+
     // First, sanitize the plan to remove disabled agents
     finalPlan = sanitizePlan(finalPlan);
-    
+
     // Validate the LLM-generated plan
-    console.log(`[Plan] Validating LLM-generated plan with ${finalPlan.phases.length} phases`);
+    console.log(
+      `[Plan] Validating LLM-generated plan with ${finalPlan.phases.length} phases`,
+    );
     const validation = validatePlan(finalPlan);
-    
+
     if (!validation.valid) {
-      console.warn(`[Plan] LLM plan has dependency issues: ${validation.errors.join('; ')}`);
-      
+      console.warn(
+        `[Plan] LLM plan has dependency issues: ${validation.errors.join("; ")}`,
+      );
+
       // Try to fix the plan
       const fixedPlan = fixPlan(finalPlan);
       const fixValidation = validatePlan(fixedPlan);
-      
+
       if (fixValidation.valid) {
         console.log(`[Plan] Fixed plan is valid, using fixed version`);
         finalPlan = fixedPlan;
       } else {
-        console.warn(`[Plan] Could not fix plan, falling back to static plan. Remaining errors: ${fixValidation.errors.join('; ')}`);
+        console.warn(
+          `[Plan] Could not fix plan, falling back to static plan. Remaining errors: ${fixValidation.errors.join("; ")}`,
+        );
         // Sanitize the static plan to remove disabled agents
         finalPlan = sanitizePlan(STATIC_EXECUTION_PLAN);
       }
     } else {
       console.log(`[Plan] LLM-generated plan is valid`);
     }
-    
+
     // Log the final plan
-    console.log(`[Plan] Final execution plan: ${JSON.stringify(finalPlan.phases.map(p => ({ name: p.name, agents: p.agents, parallel: p.runInParallel })))}`);
-
-    generation.end({
-      output: finalPlan,
-      usage: {
-        promptTokens: result.usage?.promptTokens,
-        completionTokens: result.usage?.completionTokens,
-      },
-    });
-
-    // Non-blocking flush - observability should never block business logic
-    void safeFlush();
+    console.log(
+      `[Plan] Final execution plan: ${JSON.stringify(finalPlan.phases.map((p) => ({ name: p.name, agents: p.agents, parallel: p.runInParallel })))}`,
+    );
 
     return finalPlan;
   } catch (error) {
-    generation.end({
-      output: null,
-      level: 'ERROR',
-      statusMessage: (error as Error).message,
-    });
-    // Non-blocking flush - still try to log errors
-    void safeFlush();
     throw error;
   }
 }
@@ -365,19 +379,19 @@ Generate a plan that:
  */
 function buildContextSummary(context: AgentContext): string {
   const completed = Object.values(context.summaries)
-    .filter(s => s.status === 'completed')
-    .map(s => `- ${s.agentId}: ${s.summary}`)
-    .join('\n');
+    .filter((s) => s.status === "completed")
+    .map((s) => `- ${s.agentId}: ${s.summary}`)
+    .join("\n");
 
   const running = Object.values(context.summaries)
-    .filter(s => s.status === 'running')
-    .map(s => s.agentId)
-    .join(', ');
+    .filter((s) => s.status === "running")
+    .map((s) => s.agentId)
+    .join(", ");
 
   return `Completed agents:
-${completed || 'None'}
+${completed || "None"}
 
-Running agents: ${running || 'None'}
+Running agents: ${running || "None"}
 
 Total agents: ${Object.keys(context.summaries).length}`;
 }

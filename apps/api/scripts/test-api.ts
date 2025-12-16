@@ -6,7 +6,9 @@
  * Tests the PropIntel API endpoints including:
  * - Health check
  * - Job creation
- * - Report retrieval
+ * - Authentication
+ *
+ * Note: Report retrieval is now handled via tRPC routes that read S3 directly.
  *
  * Usage:
  *   npm run test:api                    # Test against local serverless-offline
@@ -16,7 +18,6 @@
 
 import * as https from 'https';
 import * as http from 'http';
-import { getJobById } from '../src/lib/db';
 
 // ===================
 // Configuration
@@ -257,52 +258,6 @@ async function testCreateJob(config: TestConfig): Promise<string> {
   return jobId;
 }
 
-async function testGetReport(config: TestConfig, jobId: string): Promise<void> {
-  // First check if job is completed using direct DB query
-  const job = await getJobById(jobId);
-
-  if (!job) {
-    throw new Error(`Job ${jobId} not found`);
-  }
-
-  const jobStatus = job.status;
-
-  if (jobStatus === 'completed') {
-    // Try to get JSON report
-    const jsonResponse = await makeRequest(`${config.apiUrl}/jobs/${jobId}/report?format=json`, {
-      method: 'GET',
-      path: `/jobs/${jobId}/report?format=json`,
-      headers: {
-        'X-Api-Key': config.apiKey,
-      },
-    });
-
-    if (jsonResponse.statusCode === 200) {
-      const report = JSON.parse(jsonResponse.body);
-      if (!report.meta || !report.scores) {
-        throw new Error('Report missing required fields');
-      }
-
-      if (config.verbose) {
-        console.log('  Report scores:', JSON.stringify(report.scores, null, 2));
-      }
-    } else if (jsonResponse.statusCode === 404) {
-      // Report not found yet, this is okay
-      if (config.verbose) {
-        console.log('  Report not yet available (this is normal for in-progress jobs)');
-      }
-    } else {
-      const errorBody = JSON.parse(jsonResponse.body);
-      throw new Error(`Unexpected status ${jsonResponse.statusCode}: ${errorBody.error?.message || jsonResponse.body}`);
-    }
-  } else {
-    if (config.verbose) {
-      console.log(`  Job status is '${jobStatus}', report not yet available`);
-    }
-    // This is expected for jobs that haven't completed yet
-  }
-}
-
 async function testUnauthenticatedRequest(config: TestConfig): Promise<void> {
   const response = await makeRequest(`${config.apiUrl}/jobs`, {
     method: 'POST',
@@ -348,7 +303,8 @@ async function main(): Promise<void> {
   });
 
   if (createdJobId) {
-    await runTest('Get Report (if available)', () => testGetReport(config, createdJobId!));
+    console.log(`\n  Job created with ID: ${createdJobId}`);
+    console.log('  Note: Report retrieval is now handled via tRPC routes.');
   }
 
   // Print summary
