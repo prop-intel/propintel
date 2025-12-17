@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { motion } from "motion/react";
 import { LayoutDashboard, LogOut } from "lucide-react";
 import { useSession, signOut } from "next-auth/react";
+import { QRShare } from "@/components/landing/qr-share";
 
 export function Navbar() {
   const { data: session } = useSession();
@@ -42,6 +43,7 @@ export function Navbar() {
         </nav>
 
         <div className="flex items-center gap-4">
+          <QRShare />
           {session ? (
             <>
               <Link href="/dashboard">

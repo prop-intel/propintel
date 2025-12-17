@@ -7,8 +7,8 @@ import { TRPCReactProvider } from "@/trpc/react";
 
 export const metadata: Metadata = {
   title: {
-    default: "BrandSight - AI Crawler Analytics Dashboard",
-    template: "%s | BrandSight",
+    default: "Brand-Sight - AI Crawler Analytics Dashboard",
+    template: "%s | Brand-Sight",
   },
   description:
     "Track and analyze AI crawler visits to your website. Monitor search engines, AI training bots, and research crawlers with real-time analytics and insights.",
@@ -22,9 +22,9 @@ export const metadata: Metadata = {
     "bot detection",
     "crawler heatmap",
   ],
-  authors: [{ name: "BrandSight" }],
-  creator: "BrandSight",
-  publisher: "BrandSight",
+  authors: [{ name: "Brand-Sight" }],
+  creator: "Brand-Sight",
+  publisher: "Brand-Sight",
   robots: {
     index: true,
     follow: true,
@@ -40,23 +40,23 @@ export const metadata: Metadata = {
     type: "website",
     locale: "en_US",
     url: "https://brand-sight.com",
-    title: "BrandSight - AI Crawler Analytics Dashboard",
+    title: "Brand-Sight - AI Crawler Analytics Dashboard",
     description:
       "Track and analyze AI crawler visits to your website. Monitor search engines, AI training bots, and research crawlers with real-time analytics.",
-    siteName: "BrandSight",
+    siteName: "Brand-Sight",
     images: [
       {
         url: "/opengraph-image.png",
         width: 1200,
         height: 630,
-        alt: "BrandSight - AI Crawler Analytics Dashboard",
+        alt: "Brand-Sight - AI Crawler Analytics Dashboard",
         type: "image/png",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "BrandSight - AI Crawler Analytics Dashboard",
+    title: "Brand-Sight - AI Crawler Analytics Dashboard",
     description:
       "Track and analyze AI crawler visits to your website. Monitor search engines, AI training bots, and research crawlers with real-time analytics.",
     images: ["/opengraph-image.png"],
