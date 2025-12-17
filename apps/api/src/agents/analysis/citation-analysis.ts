@@ -52,8 +52,8 @@ export async function analyzeCitationPatterns(
   citations: QueryCitation[],
   searchResults: TavilySearchResult[],
   targetDomain: string,
-  tenantId: string,
-  jobId: string,
+  _tenantId: string,
+  _jobId: string,
 ): Promise<CitationAnalysisResult> {
   try {
     // Calculate basic metrics

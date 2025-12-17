@@ -313,8 +313,8 @@ export interface CommunitySignalsResult {
 export async function searchCommunitySignals(
   domain: string,
   brandName: string,
-  tenantId: string,
-  jobId: string,
+  _tenantId: string,
+  _jobId: string,
 ): Promise<CommunitySignalsResult> {
   if (!isConfigured()) {
     return createEmptyCommunityResult();

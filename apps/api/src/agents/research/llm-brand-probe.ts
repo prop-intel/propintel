@@ -247,8 +247,6 @@ export async function probeLLMsForBrand(
 
     return aggregate;
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-
     throw error;
   }
 }
@@ -263,8 +261,8 @@ export async function probeLLMsForBrand(
 async function generateProbePrompts(
   input: LLMBrandProbeInput,
   promptCount: number,
-  tenantId: string,
-  jobId: string,
+  _tenantId: string,
+  _jobId: string,
 ): Promise<ProbePrompt[]> {
   try {
     const systemPrompt = `You are an expert at understanding how people ask AI assistants questions.
@@ -421,7 +419,7 @@ async function probeSinglePrompt(
       response: responseText,
       ...analysis,
       probedAt: new Date().toISOString(),
-      responseTokens: response.usage?.completionTokens,
+      responseTokens: response.usage?.completionTokens as number | undefined,
     };
   } catch (error) {
     // Return a failed probe result

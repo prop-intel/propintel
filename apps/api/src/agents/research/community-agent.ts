@@ -128,8 +128,8 @@ const MAX_RESULTS_PER_QUERY = 5;
 export async function searchCommunitySignals(
   queries: TargetQuery[],
   targetDomain: string,
-  tenantId: string,
-  jobId: string,
+  _tenantId: string,
+  _jobId: string,
 ): Promise<CommunityEngagementResult> {
   if (!isConfigured()) {
     console.warn(

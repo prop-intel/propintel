@@ -606,12 +606,7 @@ async function runAEOPipeline(
   );
 
   // Calculate visibility score
-  const {
-    score: visibilityScore,
-    breakdown: _breakdown,
-    grade,
-    summary: _summary,
-  } = await calculateVisibilityScore(
+  const { score: visibilityScore, grade } = await calculateVisibilityScore(
     citationAnalysis,
     competitors,
     contentComparison,

@@ -4,7 +4,7 @@ import { useSite } from "@/contexts/site-context";
 import { api } from "@/trpc/react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RobotsViewer } from "@/components/configuration/robots-viewer";
-import { LlmsViewer } from "@/components/configuration/llms-viewer";
+import { LlmsGenerator } from "@/components/configuration/llms-generator";
 import { PermissionMatrix } from "@/components/configuration/permission-matrix";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -66,28 +66,39 @@ export default function ConfigurationPage() {
         </TabsList>
 
         {/* robots.txt / llms.txt Tab */}
-        <TabsContent value="robots" className="space-y-6">
-          <PermissionMatrix
-            permissions={permissionsQuery.data}
-            isLoading={permissionsQuery.isLoading}
-          />
+        <TabsContent value="robots">
+          <div className="grid gap-6 lg:grid-cols-3">
+            {/* Main content - txt viewers */}
+            <div className="lg:col-span-2 space-y-6">
+              <RobotsViewer
+                content={robotsQuery.data?.content ?? null}
+                found={robotsQuery.data?.found ?? false}
+                error={robotsQuery.data?.error ?? null}
+                isLoading={robotsQuery.isLoading}
+                onRefresh={() => robotsQuery.refetch()}
+              />
 
-          <div className="grid gap-6 md:grid-cols-2">
-            <RobotsViewer
-              content={robotsQuery.data?.content ?? null}
-              found={robotsQuery.data?.found ?? false}
-              error={robotsQuery.data?.error ?? null}
-              isLoading={robotsQuery.isLoading}
-              onRefresh={() => robotsQuery.refetch()}
-            />
+              <LlmsGenerator
+                siteId={activeSite.id}
+                siteName={activeSite.name ?? activeSite.domain}
+                domain={activeSite.domain}
+                existingContent={llmsQuery.data?.content ?? null}
+                existingFound={llmsQuery.data?.found ?? false}
+                existingError={llmsQuery.data?.error ?? null}
+                existingLoading={llmsQuery.isLoading}
+                onRefreshExisting={() => llmsQuery.refetch()}
+              />
+            </div>
 
-            <LlmsViewer
-              content={llmsQuery.data?.content ?? null}
-              found={llmsQuery.data?.found ?? false}
-              error={llmsQuery.data?.error ?? null}
-              isLoading={llmsQuery.isLoading}
-              onRefresh={() => llmsQuery.refetch()}
-            />
+            {/* Sidebar - permission matrix */}
+            <div className="lg:col-span-1">
+              <div className="sticky top-6">
+                <PermissionMatrix
+                  permissions={permissionsQuery.data}
+                  isLoading={permissionsQuery.isLoading}
+                />
+              </div>
+            </div>
           </div>
         </TabsContent>
 

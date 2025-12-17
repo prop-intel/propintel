@@ -66,13 +66,13 @@ export function PermissionMatrix({ permissions, isLoading }: PermissionMatrixPro
           </TableHeader>
           <TableBody>
             {Object.entries(byCompany).map(([company, crawlers]) =>
-              crawlers.map((crawler, idx) => {
+              crawlers.map((crawler) => {
                 const config = statusConfig[crawler.status];
                 const Icon = config.icon;
                 return (
                   <TableRow key={crawler.id}>
                     <TableCell className="font-medium">{crawler.name}</TableCell>
-                    <TableCell>{idx === 0 ? company : ""}</TableCell>
+                    <TableCell>{company}</TableCell>
                     <TableCell className="text-center">
                       <Badge variant={config.variant} className="gap-1">
                         <Icon className="h-3 w-3" />

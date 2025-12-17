@@ -3,7 +3,6 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { motion } from "motion/react";
-import Link from "next/link";
 import { Bot, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { ScoreDashboard } from "@/components/analysis/score-dashboard";

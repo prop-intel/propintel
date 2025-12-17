@@ -82,6 +82,7 @@ export default function RootLayout({
       <body>
         <TRPCReactProvider>{children}</TRPCReactProvider>
         {/* AI Crawler Tracking Pixel */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="https://brand-sight.com/api/pixel/3q4SCx-rqOqxlGnE"
           alt=""

@@ -268,7 +268,7 @@ export const deleteSchedule: APIGatewayProxyHandlerV2 = async (event) => {
 export const handleScheduledCrawl: EventBridgeHandler<'Scheduled Event', ScheduledEvent, void> = async (event) => {
   console.log('Scheduled crawl triggered:', JSON.stringify(event));
 
-  const { scheduleId: _scheduleId, userId, targetUrl, config } = event.detail || (event as unknown as ScheduledEvent);
+  const { userId, targetUrl, config } = event.detail || (event as unknown as ScheduledEvent);
 
   try {
     // Verify user exists

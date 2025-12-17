@@ -21,9 +21,9 @@ import { type TargetQuery, type PerplexityResult } from "../../types";
  */
 export async function searchPerplexity(
   queries: TargetQuery[],
-  targetDomain: string,
-  tenantId: string,
-  jobId: string,
+  _targetDomain: string,
+  _tenantId: string,
+  _jobId: string,
 ): Promise<PerplexityResult[]> {
   try {
     // TODO: Implement actual Perplexity integration
