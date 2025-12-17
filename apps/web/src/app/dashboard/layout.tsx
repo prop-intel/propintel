@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { unstable_noStore as noStore } from "next/cache";
 import { ThemeProvider } from "next-themes";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { SiteProvider } from "@/contexts/site-context";
@@ -11,6 +12,8 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
+  noStore(); // Ensure layout is always dynamically rendered
+
   const session = await auth();
   const user = session?.user ?? { name: null, email: null, image: null };
 

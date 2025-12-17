@@ -49,7 +49,11 @@ export function SiteSwitcher() {
   const handleDelete = async (e: React.MouseEvent, siteId: string) => {
     e.stopPropagation();
 
-    if (!confirm("Are you sure you want to delete this site? This action cannot be undone.")) {
+    if (
+      !confirm(
+        "Are you sure you want to delete this site? This action cannot be undone.",
+      )
+    ) {
       return;
     }
 
@@ -127,18 +131,20 @@ export function SiteSwitcher() {
               <DropdownMenuItem
                 key={site.id}
                 onClick={() => setActiveSite(site)}
-                className="gap-2 p-2 group justify-between cursor-pointer"
+                className="group cursor-pointer justify-between gap-2 p-2"
               >
                 <div className="flex items-center gap-2 overflow-hidden">
                   <div className="flex size-6 shrink-0 items-center justify-center rounded-md border">
                     <Globe className="size-3.5 shrink-0" />
                   </div>
-                  <span className="truncate text-sm">{site.name ?? site.domain}</span>
+                  <span className="truncate text-sm">
+                    {site.name ?? site.domain}
+                  </span>
                 </div>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/10 hover:text-destructive shrink-0"
+                  className="hover:bg-destructive/10 hover:text-destructive h-6 w-6 shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
                   onClick={(e) => handleDelete(e, site.id)}
                 >
                   <Trash2 className="size-3.5" />

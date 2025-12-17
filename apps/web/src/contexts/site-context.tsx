@@ -4,6 +4,7 @@ import {
   createContext,
   useContext,
   useState,
+  useEffect,
   type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
@@ -38,6 +39,16 @@ export function SiteProvider({
 }: SiteProviderProps) {
   const router = useRouter();
   const [activeSite, setActiveSiteState] = useState<Site | null>(initialActiveSite);
+  const [sites, setSites] = useState<Site[]>(initialSites);
+
+  // Sync with server props when they change (after router.refresh() or page reload)
+  useEffect(() => {
+    setActiveSiteState(initialActiveSite);
+  }, [initialActiveSite?.id]);
+
+  useEffect(() => {
+    setSites(initialSites);
+  }, [initialSites]);
 
   const setActiveSite = (site: Site | null) => {
     if (site) {
@@ -54,7 +65,7 @@ export function SiteProvider({
       value={{
         activeSite,
         setActiveSite,
-        sites: initialSites,
+        sites,
         isLoading: false,
       }}
     >
