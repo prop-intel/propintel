@@ -170,7 +170,7 @@ export const create: APIGatewayProxyHandlerV2 = async (
     competitors: request.competitors || [],
     webhookUrl: request.webhookUrl,
     authConfig: request.authConfig,
-    llmModel: request.llmModel || "gpt-5.2-2025-12-11",
+    llmModel: request.llmModel || "gpt-4o-mini",
     progress: {
       pagesCrawled: 0,
       pagesTotal: 0,

@@ -10,18 +10,22 @@
  * 2. Probe LLMs with those prompts and analyze for brand mentions
  */
 
+import { createOpenAI } from "@ai-sdk/openai";
 import { generateObject, generateText } from "ai";
 import { z } from "zod";
-import {
-  withProviderFallback,
-  withRetry,
-  openai,
-  LLM_TIMEOUT_MS,
-} from "../../lib/llm-utils";
+import { LLM_TIMEOUT_MS } from "../../lib/llm-utils";
 import { type PageAnalysis, type TargetQuery } from "../../types";
 
 // Agent name for logging
 const AGENT_NAME = "LLM Brand Probe";
+
+// ===================
+// Client Initialization
+// ===================
+
+const openai = createOpenAI({
+  apiKey: process.env.OPENAI_API_KEY || "",
+});
 
 // ===================
 // Configuration
@@ -318,18 +322,14 @@ Focus on prompts where this brand SHOULD appear if it's well-known in its space.
       `[${AGENT_NAME}] Generating probe prompts (timeout: ${LLM_TIMEOUT_MS / 1000}s)...`,
     );
 
-    const result = await withProviderFallback(
-      (provider) =>
-        generateObject({
-          model: provider("gpt-4o-mini"),
-          schema: GeneratedPromptsSchema,
-          system: systemPrompt,
-          prompt: userPrompt,
-          temperature: 0.7, // Some creativity for diverse prompts
-          abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
-        }),
-      AGENT_NAME,
-    );
+    const result = await generateObject({
+      model: openai("gpt-4o-mini"),
+      schema: GeneratedPromptsSchema,
+      system: systemPrompt,
+      prompt: userPrompt,
+      temperature: 0.7, // Some creativity for diverse prompts
+      abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
+    });
 
     const promptsResult = result.object;
     const prompts: ProbePrompt[] = promptsResult.prompts.map(
@@ -390,19 +390,13 @@ async function probeSinglePrompt(
   _jobId: string,
 ): Promise<LLMProbeResult> {
   try {
-    // Step 1: Get response from LLM (with retries - no fallback since we're testing specific model)
-    const response = await withRetry(
-      () =>
-        generateText({
-          model: openai(model),
-          prompt: probePrompt.prompt,
-          maxTokens: 500,
-          temperature: 0.3, // Lower temperature for more consistent responses
-          abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
-        }),
-      AGENT_NAME,
-      "OpenAI",
-    );
+    // Step 1: Get response from LLM (no fallback since we're testing specific model)
+    const response = await generateText({
+      model: openai(model),
+      prompt: probePrompt.prompt,
+      maxOutputTokens: 500,
+      abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
+    });
 
     const responseText = response.text;
 
@@ -421,7 +415,7 @@ async function probeSinglePrompt(
       response: responseText,
       ...analysis,
       probedAt: new Date().toISOString(),
-      responseTokens: response.usage?.completionTokens,
+      responseTokens: response.usage?.outputTokens,
     };
   } catch (error) {
     // Return a failed probe result
@@ -493,17 +487,13 @@ Determine:
 4. What's the sentiment toward the brand?
 5. Which competitors are mentioned?`;
 
-    const result = await withProviderFallback(
-      (provider) =>
-        generateObject({
-          model: provider("gpt-4o-mini"),
-          schema: MentionAnalysisSchema,
-          prompt: analysisPrompt,
-          temperature: 0,
-          abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
-        }),
-      AGENT_NAME,
-    );
+    const result = await generateObject({
+      model: openai("gpt-4o-mini"),
+      schema: MentionAnalysisSchema,
+      prompt: analysisPrompt,
+      temperature: 0,
+      abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
+    });
 
     const analysisResult = result.object;
     return {

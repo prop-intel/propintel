@@ -6,8 +6,11 @@
  * retrieval of full results.
  */
 
-import { storeAgentResult, getAgentResult } from '../../lib/s3';
-import { generateAgentSummary, generateBriefSummary } from './summary-generator';
+import { storeAgentResult, getAgentResult } from "../../lib/s3";
+import {
+  generateAgentSummary,
+  generateBriefSummary,
+} from "./summary-generator";
 
 // ===================
 // Types
@@ -15,10 +18,10 @@ import { generateAgentSummary, generateBriefSummary } from './summary-generator'
 
 export interface AgentSummary {
   agentId: string;
-  status: 'pending' | 'running' | 'completed' | 'failed';
+  status: "pending" | "running" | "completed" | "failed";
   summary: string; // LLM-generated summary
   keyFindings: string[];
-  metrics: Record<string, number>;
+  metrics: Record<string, unknown>;
   s3Key?: string; // Full data location in S3
   completedAt?: string;
   nextSteps?: string[];
@@ -60,70 +63,94 @@ export class ContextManager {
   }
 
   /**
-   * Store agent result: save full data to S3, generate summary, keep summary in memory
+   * Store agent result: save full data to S3, mark completed immediately,
+   * then generate summary in background (non-blocking).
    */
   async storeAgentResult(
     agentId: string,
     result: unknown,
-    model = 'gpt-4o-mini'
+    model = "gpt-4o-mini",
   ): Promise<void> {
     console.log(`[Context] Storing result for agent: ${agentId}`);
-    
+
     try {
-      // Store full result in S3
+      // Store full result in S3 (keep blocking - fast operation, ~1s)
       const s3Key = await storeAgentResult(
         this.context.tenantId,
         this.context.jobId,
         agentId,
-        result
+        result,
       );
       console.log(`[Context] S3 upload complete for ${agentId}: ${s3Key}`);
 
-      // Generate summary using LLM
-      let summaryData;
-      try {
-        summaryData = await generateAgentSummary(
-          agentId,
-          result,
-          this.context.tenantId,
-          this.context.jobId,
-          model
-        );
-        console.log(`[Context] Summary generated for ${agentId}, LLM status: ${summaryData.status}`);
-      } catch (summaryError) {
-        // If summary generation fails, use a default summary but still mark as completed
-        console.warn(`[Context] Summary generation failed for ${agentId}, using default:`, summaryError);
-        summaryData = {
-          summary: `Agent ${agentId} completed successfully`,
-          keyFindings: [],
-          metrics: {},
-          status: 'completed' as const,
-          nextSteps: [],
-        };
-      }
-
-      // Update context - ALWAYS mark as completed if we got this far
-      // The agent execution succeeded, regardless of what the LLM summary says
+      // Mark as completed IMMEDIATELY with placeholder summary
+      // This allows the next agent to start without waiting for LLM summary generation
       this.context.summaries[agentId] = {
         agentId,
-        status: 'completed',  // Always completed if we reach here
-        summary: summaryData.summary,
-        keyFindings: summaryData.keyFindings,
-        metrics: summaryData.metrics,
+        status: "completed",
+        summary: `Agent ${agentId} completed successfully`, // Placeholder
+        keyFindings: [],
+        metrics: {},
         s3Key,
         completedAt: new Date().toISOString(),
-        nextSteps: summaryData.nextSteps,
+        nextSteps: [],
       };
 
       this.context.s3References[agentId] = s3Key;
       this.context.metadata.lastUpdated = new Date().toISOString();
       this.updateTokenEstimate();
-      
-      console.log(`[Context] Agent ${agentId} marked as COMPLETED. Current summaries: ${Object.keys(this.context.summaries).map(k => `${k}:${this.context.summaries[k]?.status}`).join(', ')}`);
+
+      console.log(
+        `[Context] Agent ${agentId} marked as COMPLETED immediately. Current summaries: ${Object.keys(
+          this.context.summaries,
+        )
+          .map((k) => `${k}:${this.context.summaries[k]?.status}`)
+          .join(", ")}`,
+      );
+
+      // Fire-and-forget: Generate summary in background (NON-BLOCKING)
+      // This allows the pipeline to continue while summaries are generated
+      this.generateSummaryInBackground(agentId, result, model);
     } catch (error) {
       console.error(`[Context] Failed to store result for ${agentId}:`, error);
-      throw error;  // Ensure errors propagate
+      throw error; // Ensure errors propagate
     }
+  }
+
+  /**
+   * Generate summary in background and update context when ready.
+   * Does NOT block agent execution - the pipeline continues immediately.
+   */
+  private generateSummaryInBackground(
+    agentId: string,
+    result: unknown,
+    model: string,
+  ): void {
+    generateAgentSummary(
+      agentId,
+      result,
+      this.context.tenantId,
+      this.context.jobId,
+      model,
+    )
+      .then((summaryData) => {
+        // Update summary in context when ready
+        const existingSummary = this.context.summaries[agentId];
+        if (existingSummary) {
+          existingSummary.summary = summaryData.summary;
+          existingSummary.keyFindings = summaryData.keyFindings;
+          existingSummary.metrics = summaryData.metrics;
+          existingSummary.nextSteps = summaryData.nextSteps;
+          console.log(`[Context] Background summary updated for ${agentId}`);
+        }
+      })
+      .catch((err) => {
+        console.warn(
+          `[Context] Background summary failed for ${agentId}:`,
+          (err as Error).message,
+        );
+        // Keep placeholder summary - don't throw, pipeline already continued
+      });
   }
 
   /**
@@ -142,7 +169,11 @@ export class ContextManager {
       return null;
     }
 
-    return await getAgentResult<T>(this.context.tenantId, this.context.jobId, agentId);
+    return await getAgentResult<T>(
+      this.context.tenantId,
+      this.context.jobId,
+      agentId,
+    );
   }
 
   /**
@@ -167,13 +198,13 @@ export class ContextManager {
     if (!this.context.summaries[agentId]) {
       this.context.summaries[agentId] = {
         agentId,
-        status: 'running',
-        summary: '',
+        status: "running",
+        summary: "",
         keyFindings: [],
         metrics: {},
       };
     } else {
-      this.context.summaries[agentId].status = 'running';
+      this.context.summaries[agentId].status = "running";
     }
     this.context.metadata.lastUpdated = new Date().toISOString();
   }
@@ -184,7 +215,7 @@ export class ContextManager {
   markAgentFailed(agentId: string, error: string): void {
     this.context.summaries[agentId] = {
       agentId,
-      status: 'failed',
+      status: "failed",
       summary: `Agent failed: ${error}`,
       keyFindings: [],
       metrics: {},
@@ -195,16 +226,20 @@ export class ContextManager {
   /**
    * Compress context by summarizing older results more aggressively
    */
-  async compressContext(model = 'gpt-4o-mini'): Promise<void> {
+  async compressContext(model = "gpt-4o-mini"): Promise<void> {
     const summaries = Object.values(this.context.summaries);
-    const completedSummaries = summaries.filter(s => s.status === 'completed');
+    const completedSummaries = summaries.filter(
+      (s) => s.status === "completed",
+    );
 
     // If we have many completed summaries, compress the oldest ones
     if (completedSummaries.length > 5) {
       // Sort by completion time (oldest first)
       const sorted = completedSummaries
-        .filter(s => s.completedAt)
-        .sort((a, b) => (a.completedAt || '').localeCompare(b.completedAt || ''));
+        .filter((s) => s.completedAt)
+        .sort((a, b) =>
+          (a.completedAt || "").localeCompare(b.completedAt || ""),
+        );
 
       // Compress oldest 30%
       const toCompress = sorted.slice(0, Math.floor(sorted.length * 0.3));
@@ -219,7 +254,7 @@ export class ContextManager {
               fullResult,
               this.context.tenantId,
               this.context.jobId,
-              model
+              model,
             );
             summary.summary = briefSummary;
             summary.keyFindings = summary.keyFindings.slice(0, 2); // Keep only top 2

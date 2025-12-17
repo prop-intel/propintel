@@ -19,6 +19,10 @@ const TAVILY_API_URL = 'https://api.tavily.com/search';
 // Default number of results per query
 const DEFAULT_MAX_RESULTS = 10;
 
+// Timeout configuration
+const FETCH_TIMEOUT_MS = 30_000; // 30 seconds per request
+const BATCH_TIMEOUT_MS = 120_000; // 2 minutes for entire batch
+
 // ===================
 // Types
 // ===================
@@ -45,6 +49,25 @@ interface TavilyApiResponse {
     raw_content?: string;
   }>;
   response_time?: number;
+}
+
+// ===================
+// Utility Functions
+// ===================
+
+/**
+ * Wrap a promise with a timeout
+ * Rejects with an error if the promise doesn't resolve within the specified time
+ */
+export async function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  errorMessage = 'Operation timed out'
+): Promise<T> {
+  const timeout = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error(errorMessage)), ms)
+  );
+  return Promise.race([promise, timeout]);
 }
 
 // ===================
@@ -91,13 +114,23 @@ export async function search(
     requestBody.exclude_domains = excludeDomains;
   }
 
-  const response = await fetch(TAVILY_API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(requestBody),
-  });
+  // Add timeout to prevent hanging on slow/unresponsive API
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+  let response: Response;
+  try {
+    response = await fetch(TAVILY_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -135,8 +168,31 @@ export type BatchProgressCallback = (progress: {
 
 /**
  * Search Tavily for multiple queries in parallel
+ * Includes batch-level timeout to prevent hanging
  */
 export async function searchBatch(
+  queries: string[],
+  options: {
+    maxResults?: number;
+    searchDepth?: 'basic' | 'advanced';
+    includeDomains?: string[];
+    excludeDomains?: string[];
+    concurrency?: number;
+    onProgress?: BatchProgressCallback;
+  } = {}
+): Promise<TavilySearchResult[]> {
+  // Wrap entire batch operation with timeout
+  return withTimeout(
+    searchBatchInternal(queries, options),
+    BATCH_TIMEOUT_MS,
+    `Tavily batch search timed out after ${BATCH_TIMEOUT_MS / 1000}s for ${queries.length} queries`
+  );
+}
+
+/**
+ * Internal batch search implementation
+ */
+async function searchBatchInternal(
   queries: string[],
   options: {
     maxResults?: number;

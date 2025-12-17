@@ -12,7 +12,16 @@ import {
   type PageAnalysis,
   type CompetitorVisibility,
 } from "../../types";
-import { withProviderFallback, LLM_TIMEOUT_MS } from "../../lib/llm-utils";
+import { LLM_TIMEOUT_MS } from "../../lib/llm-utils";
+import { createOpenAI } from "@ai-sdk/openai";
+
+// ===================
+// Client Initialization
+// ===================
+
+const openai = createOpenAI({
+  apiKey: process.env.OPENAI_API_KEY || "",
+});
 
 // Agent name for logging
 const AGENT_NAME = "Content Comparison";
@@ -181,23 +190,19 @@ Analyze what competitors are doing better and what content gaps exist.`;
     );
     const startTime = Date.now();
 
-    const result = await withProviderFallback(
-      (provider) =>
-        generateObject({
-          model: provider(model),
-          schema: ComparisonSchema,
-          system: systemPrompt,
-          prompt: userPrompt,
-          temperature: 0,
-          abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
-        }),
-      AGENT_NAME,
-    );
+    const result = await generateObject({
+      model: openai(model),
+      schema: ComparisonSchema,
+      system: systemPrompt,
+      prompt: userPrompt,
+      temperature: 0,
+      abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
+    });
 
     const duration = ((Date.now() - startTime) / 1000).toFixed(1);
     console.log(`[${AGENT_NAME}] LLM call completed in ${duration}s`);
     console.log(
-      `[${AGENT_NAME}] Token usage: ${result.usage?.promptTokens} prompt, ${result.usage?.completionTokens} completion`,
+      `[${AGENT_NAME}] Token usage: ${result.usage?.inputTokens} prompt, ${result.usage?.outputTokens} completion`,
     );
 
     const normalized = normalizeComparisonResult(result.object);

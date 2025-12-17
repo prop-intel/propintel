@@ -6,13 +6,22 @@
  * result in the analyzed page being cited.
  */
 
+import { createOpenAI } from "@ai-sdk/openai";
 import { generateObject } from "ai";
 import { z } from "zod";
 import { type PageAnalysis, type TargetQuery } from "../../types";
-import { withProviderFallback, LLM_TIMEOUT_MS } from "../../lib/llm-utils";
+import { LLM_TIMEOUT_MS } from "../../lib/llm-utils";
 
 // Agent name for logging
 const AGENT_NAME = "Query Generation";
+
+// ===================
+// Client Initialization
+// ===================
+
+const openai = createOpenAI({
+  apiKey: process.env.OPENAI_API_KEY || "",
+});
 
 // ===================
 // Configuration
@@ -115,18 +124,14 @@ Assign relevance scores based on how well the page content answers each query.`;
     );
     const startTime = Date.now();
 
-    const result = await withProviderFallback(
-      (provider) =>
-        generateObject({
-          model: provider(model),
-          schema: QueriesSchema,
-          system: systemPrompt,
-          prompt: userPrompt,
-          temperature: 0.3, // Slight variation for query diversity
-          abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
-        }),
-      AGENT_NAME,
-    );
+    const result = await generateObject({
+      model: openai(model),
+      schema: QueriesSchema,
+      system: systemPrompt,
+      prompt: userPrompt,
+      temperature: 0.3, // Slight variation for query diversity
+      abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
+    });
 
     const duration = ((Date.now() - startTime) / 1000).toFixed(1);
     console.log(`[${AGENT_NAME}] LLM call completed in ${duration}s`);
@@ -187,18 +192,14 @@ Key Points: ${pageAnalysis.keyPoints.join("; ")}
 
 These queries should be answerable by the page content.`;
 
-    const result = await withProviderFallback(
-      (provider) =>
-        generateObject({
-          model: provider(model),
-          schema: QueriesSchema,
-          system: systemPrompt,
-          prompt: userPrompt,
-          temperature: 0.4,
-          abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
-        }),
-      AGENT_NAME,
-    );
+    const result = await generateObject({
+      model: openai(model),
+      schema: QueriesSchema,
+      system: systemPrompt,
+      prompt: userPrompt,
+      temperature: 0.4,
+      abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
+    });
 
     const normalized = normalizeQueries(result.object);
 

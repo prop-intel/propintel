@@ -51,6 +51,8 @@ export async function researchQueries(
     // Extract query strings
     const queryStrings = queries.map((q) => q.query);
 
+    console.log(`[Tavily Research] Searching ${queryStrings.length} queries:`, queryStrings);
+
     // Search all queries
     const results = await searchBatch(queryStrings, {
       maxResults: resultsPerQuery,

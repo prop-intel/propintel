@@ -8,6 +8,14 @@
 import { type ContextManager } from "./context";
 import { getAgentMetadata, areDependenciesSatisfied } from "./registry";
 import { DISABLED_AGENTS } from "./orchestrator/plan-generator";
+import { withTimeout } from "../lib/tavily";
+
+// Phase execution timeout - 3 minutes per phase (reduced since summaries no longer block)
+const PHASE_TIMEOUT_MS = 180_000;
+
+// Retry configuration
+const MAX_RETRIES = 2;
+const RETRY_DELAY_MS = 2000;
 import {
   analyzePages,
   generateTargetQueries,
@@ -82,6 +90,66 @@ function sortAgentsByDependencies(
 }
 
 // ===================
+// Retry Logic
+// ===================
+
+/**
+ * Check if an error is retryable (transient failures)
+ */
+function isRetryableError(error: Error): boolean {
+  const message = error.message.toLowerCase();
+  return (
+    message.includes("timeout") ||
+    message.includes("rate limit") ||
+    message.includes("429") ||
+    message.includes("503") ||
+    message.includes("network") ||
+    message.includes("econnreset") ||
+    message.includes("socket hang up")
+  );
+}
+
+/**
+ * Execute an agent with retry logic for transient failures
+ */
+async function executeAgentWithRetry(
+  agentId: string,
+  context: ContextManager,
+  tenantId: string,
+  jobId: string,
+  model: string,
+): Promise<void> {
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      if (attempt > 0) {
+        console.log(
+          `[Executor] Retrying ${agentId} (attempt ${attempt + 1}/${MAX_RETRIES + 1})`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
+      }
+
+      await executeAgent(agentId, context, tenantId, jobId, model);
+      return; // Success
+    } catch (error) {
+      lastError = error as Error;
+
+      // Only retry on transient errors
+      if (!isRetryableError(lastError) || attempt >= MAX_RETRIES) {
+        break;
+      }
+
+      console.warn(
+        `[Executor] ${agentId} failed (retryable): ${lastError.message}`,
+      );
+    }
+  }
+
+  throw lastError || new Error(`Agent ${agentId} failed after retries`);
+}
+
+// ===================
 // Agent Execution Functions
 // ===================
 
@@ -114,7 +182,10 @@ export async function executeAgents(
   console.log(`[Executor] Sorted agent order: ${sortedAgentIds.join(", ")}`);
 
   // Helper to check if a dependency is satisfied (completed OR disabled)
-  const isDependencySatisfied = (dep: string, completed: Set<string>): boolean => {
+  const isDependencySatisfied = (
+    dep: string,
+    completed: Set<string>,
+  ): boolean => {
     return completed.has(dep) || DISABLED_AGENTS.has(dep);
   };
 
@@ -126,7 +197,11 @@ export async function executeAgents(
 
     for (const agentId of sortedAgentIds) {
       const metadata = getAgentMetadata(agentId);
-      if (metadata?.inputs.every((dep) => isDependencySatisfied(dep, initialCompleted))) {
+      if (
+        metadata?.inputs.every((dep) =>
+          isDependencySatisfied(dep, initialCompleted),
+        )
+      ) {
         canRunNow.push(agentId);
       } else {
         mustWait.push(agentId);
@@ -140,12 +215,16 @@ export async function executeAgents(
       `[Executor] Parallel execution - must wait: ${mustWait.join(", ") || "none"}`,
     );
 
-    // Run the agents that can run in parallel
+    // Run the agents that can run in parallel (with timeout and retry)
     if (canRunNow.length > 0) {
-      await Promise.all(
-        canRunNow.map((agentId) =>
-          executeAgent(agentId, context, tenantId, jobId, model),
+      await withTimeout(
+        Promise.all(
+          canRunNow.map((agentId) =>
+            executeAgentWithRetry(agentId, context, tenantId, jobId, model),
+          ),
         ),
+        PHASE_TIMEOUT_MS,
+        `Phase execution timed out after ${PHASE_TIMEOUT_MS / 1000}s for agents: ${canRunNow.join(", ")}`,
       );
     }
 
@@ -186,15 +265,19 @@ export async function executeAgents(
         );
       }
 
-      // Run ready agents in parallel (they don't depend on each other)
+      // Run ready agents in parallel with timeout and retry (they don't depend on each other)
       if (readyToRun.length > 0) {
         console.log(
           `[Executor] Running deferred agents that are now ready: ${readyToRun.join(", ")}`,
         );
-        await Promise.all(
-          readyToRun.map((agentId) =>
-            executeAgent(agentId, context, tenantId, jobId, model),
+        await withTimeout(
+          Promise.all(
+            readyToRun.map((agentId) =>
+              executeAgentWithRetry(agentId, context, tenantId, jobId, model),
+            ),
           ),
+          PHASE_TIMEOUT_MS,
+          `Deferred agent execution timed out after ${PHASE_TIMEOUT_MS / 1000}s for agents: ${readyToRun.join(", ")}`,
         );
       }
 
@@ -203,7 +286,7 @@ export async function executeAgents(
       mustWait.push(...stillWaiting);
     }
   } else {
-    // Execute agents sequentially in dependency order
+    // Execute agents sequentially in dependency order (with timeout and retry per agent)
     for (const agentId of sortedAgentIds) {
       // Log current state before each agent
       const currentCompleted = new Set(
@@ -215,7 +298,11 @@ export async function executeAgents(
         `[Executor] Before ${agentId}, currently completed: ${Array.from(currentCompleted).join(", ") || "none"}`,
       );
 
-      await executeAgent(agentId, context, tenantId, jobId, model);
+      await withTimeout(
+        executeAgentWithRetry(agentId, context, tenantId, jobId, model),
+        PHASE_TIMEOUT_MS,
+        `Agent ${agentId} timed out after ${PHASE_TIMEOUT_MS / 1000}s`,
+      );
 
       console.log(`[Executor] Agent ${agentId} execution complete`);
     }
@@ -243,7 +330,7 @@ async function executeAgent(
   model: string,
 ): Promise<void> {
   console.log(`[Executor] >>> Starting agent: ${agentId}`);
-  
+
   // Skip disabled/stub agents
   if (DISABLED_AGENTS.has(agentId)) {
     console.log(`[Executor] Skipping disabled agent: ${agentId}`);
@@ -303,7 +390,10 @@ async function executeAgent(
     await context.storeAgentResult(agentId, result, model);
     console.log(`[Executor] <<< Agent ${agentId} completed successfully`);
   } catch (error) {
-    console.error(`[Executor] <<< Agent ${agentId} FAILED:`, (error as Error).message);
+    console.error(
+      `[Executor] <<< Agent ${agentId} FAILED:`,
+      (error as Error).message,
+    );
     context.markAgentFailed(agentId, (error as Error).message);
     throw error;
   }
@@ -327,8 +417,9 @@ async function runAgent(
 
   switch (agentId) {
     case "page-analysis": {
-      // Pages come from crawler, should be stored in context as 'pages' before this runs
-      const pages = await context.getAgentResult<CrawledPage[]>("pages");
+      // Pages come from crawler, should be stored in context as 'crawled-pages' before this runs
+      const pages =
+        await context.getAgentResult<CrawledPage[]>("crawled-pages");
       if (!pages || !Array.isArray(pages) || pages.length === 0) {
         throw new Error(
           "Pages not available in context. Ensure pages are stored before running page-analysis.",
@@ -388,6 +479,7 @@ async function runAgent(
         {
           searchResults: searchResults ?? undefined,
           businessContext,
+          model,
         },
       );
     }
@@ -423,12 +515,16 @@ async function runAgent(
           "Target queries not available. Run query-generation first.",
         );
       }
+      // Pass existing tavily-research results to avoid duplicate API calls
+      const existingSearchResults =
+        await context.getAgentResult<TavilySearchResult[]>("tavily-research");
       const { searchCommunitySignalsNew } = await import("./research");
       return await searchCommunitySignalsNew(
         targetQueries,
         ctx.domain,
         tenantId,
         jobId,
+        existingSearchResults ?? undefined,
       );
     }
 
@@ -558,7 +654,10 @@ async function runAgent(
       console.log(`[Executor] Starting recommendations agent...`);
       // Need to build AEO analysis from various sources
       const aeoAnalysis = await buildAEOAnalysisFromContext(context);
-      console.log(`[Executor] AEO analysis built:`, aeoAnalysis ? 'success' : 'null');
+      console.log(
+        `[Executor] AEO analysis built:`,
+        aeoAnalysis ? "success" : "null",
+      );
       const contentComparisonRaw = await context.getAgentResult<
         ContentComparisonResult | { skipped: boolean }
       >("content-comparison");
@@ -567,6 +666,11 @@ async function runAgent(
           "AEO analysis not available. Ensure all analysis agents have completed.",
         );
       }
+
+      // Store AEO analysis for cursor-prompt to reuse (avoids 8 duplicate S3 calls)
+      console.log(`[Executor] Storing AEO analysis for reuse by cursor-prompt...`);
+      await context.storeAgentResult("aeo-analysis", aeoAnalysis, model);
+      console.log(`[Executor] AEO analysis stored successfully`);
 
       // Handle skipped or missing content-comparison gracefully
       let contentComparison: ContentComparisonResult;
@@ -598,22 +702,33 @@ async function runAgent(
     }
 
     case "cursor-prompt": {
+      console.log(`[Executor] Starting cursor-prompt agent...`);
       const pageAnalysis =
         await context.getAgentResult<PageAnalysis>("page-analysis");
-      const aeoAnalysis = await buildAEOAnalysisFromContext(context);
+      console.log(`[Executor] page-analysis: ${pageAnalysis ? "found" : "null"}`);
+
+      // Retrieve stored AEO analysis (built and stored by recommendations agent)
+      console.log(`[Executor] Retrieving stored AEO analysis...`);
+      const aeoAnalysis =
+        await context.getAgentResult<AEOAnalysis>("aeo-analysis");
+      console.log(`[Executor] aeo-analysis: ${aeoAnalysis ? "found" : "null"}`);
+
       const recommendations =
         await context.getAgentResult<AEORecommendation[]>("recommendations");
+      console.log(`[Executor] recommendations: ${recommendations ? "found" : "null"}`);
+
       if (!pageAnalysis) {
         throw new Error("Page analysis not available.");
       }
       if (!aeoAnalysis) {
-        throw new Error("AEO analysis not available.");
+        throw new Error("AEO analysis not available. Ensure recommendations agent ran first.");
       }
       if (!recommendations || !Array.isArray(recommendations)) {
         throw new Error(
           "Recommendations not available. Run recommendations first.",
         );
       }
+      console.log(`[Executor] Calling generateCursorPrompt...`);
       return await generateCursorPrompt(
         ctx.domain,
         pageAnalysis,
@@ -643,29 +758,57 @@ async function runAgent(
 async function buildAEOAnalysisFromContext(
   context: ContextManager,
 ): Promise<AEOAnalysis | null> {
+  console.log(`[Executor] Building AEO analysis from context...`);
+
+  console.log(`[Executor] Retrieving page-analysis...`);
   const pageAnalysis =
     await context.getAgentResult<PageAnalysis>("page-analysis");
+  console.log(`[Executor] page-analysis: ${pageAnalysis ? "found" : "null"}`);
+
+  console.log(`[Executor] Retrieving query-generation...`);
   const targetQueries =
     await context.getAgentResult<TargetQuery[]>("query-generation");
+  console.log(`[Executor] query-generation: ${targetQueries ? "found" : "null"}`);
+
+  console.log(`[Executor] Retrieving tavily-research...`);
   const searchResults =
     await context.getAgentResult<TavilySearchResult[]>("tavily-research");
+  console.log(`[Executor] tavily-research: ${searchResults ? "found" : "null"}`);
+
+  console.log(`[Executor] Retrieving citations...`);
   const citations = await context.getAgentResult<QueryCitation[]>("citations");
+  console.log(`[Executor] citations: ${citations ? "found" : "null"}`);
+
+  console.log(`[Executor] Retrieving competitor-discovery...`);
   const competitors = await context.getAgentResult<CompetitorVisibility[]>(
     "competitor-discovery",
   );
+  console.log(`[Executor] competitor-discovery: ${competitors ? "found" : "null"}`);
+
+  console.log(`[Executor] Retrieving visibility-scoring...`);
   const visibilityScore = await context.getAgentResult<{ score: number }>(
     "visibility-scoring",
   );
+  console.log(`[Executor] visibility-scoring: ${visibilityScore ? "found" : "null"}`);
+
+  console.log(`[Executor] Retrieving citation-analysis...`);
   const citationAnalysis =
     await context.getAgentResult<CitationAnalysisResult>("citation-analysis");
+  console.log(`[Executor] citation-analysis: ${citationAnalysis ? "found" : "null"}`);
+
+  console.log(`[Executor] Retrieving community-signals...`);
   const communityEngagement =
     await context.getAgentResult<CommunityEngagementResult>(
       "community-signals",
     );
+  console.log(`[Executor] community-signals: ${communityEngagement ? "found" : "null"}`);
 
   if (!pageAnalysis || !targetQueries || !searchResults || !citationAnalysis) {
+    console.log(`[Executor] Missing required data for AEO analysis: pageAnalysis=${!!pageAnalysis}, targetQueries=${!!targetQueries}, searchResults=${!!searchResults}, citationAnalysis=${!!citationAnalysis}`);
     return null;
   }
+
+  console.log(`[Executor] All required data found, building AEO analysis...`);
 
   // Extract gaps from citation analysis if available
   const gaps = citationAnalysis.gaps || [];

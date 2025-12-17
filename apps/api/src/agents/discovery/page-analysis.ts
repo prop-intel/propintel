@@ -9,13 +9,22 @@
  * - Summary and key points
  */
 
+import { createOpenAI } from "@ai-sdk/openai";
 import { generateObject } from "ai";
 import { z } from "zod";
 import { type CrawledPage, type PageAnalysis } from "../../types";
-import { withProviderFallback, LLM_TIMEOUT_MS } from "../../lib/llm-utils";
+import { LLM_TIMEOUT_MS } from "../../lib/llm-utils";
 
 // Agent name for logging
 const AGENT_NAME = "Page Analysis";
+
+// ===================
+// Client Initialization
+// ===================
+
+const openai = createOpenAI({
+  apiKey: process.env.OPENAI_API_KEY || "",
+});
 
 // ===================
 // Schema Definition
@@ -159,31 +168,31 @@ ${contentContext.slice(0, 2000)}
 Word Count: ${page.wordCount}
 Schema Types Found: ${page.schemas.map((s) => s.type).join(", ") || "None"}
 
-Extract:
-1. CONTENT ANALYSIS: topic, intent, entities, content type, summary, key points
-2. BUSINESS ANALYSIS:
-   - companyName: The actual company/product name
-   - businessCategory: What type of business (saas, ecommerce, education, agency, marketplace, media, fintech, healthcare, b2b-services, consumer-app, developer-tools, ai-ml, other)
-   - businessModel: How they operate and acquire customers (be specific)
-   - competitorProfile: Describe what a REAL business competitor looks like - another company a customer would evaluate alongside this one (NOT content platforms like YouTube/Medium, NOT general information sites)`;
+Return a JSON object with these fields (all at the root level, no nesting):
+- topic: The main topic or subject of the page
+- intent: The primary user intent (informational, transactional, navigational, commercial)
+- entities: Key entities, concepts, products, or technologies mentioned (array of strings)
+- contentType: The type of content (article, product, landing, documentation, blog, other)
+- summary: A 2-3 sentence summary of what the page is about
+- keyPoints: The main points or takeaways from the page (array of 3-5 strings)
+- companyName: The actual company/product name
+- businessCategory: What type of business (saas, ecommerce, education, agency, marketplace, media, fintech, healthcare, b2b-services, consumer-app, developer-tools, ai-ml, other)
+- businessModel: How they operate and acquire customers (be specific)
+- competitorProfile: Describe what a REAL business competitor looks like - another company a customer would evaluate alongside this one (NOT content platforms like YouTube/Medium, NOT general information sites)`;
 
     console.log(
       `[${AGENT_NAME}] Calling LLM (timeout: ${LLM_TIMEOUT_MS / 1000}s)...`,
     );
     const startTime = Date.now();
 
-    const result = await withProviderFallback(
-      (provider) =>
-        generateObject({
-          model: provider(model),
-          schema: PageAnalysisSchema,
-          system: systemPrompt,
-          prompt: userPrompt,
-          temperature: 0,
-          abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
-        }),
-      AGENT_NAME,
-    );
+    const result = await generateObject({
+      model: openai(model),
+      schema: PageAnalysisSchema,
+      system: systemPrompt,
+      prompt: userPrompt,
+      temperature: 0,
+      abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
+    });
 
     const duration = ((Date.now() - startTime) / 1000).toFixed(1);
     console.log(`[${AGENT_NAME}] LLM call completed in ${duration}s`);

@@ -4,7 +4,7 @@
  * Manages scheduled/recurring crawl jobs using EventBridge.
  */
 
-import type { APIGatewayProxyHandlerV2, EventBridgeHandler } from 'aws-lambda';
+import type { APIGatewayProxyHandlerV2, EventBridgeHandler } from "aws-lambda";
 import {
   EventBridgeClient,
   PutRuleCommand,
@@ -12,12 +12,16 @@ import {
   DeleteRuleCommand,
   RemoveTargetsCommand,
   ListRulesCommand,
-} from '@aws-sdk/client-eventbridge';
-import { validateRequest } from '../lib/auth';
-import { enqueueJob } from '../lib/sqs';
-import { createJob, getUser } from '../lib/db';
-import { type ApiResponse, type CreateJobRequest, DEFAULT_CRAWL_CONFIG } from '../types';
-import { v4 as uuidv4 } from 'uuid';
+} from "@aws-sdk/client-eventbridge";
+import { validateRequest } from "../lib/auth";
+import { enqueueJob } from "../lib/sqs";
+import { createJob, getUser } from "../lib/db";
+import {
+  type ApiResponse,
+  type CreateJobRequest,
+  DEFAULT_CRAWL_CONFIG,
+} from "../types";
+import { v4 as uuidv4 } from "uuid";
 
 // ===================
 // Clients
@@ -68,25 +72,31 @@ export const createSchedule: APIGatewayProxyHandlerV2 = async (event) => {
     if (!authResult.success) {
       return formatResponse(401, {
         success: false,
-        error: { code: 'UNAUTHORIZED', message: authResult.error || 'Unauthorized' },
+        error: {
+          code: "UNAUTHORIZED",
+          message: authResult.error || "Unauthorized",
+        },
       });
     }
 
     const userId = authResult.userId;
-    const body = JSON.parse(event.body || '{}') as CreateScheduleBody;
+    const body = JSON.parse(event.body || "{}") as CreateScheduleBody;
 
     // Validate required fields
     if (!body.targetUrl) {
       return formatResponse(400, {
         success: false,
-        error: { code: 'VALIDATION_ERROR', message: 'targetUrl is required' },
+        error: { code: "VALIDATION_ERROR", message: "targetUrl is required" },
       });
     }
 
     if (!body.cronExpression) {
       return formatResponse(400, {
         success: false,
-        error: { code: 'VALIDATION_ERROR', message: 'cronExpression is required' },
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "cronExpression is required",
+        },
       });
     }
 
@@ -94,7 +104,7 @@ export const createSchedule: APIGatewayProxyHandlerV2 = async (event) => {
     if (!isValidCronExpression(body.cronExpression)) {
       return formatResponse(400, {
         success: false,
-        error: { code: 'VALIDATION_ERROR', message: 'Invalid cron expression' },
+        error: { code: "VALIDATION_ERROR", message: "Invalid cron expression" },
       });
     }
 
@@ -106,9 +116,9 @@ export const createSchedule: APIGatewayProxyHandlerV2 = async (event) => {
       new PutRuleCommand({
         Name: ruleName,
         ScheduleExpression: `cron(${body.cronExpression})`,
-        State: 'ENABLED',
+        State: "ENABLED",
         Description: `PropIntel scheduled crawl for ${body.targetUrl}`,
-      })
+      }),
     );
 
     // Create target (Lambda function)
@@ -129,7 +139,7 @@ export const createSchedule: APIGatewayProxyHandlerV2 = async (event) => {
               } as ScheduledEvent),
             },
           ],
-        })
+        }),
       );
     }
 
@@ -146,13 +156,16 @@ export const createSchedule: APIGatewayProxyHandlerV2 = async (event) => {
     return formatResponse(201, {
       success: true,
       data: { schedule },
-      meta: { requestId: event.requestContext?.requestId, timestamp: new Date().toISOString() },
+      meta: {
+        requestId: event.requestContext?.requestId,
+        timestamp: new Date().toISOString(),
+      },
     });
   } catch (error) {
-    console.error('Create schedule error:', error);
+    console.error("Create schedule error:", error);
     return formatResponse(500, {
       success: false,
-      error: { code: 'INTERNAL_ERROR', message: 'Failed to create schedule' },
+      error: { code: "INTERNAL_ERROR", message: "Failed to create schedule" },
     });
   }
 };
@@ -167,7 +180,10 @@ export const listSchedules: APIGatewayProxyHandlerV2 = async (event) => {
     if (!authResult.success) {
       return formatResponse(401, {
         success: false,
-        error: { code: 'UNAUTHORIZED', message: authResult.error || 'Unauthorized' },
+        error: {
+          code: "UNAUTHORIZED",
+          message: authResult.error || "Unauthorized",
+        },
       });
     }
 
@@ -177,31 +193,42 @@ export const listSchedules: APIGatewayProxyHandlerV2 = async (event) => {
     const response = await eventBridgeClient.send(
       new ListRulesCommand({
         NamePrefix: `propintel-${userId}-`,
-      })
+      }),
     );
 
-    const schedules: Schedule[] = (response.Rules || []).map((rule: { Name?: string; ScheduleExpression?: string; State?: string }) => {
-      const scheduleId = rule.Name?.replace(`propintel-${userId}-`, '') || '';
-      return {
-        id: scheduleId,
-        userId,
-        targetUrl: '', // Would need to store/retrieve this separately
-        cronExpression: rule.ScheduleExpression?.replace('cron(', '').replace(')', '') || '',
-        enabled: rule.State === 'ENABLED',
-        createdAt: '', // Not available from EventBridge
-      };
-    });
+    const schedules: Schedule[] = (response.Rules || []).map(
+      (rule: {
+        Name?: string;
+        ScheduleExpression?: string;
+        State?: string;
+      }) => {
+        const scheduleId = rule.Name?.replace(`propintel-${userId}-`, "") || "";
+        return {
+          id: scheduleId,
+          userId,
+          targetUrl: "", // Would need to store/retrieve this separately
+          cronExpression:
+            rule.ScheduleExpression?.replace("cron(", "").replace(")", "") ||
+            "",
+          enabled: rule.State === "ENABLED",
+          createdAt: "", // Not available from EventBridge
+        };
+      },
+    );
 
     return formatResponse(200, {
       success: true,
       data: { schedules },
-      meta: { requestId: event.requestContext?.requestId, timestamp: new Date().toISOString() },
+      meta: {
+        requestId: event.requestContext?.requestId,
+        timestamp: new Date().toISOString(),
+      },
     });
   } catch (error) {
-    console.error('List schedules error:', error);
+    console.error("List schedules error:", error);
     return formatResponse(500, {
       success: false,
-      error: { code: 'INTERNAL_ERROR', message: 'Failed to list schedules' },
+      error: { code: "INTERNAL_ERROR", message: "Failed to list schedules" },
     });
   }
 };
@@ -216,7 +243,10 @@ export const deleteSchedule: APIGatewayProxyHandlerV2 = async (event) => {
     if (!authResult.success) {
       return formatResponse(401, {
         success: false,
-        error: { code: 'UNAUTHORIZED', message: authResult.error || 'Unauthorized' },
+        error: {
+          code: "UNAUTHORIZED",
+          message: authResult.error || "Unauthorized",
+        },
       });
     }
 
@@ -226,37 +256,44 @@ export const deleteSchedule: APIGatewayProxyHandlerV2 = async (event) => {
     if (!scheduleId) {
       return formatResponse(400, {
         success: false,
-        error: { code: 'VALIDATION_ERROR', message: 'Schedule ID is required' },
+        error: { code: "VALIDATION_ERROR", message: "Schedule ID is required" },
       });
     }
 
     const ruleName = `propintel-${userId}-${scheduleId}`;
 
     // Remove targets first
-    await eventBridgeClient.send(
-      new RemoveTargetsCommand({
-        Rule: ruleName,
-        Ids: [`${scheduleId}-target`],
-      })
-    ).catch(() => { /* Ignore if no targets exist */ });
+    await eventBridgeClient
+      .send(
+        new RemoveTargetsCommand({
+          Rule: ruleName,
+          Ids: [`${scheduleId}-target`],
+        }),
+      )
+      .catch(() => {
+        /* Ignore if no targets exist */
+      });
 
     // Delete the rule
     await eventBridgeClient.send(
       new DeleteRuleCommand({
         Name: ruleName,
-      })
+      }),
     );
 
     return formatResponse(200, {
       success: true,
       data: { deleted: scheduleId },
-      meta: { requestId: event.requestContext?.requestId, timestamp: new Date().toISOString() },
+      meta: {
+        requestId: event.requestContext?.requestId,
+        timestamp: new Date().toISOString(),
+      },
     });
   } catch (error) {
-    console.error('Delete schedule error:', error);
+    console.error("Delete schedule error:", error);
     return formatResponse(500, {
       success: false,
-      error: { code: 'INTERNAL_ERROR', message: 'Failed to delete schedule' },
+      error: { code: "INTERNAL_ERROR", message: "Failed to delete schedule" },
     });
   }
 };
@@ -265,10 +302,19 @@ export const deleteSchedule: APIGatewayProxyHandlerV2 = async (event) => {
  * EventBridge scheduled event handler
  * Triggered by scheduled rules to start crawl jobs
  */
-export const handleScheduledCrawl: EventBridgeHandler<'Scheduled Event', ScheduledEvent, void> = async (event) => {
-  console.log('Scheduled crawl triggered:', JSON.stringify(event));
+export const handleScheduledCrawl: EventBridgeHandler<
+  "Scheduled Event",
+  ScheduledEvent,
+  void
+> = async (event) => {
+  console.log("Scheduled crawl triggered:", JSON.stringify(event));
 
-  const { scheduleId: _scheduleId, userId, targetUrl, config } = event.detail || (event as unknown as ScheduledEvent);
+  const {
+    scheduleId: _scheduleId,
+    userId,
+    targetUrl,
+    config,
+  } = event.detail || (event as unknown as ScheduledEvent);
 
   try {
     // Verify user exists
@@ -281,7 +327,7 @@ export const handleScheduledCrawl: EventBridgeHandler<'Scheduled Event', Schedul
     // Build the job
     const now = new Date().toISOString();
     const jobId = uuidv4();
-    
+
     const jobConfig = {
       ...DEFAULT_CRAWL_CONFIG,
       ...(config?.config || {}),
@@ -292,15 +338,15 @@ export const handleScheduledCrawl: EventBridgeHandler<'Scheduled Event', Schedul
       id: jobId,
       userId,
       targetUrl,
-      status: 'pending',
+      status: "pending",
       config: jobConfig,
       competitors: config?.competitors || [],
       webhookUrl: config?.webhookUrl,
-      llmModel: config?.llmModel || 'gpt-4o-mini',
+      llmModel: config?.llmModel || "gpt-4o-mini",
       progress: {
         pagesCrawled: 0,
         pagesTotal: 0,
-        currentPhase: 'pending',
+        currentPhase: "pending",
       },
       metrics: {
         apiCallsCount: 0,
@@ -319,7 +365,7 @@ export const handleScheduledCrawl: EventBridgeHandler<'Scheduled Event', Schedul
 
     console.log(`Scheduled crawl job ${jobId} created for user ${userId}`);
   } catch (error) {
-    console.error('Scheduled crawl failed:', error);
+    console.error("Scheduled crawl failed:", error);
     throw error;
   }
 };
@@ -331,7 +377,7 @@ export const handleScheduledCrawl: EventBridgeHandler<'Scheduled Event', Schedul
 function isValidCronExpression(expression: string): boolean {
   // Basic validation for AWS cron format
   // Format: minute hour day-of-month month day-of-week year
-  const parts = expression.split(' ');
+  const parts = expression.split(" ");
   if (parts.length !== 6) return false;
 
   // Very basic validation - AWS will do full validation
@@ -342,8 +388,8 @@ function formatResponse(statusCode: number, body: ApiResponse<unknown>) {
   return {
     statusCode,
     headers: {
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
+      "Content-Type": "application/json",
+      "Access-Control-Allow-Origin": "*",
     },
     body: JSON.stringify(body),
   };

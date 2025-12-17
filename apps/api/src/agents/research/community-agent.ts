@@ -13,7 +13,7 @@
  * - "Looking for Netlify alternatives"
  */
 
-import { type TargetQuery } from "../../types";
+import { type TargetQuery, type TavilySearchResult } from "../../types";
 import {
   searchBatch,
   isConfigured,
@@ -124,23 +124,47 @@ const MAX_RESULTS_PER_QUERY = 5;
  *
  * Uses target queries (what the brand should rank for) to find discussions
  * where the brand could participate and add value.
+ *
+ * @param existingSearchResults - Optional: reuse results from tavily-research to avoid duplicate API calls
  */
 export async function searchCommunitySignals(
   queries: TargetQuery[],
   targetDomain: string,
   tenantId: string,
   jobId: string,
+  existingSearchResults?: TavilySearchResult[],
 ): Promise<CommunityEngagementResult> {
+  console.log(
+    `[${AGENT_NAME}] Starting community engagement search for ${targetDomain}`,
+  );
+
+  // If we have existing search results, try to extract community content from them first
+  if (existingSearchResults && existingSearchResults.length > 0) {
+    console.log(
+      `[${AGENT_NAME}] Filtering ${existingSearchResults.length} existing search results for community platforms`,
+    );
+
+    const communityResults = filterCommunityResults(existingSearchResults, queries);
+
+    if (communityResults.totalOpportunities > 0) {
+      console.log(
+        `[${AGENT_NAME}] ✅ Found ${communityResults.totalOpportunities} community opportunities from existing results (0 new API calls)`,
+      );
+      return communityResults;
+    }
+
+    console.log(
+      `[${AGENT_NAME}] No community results in existing data, falling back to dedicated search`,
+    );
+  }
+
+  // Fall back to dedicated community search if no existing results or no community content found
   if (!isConfigured()) {
     console.warn(
       `[${AGENT_NAME}] Tavily not configured, returning empty results`,
     );
     return createEmptyResult();
   }
-
-  console.log(
-    `[${AGENT_NAME}] Starting community engagement search for ${targetDomain}`,
-  );
 
   try {
     // Build platform-specific search queries from target queries
@@ -509,6 +533,74 @@ function createEmptyResult(): CommunityEngagementResult {
     },
     topOpportunities: [],
     queryBreakdown: [],
+    searchedAt: new Date().toISOString(),
+  };
+}
+
+/**
+ * Filter existing Tavily search results for community platform content
+ * This allows reusing tavily-research results instead of making duplicate API calls
+ */
+function filterCommunityResults(
+  existingResults: TavilySearchResult[],
+  targetQueries: TargetQuery[],
+): CommunityEngagementResult {
+  const allOpportunities: EngagementOpportunity[] = [];
+  const queryBreakdownMap = new Map<string, number>();
+
+  for (const searchResult of existingResults) {
+    // Find the matching target query for context
+    const matchingQuery = targetQueries.find(
+      (tq) => tq.query.toLowerCase() === searchResult.query.toLowerCase()
+    ) || { query: searchResult.query };
+
+    for (const item of searchResult.results) {
+      const platform = detectPlatform(item.url);
+
+      // Only include community platform results
+      if (platform === "other") continue;
+
+      const opportunityType = detectOpportunityType(item.title, item.content);
+      const relevanceScore = calculateRelevance(
+        item,
+        matchingQuery.query,
+        opportunityType,
+      );
+
+      allOpportunities.push({
+        platform,
+        url: item.url,
+        title: item.title,
+        snippet: item.content.slice(0, 300),
+        query: matchingQuery.query,
+        relevanceScore,
+        opportunityType,
+        foundAt: new Date().toISOString(),
+      });
+
+      // Track query breakdown
+      const current = queryBreakdownMap.get(matchingQuery.query) || 0;
+      queryBreakdownMap.set(matchingQuery.query, current + 1);
+    }
+  }
+
+  // Deduplicate and sort
+  const uniqueOpportunities = deduplicateByUrl(allOpportunities);
+  uniqueOpportunities.sort((a, b) => b.relevanceScore - a.relevanceScore);
+
+  // Categorize by platform
+  const platforms = categorizePlatforms(uniqueOpportunities);
+
+  // Build query breakdown
+  const queryBreakdown = Array.from(queryBreakdownMap.entries())
+    .map(([query, count]) => ({ query, opportunitiesFound: count }))
+    .sort((a, b) => b.opportunitiesFound - a.opportunitiesFound);
+
+  return {
+    totalOpportunities: uniqueOpportunities.length,
+    platforms,
+    topOpportunities: uniqueOpportunities.slice(0, 15),
+    queryBreakdown,
     searchedAt: new Date().toISOString(),
   };
 }

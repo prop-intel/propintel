@@ -96,7 +96,9 @@ export class OrchestratorAgent {
 
       try {
         // Execute agents (parallel or sequential based on phase config)
-        console.log(`[Orchestrator] Starting executeAgents for phase ${phase.name}...`);
+        console.log(
+          `[Orchestrator] Starting executeAgents for phase ${phase.name}...`,
+        );
         await executeAgents(
           phase.agents,
           phase.runInParallel,
@@ -105,15 +107,21 @@ export class OrchestratorAgent {
           context.jobId,
           model,
         );
-        console.log(`[Orchestrator] executeAgents completed for phase ${phase.name}`);
+        console.log(
+          `[Orchestrator] executeAgents completed for phase ${phase.name}`,
+        );
 
         // Always push progress to the job as soon as a phase finishes,
         // so a failure in reasoning won't lose the completion update.
         if (onPhaseComplete) {
-          console.log(`[Orchestrator] Calling onPhaseComplete for ${phase.name}...`);
+          console.log(
+            `[Orchestrator] Calling onPhaseComplete for ${phase.name}...`,
+          );
           try {
             await onPhaseComplete(phase.name, this.getAllAgentSummaries());
-            console.log(`[Orchestrator] onPhaseComplete finished for ${phase.name}`);
+            console.log(
+              `[Orchestrator] onPhaseComplete finished for ${phase.name}`,
+            );
           } catch (callbackError) {
             console.error(
               `[Orchestrator] Failed to run onPhaseComplete for ${phase.name}:`,
@@ -123,45 +131,47 @@ export class OrchestratorAgent {
         }
 
         // Reason over results after each phase (best-effort; don't block progress)
-        let reasoning: Awaited<ReturnType<typeof reasonOverResults>> | null =
-          null;
-        console.log(`[Orchestrator] Starting reasonOverResults for ${phase.name}...`);
-        try {
-          reasoning = await reasonOverResults(
-            this.context.getContext(),
-            context.tenantId,
-            context.jobId,
-            model,
-          );
-          console.log(
-            `[Orchestrator] Phase ${phase.name} completed. Insights:`,
-            reasoning.insights,
-          );
-        } catch (reasonError) {
-          console.error(
-            `[Orchestrator] Phase ${phase.name} reasoning failed (continuing):`,
-            reasonError,
-          );
-        }
-        console.log(`[Orchestrator] Phase ${phase.name} post-processing complete, continuing to next phase...`);
+        // let reasoning: Awaited<ReturnType<typeof reasonOverResults>> | null =
+        //   null;
+        // console.log(`[Orchestrator] Starting reasonOverResults for ${phase.name}...`);
+        // try {
+        //   reasoning = await reasonOverResults(
+        //     this.context.getContext(),
+        //     context.tenantId,
+        //     context.jobId,
+        //     model,
+        //   );
+        //   console.log(
+        //     `[Orchestrator] Phase ${phase.name} completed. Insights:`,
+        //     reasoning.insights,
+        //   );
+        // } catch (reasonError) {
+        //   console.error(
+        //     `[Orchestrator] Phase ${phase.name} reasoning failed (continuing):`,
+        //     reasonError,
+        //   );
+        // }
+        console.log(
+          `[Orchestrator] Phase ${phase.name} post-processing complete, continuing to next phase...`,
+        );
 
-        // Apply adjustments if suggested
-        if ((reasoning?.adjustments?.length ?? 0) > 0) {
-          console.log(
-            `[Orchestrator] Adjustments suggested:`,
-            reasoning?.adjustments,
-          );
-          // Could modify plan here if needed
-        }
+        // // Apply adjustments if suggested
+        // if ((reasoning?.adjustments?.length ?? 0) > 0) {
+        //   console.log(
+        //     `[Orchestrator] Adjustments suggested:`,
+        //     reasoning?.adjustments,
+        //   );
+        //   // Could modify plan here if needed
+        // }
 
-        // Log reasoning suggestion but don't stop early - complete all planned phases
-        if (reasoning && !reasoning.shouldContinue) {
-          console.log(
-            `[Orchestrator] Reasoning suggests stopping, but continuing with remaining phases. Next steps:`,
-            reasoning.nextSteps,
-          );
-          // Don't break - always complete all planned phases
-        }
+        // // Log reasoning suggestion but don't stop early - complete all planned phases
+        // if (reasoning && !reasoning.shouldContinue) {
+        //   console.log(
+        //     `[Orchestrator] Reasoning suggests stopping, but continuing with remaining phases. Next steps:`,
+        //     reasoning.nextSteps,
+        //   );
+        //   // Don't break - always complete all planned phases
+        // }
 
         // Compress context if approaching limit
         if (this.context.isApproachingLimit()) {
@@ -177,7 +187,9 @@ export class OrchestratorAgent {
         throw error;
       }
     }
-    console.log(`[Orchestrator] ========== All ${totalPhases} phases complete ==========`);
+    console.log(
+      `[Orchestrator] ========== All ${totalPhases} phases complete ==========`,
+    );
   }
 
   /**

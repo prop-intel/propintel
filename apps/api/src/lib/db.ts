@@ -1,9 +1,17 @@
-import { eq, and, desc, sql, inArray } from 'drizzle-orm';
-import { db, jobs, crawledPages, reports, analyses, authUser } from '../server/db';
-import type { Job, NewJob, Analysis } from '@propintel/database';
-import type { CrawledPage as CrawledPageType, JobStatus } from '../types';
+import { eq, and, desc, sql, inArray } from "drizzle-orm";
+import {
+  db,
+  jobs,
+  crawledPages,
+  reports,
+  analyses,
+  authUser,
+} from "../server/db";
+import type { Job, NewJob, Analysis } from "@propintel/database";
+import type { CrawledPage as CrawledPageType, JobStatus } from "../types";
 
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function isValidUUID(id: string): boolean {
   return UUID_REGEX.test(id);
@@ -30,31 +38,38 @@ export async function createJob(jobData: {
   siteId?: string;
   targetUrl: string;
   status?: JobStatus;
-  config?: NewJob['config'];
+  config?: NewJob["config"];
   competitors?: string[];
   webhookUrl?: string;
-  authConfig?: NewJob['authConfig'];
+  authConfig?: NewJob["authConfig"];
   llmModel?: string;
-  progress?: NewJob['progress'];
-  metrics?: NewJob['metrics'];
+  progress?: NewJob["progress"];
+  metrics?: NewJob["metrics"];
 }): Promise<void> {
   await db.insert(jobs).values({
     id: jobData.id,
     userId: jobData.userId,
     siteId: jobData.siteId,
     targetUrl: jobData.targetUrl,
-    status: jobData.status || 'pending',
+    status: jobData.status || "pending",
     config: jobData.config,
     competitors: jobData.competitors || [],
     webhookUrl: jobData.webhookUrl,
     authConfig: jobData.authConfig,
-    llmModel: jobData.llmModel || 'gpt-4o-mini',
-    progress: jobData.progress || { pagesCrawled: 0, pagesTotal: 0, currentPhase: 'pending' },
+    llmModel: jobData.llmModel || "gpt-4o-mini",
+    progress: jobData.progress || {
+      pagesCrawled: 0,
+      pagesTotal: 0,
+      currentPhase: "pending",
+    },
     metrics: jobData.metrics || { apiCallsCount: 0, storageUsedBytes: 0 },
   });
 }
 
-export async function getJob(userId: string, jobId: string): Promise<Job | null> {
+export async function getJob(
+  userId: string,
+  jobId: string,
+): Promise<Job | null> {
   if (!isValidUUID(jobId)) {
     return null;
   }
@@ -77,31 +92,31 @@ export async function getJobById(jobId: string): Promise<Job | null> {
 // Type for job updates that supports both top-level and nested properties
 type JobUpdate = Partial<{
   status: JobStatus;
-  progress: Job['progress'];
-  metrics: Job['metrics'];
-  error: Job['error'];
-  'progress.pagesCrawled': number;
-  'progress.pagesTotal': number;
-  'progress.currentPhase': string;
-  'metrics.startedAt': string;
-  'metrics.completedAt': string;
-  'metrics.durationMs': number;
+  progress: Job["progress"];
+  metrics: Job["metrics"];
+  error: Job["error"];
+  "progress.pagesCrawled": number;
+  "progress.pagesTotal": number;
+  "progress.currentPhase": string;
+  "metrics.startedAt": string;
+  "metrics.completedAt": string;
+  "metrics.durationMs": number;
 }>;
 
 export async function updateJob(
   userId: string,
   jobId: string,
-  updates: JobUpdate
+  updates: JobUpdate,
 ): Promise<void> {
   // First try to get the job by ID only (faster, no userId check)
   // This is more resilient to timing issues where the job was just created
   let currentJob = await getJobById(jobId);
-  
+
   // If not found, try with userId (for security validation)
   if (!currentJob) {
     currentJob = await getJob(userId, jobId);
   }
-  
+
   if (!currentJob) {
     throw new Error(`Job ${jobId} not found`);
   }
@@ -115,36 +130,45 @@ export async function updateJob(
     updatedAt: new Date(),
   };
 
-  const defaultProgress = { pagesCrawled: 0, pagesTotal: 0, currentPhase: 'pending' };
+  const defaultProgress = {
+    pagesCrawled: 0,
+    pagesTotal: 0,
+    currentPhase: "pending",
+  };
   const defaultMetrics = { apiCallsCount: 0, storageUsedBytes: 0 };
 
   for (const [key, value] of Object.entries(updates)) {
-    if (key.startsWith('progress.')) {
-      const field = key.replace('progress.', '') as keyof NonNullable<Job['progress']>;
+    if (key.startsWith("progress.")) {
+      const field = key.replace("progress.", "") as keyof NonNullable<
+        Job["progress"]
+      >;
       updateValues.progress = {
         ...defaultProgress,
         ...currentJob.progress,
         [field]: value,
       };
-    } else if (key.startsWith('metrics.')) {
-      const field = key.replace('metrics.', '') as keyof NonNullable<Job['metrics']>;
+    } else if (key.startsWith("metrics.")) {
+      const field = key.replace("metrics.", "") as keyof NonNullable<
+        Job["metrics"]
+      >;
       updateValues.metrics = {
         ...defaultMetrics,
         ...currentJob.metrics,
         [field]: value,
       };
-    } else if (key === 'status') {
+    } else if (key === "status") {
       updateValues.status = value as JobStatus;
-    } else if (key === 'progress') {
-      updateValues.progress = value as Job['progress'];
-    } else if (key === 'metrics') {
-      updateValues.metrics = value as Job['metrics'];
-    } else if (key === 'error') {
-      updateValues.error = value as Job['error'];
+    } else if (key === "progress") {
+      updateValues.progress = value as Job["progress"];
+    } else if (key === "metrics") {
+      updateValues.metrics = value as Job["metrics"];
+    } else if (key === "error") {
+      updateValues.error = value as Job["error"];
     }
   }
 
-  await db.update(jobs)
+  await db
+    .update(jobs)
     .set(updateValues)
     .where(and(eq(jobs.userId, userId), eq(jobs.id, jobId)));
 }
@@ -152,7 +176,7 @@ export async function updateJob(
 export async function listJobs(
   userId: string,
   limit = 20,
-  offset = 0
+  offset = 0,
 ): Promise<{ jobs: Job[]; hasMore: boolean }> {
   const result = await db.query.jobs.findMany({
     where: eq(jobs.userId, userId),
@@ -173,7 +197,7 @@ export async function listJobsBySite(
   userId: string,
   siteId: string,
   limit = 20,
-  offset = 0
+  offset = 0,
 ): Promise<{ jobs: Job[]; hasMore: boolean }> {
   const result = await db.query.jobs.findMany({
     where: and(eq(jobs.userId, userId), eq(jobs.siteId, siteId)),
@@ -192,7 +216,7 @@ export async function listJobsBySite(
 
 export async function listJobsForUser(
   userId: string,
-  limit = 20
+  limit = 20,
 ): Promise<Job[]> {
   const result = await db.query.jobs.findMany({
     where: eq(jobs.userId, userId),
@@ -209,8 +233,8 @@ export async function getActiveJobCount(userId: string): Promise<number> {
     .where(
       and(
         eq(jobs.userId, userId),
-        inArray(jobs.status, ['pending', 'queued', 'crawling', 'analyzing'])
-      )
+        inArray(jobs.status, ["pending", "queued", "crawling", "analyzing"]),
+      ),
     );
   return Number(result[0]?.count ?? 0);
 }
@@ -220,10 +244,7 @@ export async function getDailyJobCount(userId: string): Promise<number> {
     .select({ count: sql<number>`count(*)` })
     .from(jobs)
     .where(
-      and(
-        eq(jobs.userId, userId),
-        sql`DATE(${jobs.createdAt}) = CURRENT_DATE`
-      )
+      and(eq(jobs.userId, userId), sql`DATE(${jobs.createdAt}) = CURRENT_DATE`),
     );
   return Number(result[0]?.count ?? 0);
 }
@@ -235,15 +256,15 @@ export async function getDailyJobCount(userId: string): Promise<number> {
  * - Or completed within the last 5 minutes
  */
 export async function findRecentJobForUrl(
-  userId: string, 
-  targetUrl: string
+  userId: string,
+  targetUrl: string,
 ): Promise<Job | null> {
   // Check for active jobs first
   const activeJob = await db.query.jobs.findFirst({
     where: and(
       eq(jobs.userId, userId),
       eq(jobs.targetUrl, targetUrl),
-      inArray(jobs.status, ['pending', 'queued', 'crawling', 'analyzing'])
+      inArray(jobs.status, ["pending", "queued", "crawling", "analyzing"]),
     ),
     orderBy: [desc(jobs.createdAt)],
   });
@@ -257,8 +278,8 @@ export async function findRecentJobForUrl(
     where: and(
       eq(jobs.userId, userId),
       eq(jobs.targetUrl, targetUrl),
-      eq(jobs.status, 'completed'),
-      sql`${jobs.updatedAt} > NOW() - INTERVAL '5 minutes'`
+      eq(jobs.status, "completed"),
+      sql`${jobs.updatedAt} > NOW() - INTERVAL '5 minutes'`,
     ),
     orderBy: [desc(jobs.createdAt)],
   });
@@ -272,7 +293,7 @@ export async function findRecentJobForUrl(
 
 export async function savePage(
   jobId: string,
-  page: CrawledPageType
+  page: CrawledPageType,
 ): Promise<void> {
   await db.insert(crawledPages).values({
     jobId,
@@ -302,7 +323,7 @@ export async function savePage(
 
 export async function savePages(
   jobId: string,
-  pages: CrawledPageType[]
+  pages: CrawledPageType[],
 ): Promise<void> {
   if (pages.length === 0) return;
 
@@ -343,7 +364,7 @@ export async function getPages(jobId: string): Promise<CrawledPageType[]> {
     url: page.url,
     canonicalUrl: page.canonicalUrl ?? undefined,
     statusCode: page.statusCode ?? 200,
-    contentType: page.contentType ?? 'text/html',
+    contentType: page.contentType ?? "text/html",
     title: page.title ?? undefined,
     metaDescription: page.metaDescription ?? undefined,
     h1: page.h1 ?? undefined,
@@ -353,7 +374,14 @@ export async function getPages(jobId: string): Promise<CrawledPageType[]> {
     schemas: page.data?.schemas ?? [],
     links: page.data?.links ?? { internal: [], external: [] },
     images: page.data?.images ?? [],
-    headings: page.data?.headings ?? { h1: [], h2: [], h3: [], h4: [], h5: [], h6: [] },
+    headings: page.data?.headings ?? {
+      h1: [],
+      h2: [],
+      h3: [],
+      h4: [],
+      h5: [],
+      h6: [],
+    },
     robotsMeta: page.data?.robotsMeta ?? { noindex: false, nofollow: false },
     hreflangAlternates: page.data?.hreflangAlternates ?? [],
     loadTimeMs: page.loadTimeMs ?? 0,
@@ -370,24 +398,32 @@ export async function getPages(jobId: string): Promise<CrawledPageType[]> {
 export async function saveReportReference(
   jobId: string,
   s3KeyJson: string,
-  s3KeyMarkdown?: string
+  s3KeyMarkdown?: string,
 ): Promise<void> {
-  console.log(`[DB] Saving report reference for job ${jobId}:`, { s3KeyJson, s3KeyMarkdown });
-  await db.insert(reports).values({
-    jobId,
+  console.log(`[DB] Saving report reference for job ${jobId}:`, {
     s3KeyJson,
     s3KeyMarkdown,
-  }).onConflictDoUpdate({
-    target: reports.jobId,
-    set: {
+  });
+  await db
+    .insert(reports)
+    .values({
+      jobId,
       s3KeyJson,
       s3KeyMarkdown,
-    },
-  });
+    })
+    .onConflictDoUpdate({
+      target: reports.jobId,
+      set: {
+        s3KeyJson,
+        s3KeyMarkdown,
+      },
+    });
   console.log(`[DB] Report reference saved successfully for job ${jobId}`);
 }
 
-export async function getReportReference(jobId: string): Promise<string | null> {
+export async function getReportReference(
+  jobId: string,
+): Promise<string | null> {
   const result = await db.query.reports.findFirst({
     where: eq(reports.jobId, jobId),
   });
@@ -406,31 +442,34 @@ export async function saveAnalysis(
   jobId: string,
   analysisData: {
     domain: string;
-    scores: NonNullable<Analysis['scores']>;
-    keyMetrics: NonNullable<Analysis['keyMetrics']>;
-    summary: NonNullable<Analysis['summary']>;
+    scores: NonNullable<Analysis["scores"]>;
+    keyMetrics: NonNullable<Analysis["keyMetrics"]>;
+    summary: NonNullable<Analysis["summary"]>;
     reportS3Key: string;
-  }
+  },
 ): Promise<void> {
-  await db.insert(analyses).values({
-    jobId,
-    userId,
-    domain: analysisData.domain,
-    scores: analysisData.scores,
-    keyMetrics: analysisData.keyMetrics,
-    summary: analysisData.summary,
-    reportS3Key: analysisData.reportS3Key,
-  }).onConflictDoUpdate({
-    target: analyses.jobId,
-    set: {
+  await db
+    .insert(analyses)
+    .values({
+      jobId,
+      userId,
       domain: analysisData.domain,
       scores: analysisData.scores,
       keyMetrics: analysisData.keyMetrics,
       summary: analysisData.summary,
       reportS3Key: analysisData.reportS3Key,
-      generatedAt: new Date(),
-    },
-  });
+    })
+    .onConflictDoUpdate({
+      target: analyses.jobId,
+      set: {
+        domain: analysisData.domain,
+        scores: analysisData.scores,
+        keyMetrics: analysisData.keyMetrics,
+        summary: analysisData.summary,
+        reportS3Key: analysisData.reportS3Key,
+        generatedAt: new Date(),
+      },
+    });
 }
 
 /**
@@ -452,7 +491,7 @@ export async function listAnalyses(
     domain?: string;
     limit?: number;
     offset?: number;
-  } = {}
+  } = {},
 ): Promise<{ analyses: Analysis[]; hasMore: boolean }> {
   const { domain, limit = 20, offset = 0 } = options;
 

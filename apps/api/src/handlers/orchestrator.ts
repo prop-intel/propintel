@@ -359,7 +359,7 @@ async function runAEOPipelineWithOrchestrator(
 
   // Store pages in context (needed for page-analysis agent)
   const contextManager = orchestrator.getContextManager();
-  await contextManager.storeAgentResult("pages", pages, llmModel);
+  await contextManager.storeAgentResult("crawled-pages", pages, llmModel);
 
   // Initialize and create execution plan
   const plan = await orchestrator.initialize(job.targetUrl, domain, llmModel);

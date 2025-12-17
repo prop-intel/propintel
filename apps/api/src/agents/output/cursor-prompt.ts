@@ -5,6 +5,7 @@
  * that will help optimize content for AEO.
  */
 
+import { createOpenAI } from "@ai-sdk/openai";
 import { generateObject } from "ai";
 import { z } from "zod";
 import {
@@ -13,10 +14,17 @@ import {
   type CursorPrompt,
   type PageAnalysis,
 } from "../../types";
-import { withProviderFallback, LLM_TIMEOUT_MS } from "../../lib/llm-utils";
 
 // Agent name for logging
 const AGENT_NAME = "Cursor Prompt Agent";
+
+// ===================
+// Client Initialization
+// ===================
+
+const openai = createOpenAI({
+  apiKey: process.env.OPENAI_API_KEY || "",
+});
 
 // ===================
 // Schema Definition
@@ -55,8 +63,12 @@ function normalizeCursorPrompt(data: z.infer<typeof CursorPromptSchema>) {
 // Main Function
 // ===================
 
+// Shorter timeout for cursor prompt - it's a simple generation task
+const CURSOR_PROMPT_TIMEOUT_MS = 30_000; // 30 seconds
+
 /**
  * Generate a Cursor-ready prompt for content optimization
+ * Falls back to template-based generation if LLM call fails or times out
  */
 export async function generateCursorPrompt(
   domain: string,
@@ -74,20 +86,34 @@ export async function generateCursorPrompt(
   console.log(`[${AGENT_NAME}]   - Recommendations: ${recommendations.length}`);
   console.log(`[${AGENT_NAME}]   - Model: ${model}`);
 
+  // Get high priority recommendations
+  const highPriorityRecs = recommendations
+    .filter((r) => r.priority === "high")
+    .slice(0, 5);
+
+  console.log(
+    `[${AGENT_NAME}] High priority recommendations to include: ${highPriorityRecs.length}`,
+  );
+
+  // If no high priority recommendations, skip LLM and use template
+  if (highPriorityRecs.length === 0) {
+    console.log(`[${AGENT_NAME}] No high priority recommendations, using template...`);
+    return generateQuickCursorPrompt(domain, pageAnalysis, aeoAnalysis, recommendations);
+  }
+
+  console.log(
+    `[${AGENT_NAME}] Calling LLM (timeout: ${CURSOR_PROMPT_TIMEOUT_MS / 1000}s)...`,
+  );
+  const startTime = Date.now();
+
+  // Create abort controller for manual cancellation
+  const abortController = new AbortController();
+  const timeoutId = setTimeout(() => {
+    console.log(`[${AGENT_NAME}] ⏱️ Timeout reached, aborting LLM call...`);
+    abortController.abort();
+  }, CURSOR_PROMPT_TIMEOUT_MS);
+
   try {
-    // Get high priority recommendations
-    const highPriorityRecs = recommendations
-      .filter((r) => r.priority === "high")
-      .slice(0, 5);
-
-    console.log(
-      `[${AGENT_NAME}] High priority recommendations to include: ${highPriorityRecs.length}`,
-    );
-    console.log(
-      `[${AGENT_NAME}] Calling LLM (timeout: ${LLM_TIMEOUT_MS / 1000}s)...`,
-    );
-    const startTime = Date.now();
-
     const systemPrompt = `You are an expert at creating actionable prompts for AI coding assistants like Cursor.
 
 Create a comprehensive prompt that a developer can paste directly into Cursor to optimize their content for AI search visibility.
@@ -101,6 +127,10 @@ The prompt should:
 
 Format the prompt in markdown with clear sections.`;
 
+    // Limit data size to prevent LLM hangs
+    const missedOpportunities = (aeoAnalysis.missedOpportunities || []).slice(0, 5);
+    const keyFindings = (aeoAnalysis.keyFindings || []).slice(0, 3);
+
     const userPrompt = `Create a Cursor prompt for optimizing this content:
 
 Domain: ${domain}
@@ -109,42 +139,40 @@ Content Type: ${pageAnalysis.contentType}
 Current Visibility Score: ${aeoAnalysis.visibilityScore}/100
 
 Queries to Target (not currently winning):
-${aeoAnalysis.missedOpportunities.map((q) => `- "${q}"`).join("\n")}
+${missedOpportunities.map((q) => `- "${q}"`).join("\n")}
 
 High Priority Recommendations:
 ${highPriorityRecs
+  .slice(0, 3) // Further limit to top 3
   .map(
     (r) => `
 ## ${r.title}
 ${r.description}
-Target queries: ${r.targetQueries.join(", ")}
-${r.competitorExample ? `Competitor example: ${r.competitorExample.domain} - ${r.competitorExample.whatTheyDoBetter}` : ""}
+Target queries: ${r.targetQueries.slice(0, 2).join(", ")}
 `,
   )
   .join("\n")}
 
 Key Findings:
-${aeoAnalysis.keyFindings.map((f) => `- ${f}`).join("\n")}
+${keyFindings.map((f) => `- ${f}`).join("\n")}
 
 Create a prompt that will help improve visibility for these target queries.`;
 
-    const result = await withProviderFallback(
-      (provider) =>
-        generateObject({
-          model: provider(model),
-          schema: CursorPromptSchema,
-          system: systemPrompt,
-          prompt: userPrompt,
-          temperature: 0,
-          abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
-        }),
-      AGENT_NAME,
-    );
+    const result = await generateObject({
+      model: openai(model),
+      schema: CursorPromptSchema,
+      system: systemPrompt,
+      prompt: userPrompt,
+      temperature: 0,
+      abortSignal: abortController.signal,
+    });
+
+    clearTimeout(timeoutId);
 
     const duration = ((Date.now() - startTime) / 1000).toFixed(1);
     console.log(`[${AGENT_NAME}] LLM call completed in ${duration}s`);
     console.log(
-      `[${AGENT_NAME}] Token usage: ${result.usage?.promptTokens} prompt, ${result.usage?.completionTokens} completion`,
+      `[${AGENT_NAME}] Token usage: ${result.usage?.inputTokens} prompt, ${result.usage?.outputTokens} completion`,
     );
 
     const normalized = normalizeCursorPrompt(result.object);
@@ -162,17 +190,23 @@ Create a prompt that will help improve visibility for these target queries.`;
       generatedAt: new Date().toISOString(),
     };
   } catch (error) {
+    clearTimeout(timeoutId);
     const errorMessage = (error as Error).message;
-    console.error(`[${AGENT_NAME}] ❌ Error: ${errorMessage}`);
+    console.error(`[${AGENT_NAME}] ❌ LLM Error: ${errorMessage}`);
 
-    // Check for timeout
-    if (errorMessage.includes("abort") || errorMessage.includes("timeout")) {
-      console.error(
-        `[${AGENT_NAME}] LLM call timed out after ${LLM_TIMEOUT_MS / 1000}s`,
-      );
-    }
+    // Use template fallback for ANY error (timeout, API error, etc.)
+    console.log(`[${AGENT_NAME}] ⚡ Falling back to template-based generation...`);
+    const fallbackResult = generateQuickCursorPrompt(
+      domain,
+      pageAnalysis,
+      aeoAnalysis,
+      recommendations,
+    );
+    console.log(`[${AGENT_NAME}] ✅ Fallback complete! Generated template-based prompt`);
+    console.log(`[${AGENT_NAME}]   - Prompt length: ${fallbackResult.prompt.length} chars`);
+    console.log(`[${AGENT_NAME}]   - Sections: ${fallbackResult.sections.length}`);
 
-    throw error;
+    return fallbackResult;
   }
 }
 

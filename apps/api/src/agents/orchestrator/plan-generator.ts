@@ -5,15 +5,24 @@
  * Analyzes the URL and context to create a dynamic execution plan.
  */
 
+import { createOpenAI } from "@ai-sdk/openai";
 import { generateObject } from "ai";
 import { z } from "zod";
 import { type ExecutionPlan, type ExecutionPhase } from "../../types";
 import { type AgentContext } from "../context";
 import { getAgentMetadata } from "../registry";
-import { withProviderFallback, LLM_TIMEOUT_MS } from "../../lib/llm-utils";
+import { LLM_TIMEOUT_MS } from "../../lib/llm-utils";
 
 // Agent name for logging
 const AGENT_NAME = "Plan Generator";
+
+// ===================
+// Client Initialization
+// ===================
+
+const openai = createOpenAI({
+  apiKey: process.env.OPENAI_API_KEY || "",
+});
 
 // ===================
 // Schema Definition
@@ -258,6 +267,17 @@ export async function createExecutionPlan(
   model = "gpt-4o-mini",
 ): Promise<ExecutionPlan> {
   try {
+    // Skip LLM plan generation - use static plan for reliability
+    const USE_STATIC_PLAN = true;
+    if (USE_STATIC_PLAN) {
+      console.log(`[${AGENT_NAME}] Using static execution plan`);
+      const plan = sanitizePlan(STATIC_EXECUTION_PLAN);
+      console.log(
+        `[Plan] Final execution plan: ${JSON.stringify(plan.phases.map((p) => ({ name: p.name, agents: p.agents, parallel: p.runInParallel })))}`,
+      );
+      return plan;
+    }
+
     // Build context summary for LLM
     const contextSummary = buildContextSummary(context);
 
@@ -313,18 +333,14 @@ Generate a plan that:
     );
     const startTime = Date.now();
 
-    const result = await withProviderFallback(
-      (provider) =>
-        generateObject({
-          model: provider(model),
-          schema: ExecutionPlanSchema,
-          system: systemPrompt,
-          prompt: userPrompt,
-          temperature: 0.3, // Slight creativity for plan optimization
-          abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
-        }),
-      AGENT_NAME,
-    );
+    const result = await generateObject({
+      model: openai(model),
+      schema: ExecutionPlanSchema,
+      system: systemPrompt,
+      prompt: userPrompt,
+      temperature: 0.3, // Slight creativity for plan optimization
+      abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
+    });
 
     const duration = ((Date.now() - startTime) / 1000).toFixed(1);
     console.log(`[${AGENT_NAME}] LLM call completed in ${duration}s`);

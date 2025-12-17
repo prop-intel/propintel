@@ -1,3 +1,4 @@
+import { createOpenAI } from "@ai-sdk/openai";
 import { generateText, generateObject } from "ai";
 import { z } from "zod";
 import {
@@ -6,10 +7,21 @@ import {
   type SEOAnalysis,
   type Recommendation,
 } from "../types";
-import { withProviderFallback, LLM_TIMEOUT_MS } from "./llm-utils";
 
-// Agent name for logging
-const AGENT_NAME = "AI Lib";
+// ===================
+// Client Initialization
+// ===================
+
+const openai = createOpenAI({
+  apiKey: process.env.OPENAI_API_KEY || "",
+});
+
+// ===================
+// Timeout Configuration
+// ===================
+
+// 60 second timeout for LLM API calls to prevent indefinite hangs
+const LLM_TIMEOUT_MS = 60_000;
 
 // ===================
 // Schema Definitions
@@ -104,22 +116,16 @@ SEO Analysis:
 
 Generate a comprehensive summary with specific, actionable insights.`;
 
-    const result = await withProviderFallback(
-      (provider) =>
-        generateObject({
-          model: provider(model),
-          schema: SummarySchema,
-          system: systemPrompt,
-          prompt: userPrompt,
-          temperature: 0,
-          abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
-        }),
-      AGENT_NAME,
-    );
+    const result = await generateObject({
+      model: openai(model),
+      schema: SummarySchema,
+      system: systemPrompt,
+      prompt: userPrompt,
+      temperature: 0,
+      abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
+    });
 
-    const summaryResult = result.object;
-
-    return summaryResult;
+    return result.object;
   } catch (error) {
     throw error;
   }
@@ -161,42 +167,34 @@ SEO Issues:
 
 Generate 5-10 prioritized recommendations with code snippets where applicable.`;
 
-    const result = await withProviderFallback(
-      (provider) =>
-        generateObject({
-          model: provider(model),
-          schema: RecommendationsSchema,
-          system: systemPrompt,
-          prompt: userPrompt,
-          temperature: 0,
-          abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
-        }),
-      AGENT_NAME,
-    );
-
-    const recsResult = result.object;
+    const result = await generateObject({
+      model: openai(model),
+      schema: RecommendationsSchema,
+      system: systemPrompt,
+      prompt: userPrompt,
+      temperature: 0,
+      abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
+    });
 
     // Add IDs and affected pages, normalize enum values to lowercase
-    return recsResult.recommendations.map(
-      (rec: z.infer<typeof RecommendationSchema>, index: number) => ({
-        ...rec,
-        id: `rec-${index + 1}`,
-        effort: (rec.effort?.toLowerCase() || "medium") as
-          | "low"
-          | "medium"
-          | "high",
-        priority: (rec.priority?.toLowerCase() || "medium") as
-          | "high"
-          | "medium"
-          | "low",
-        category: (rec.category?.toLowerCase() || "seo") as
-          | "llmeo"
-          | "seo"
-          | "content"
-          | "technical",
-        affectedPages: [], // Would be populated from analysis
-      }),
-    );
+    return result.object.recommendations.map((rec, index) => ({
+      ...rec,
+      id: `rec-${index + 1}`,
+      effort: (rec.effort?.toLowerCase() || "medium") as
+        | "low"
+        | "medium"
+        | "high",
+      priority: (rec.priority?.toLowerCase() || "medium") as
+        | "high"
+        | "medium"
+        | "low",
+      category: (rec.category?.toLowerCase() || "seo") as
+        | "llmeo"
+        | "seo"
+        | "content"
+        | "technical",
+      affectedPages: [], // Would be populated from analysis
+    }));
   } catch (error) {
     throw error;
   }
@@ -232,22 +230,16 @@ Next Steps: ${summary.nextSteps.join("; ")}
 
 Generate a comprehensive prompt that the content team can use to improve their site.`;
 
-    const result = await withProviderFallback(
-      (provider) =>
-        generateObject({
-          model: provider(model),
-          schema: CopyReadyPromptSchema,
-          system: systemPrompt,
-          prompt: userPrompt,
-          temperature: 0,
-          abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
-        }),
-      AGENT_NAME,
-    );
+    const result = await generateObject({
+      model: openai(model),
+      schema: CopyReadyPromptSchema,
+      system: systemPrompt,
+      prompt: userPrompt,
+      temperature: 0,
+      abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
+    });
 
-    const promptResult = result.object;
-
-    return promptResult.prompt;
+    return result.object.prompt;
   } catch (error) {
     throw error;
   }
@@ -261,19 +253,15 @@ export async function detectLanguage(
   text: string,
   model = "gpt-4o-mini",
 ): Promise<string> {
-  const result = await withProviderFallback(
-    (provider) =>
-      generateText({
-        model: provider(model),
-        prompt: `Detect the primary language of this text and respond with only the ISO 639-1 language code (e.g., "en", "es", "fr"):
+  const result = await generateText({
+    model: openai(model),
+    prompt: `Detect the primary language of this text and respond with only the ISO 639-1 language code (e.g., "en", "es", "fr"):
 
 ${text.slice(0, 1000)}`,
-        temperature: 0,
-        maxTokens: 10,
-        abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
-      }),
-    AGENT_NAME,
-  );
+    temperature: 0,
+    // maxTokens: 10,
+    abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
+  });
 
   return result.text.trim().toLowerCase().slice(0, 2);
 }

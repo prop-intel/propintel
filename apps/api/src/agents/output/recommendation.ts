@@ -5,6 +5,7 @@
  * based on AEO analysis results.
  */
 
+import { createOpenAI } from "@ai-sdk/openai";
 import { generateObject } from "ai";
 import { z } from "zod";
 import {
@@ -14,10 +15,19 @@ import {
   type CompetitorVisibility,
 } from "../../types";
 import { type ContentComparisonResult } from "../analysis/content-comparison";
-import { withProviderFallback, LLM_TIMEOUT_MS } from "../../lib/llm-utils";
+import { LLM_TIMEOUT_MS } from "../../lib/llm-utils";
+import { withTimeout } from "../../lib/tavily";
 
 // Agent name for logging
 const AGENT_NAME = "Recommendations Agent";
+
+// ===================
+// Client Initialization
+// ===================
+
+const openai = createOpenAI({
+  apiKey: process.env.OPENAI_API_KEY || "",
+});
 
 // ===================
 // Schema Definition
@@ -149,17 +159,18 @@ ${aeoAnalysis.competitors
 
 Generate 5-8 specific, prioritized recommendations.`;
 
-    const result = await withProviderFallback(
-      (provider) =>
-        generateObject({
-          model: provider(model),
-          schema: RecommendationsSchema,
-          system: systemPrompt,
-          prompt: userPrompt,
-          temperature: 0,
-          abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
-        }),
-      AGENT_NAME,
+    // Use both AbortSignal and withTimeout for robust timeout handling
+    const result = await withTimeout(
+      generateObject({
+        model: openai(model),
+        schema: RecommendationsSchema,
+        system: systemPrompt,
+        prompt: userPrompt,
+        temperature: 0,
+        abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
+      }),
+      LLM_TIMEOUT_MS + 5000, // Add 5s buffer for cleanup
+      `[${AGENT_NAME}] LLM call timed out after ${LLM_TIMEOUT_MS / 1000}s`,
     );
 
     const duration = ((Date.now() - startTime) / 1000).toFixed(1);
@@ -169,7 +180,7 @@ Generate 5-8 specific, prioritized recommendations.`;
       `[${AGENT_NAME}] Generated ${recommendationsResult.recommendations.length} recommendations`,
     );
     console.log(
-      `[${AGENT_NAME}] Token usage: ${result.usage?.promptTokens} prompt, ${result.usage?.completionTokens} completion`,
+      `[${AGENT_NAME}] Token usage: ${result.usage?.inputTokens} prompt, ${result.usage?.outputTokens} completion`,
     );
 
     // Add IDs and competitor examples, normalize enum values
@@ -217,16 +228,16 @@ Generate 5-8 specific, prioritized recommendations.`;
     return recommendations;
   } catch (error) {
     const errorMessage = (error as Error).message;
-    console.error(`[${AGENT_NAME}] ❌ Error: ${errorMessage}`);
+    console.error(`[${AGENT_NAME}] ❌ LLM Error: ${errorMessage}`);
 
-    // Check for timeout
-    if (errorMessage.includes("abort") || errorMessage.includes("timeout")) {
-      console.error(
-        `[${AGENT_NAME}] LLM call timed out after ${LLM_TIMEOUT_MS / 1000}s`,
-      );
-    }
+    // Fallback to rule-based recommendations
+    console.log(`[${AGENT_NAME}] ⚡ Falling back to rule-based generation...`);
+    const fallbackRecommendations = generateQuickRecommendations(aeoAnalysis);
+    console.log(
+      `[${AGENT_NAME}] ✅ Fallback complete! Generated ${fallbackRecommendations.length} rule-based recommendations`,
+    );
 
-    throw error;
+    return fallbackRecommendations;
   }
 }
 

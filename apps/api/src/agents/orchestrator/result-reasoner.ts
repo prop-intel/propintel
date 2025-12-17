@@ -5,13 +5,22 @@
  * and determine next steps.
  */
 
+import { createOpenAI } from "@ai-sdk/openai";
 import { generateObject } from "ai";
 import { z } from "zod";
 import { type AgentContext } from "../context";
-import { withProviderFallback, LLM_TIMEOUT_MS } from "../../lib/llm-utils";
+import { LLM_TIMEOUT_MS } from "../../lib/llm-utils";
 
 // Agent name for logging
 const AGENT_NAME = "Result Reasoner";
+
+// ===================
+// Client Initialization
+// ===================
+
+const openai = createOpenAI({
+  apiKey: process.env.OPENAI_API_KEY || "",
+});
 
 // ===================
 // Schema Definition
@@ -84,18 +93,14 @@ Provide reasoning about:
       `[${AGENT_NAME}] Calling LLM for reasoning (timeout: ${LLM_TIMEOUT_MS / 1000}s)...`,
     );
 
-    const result = await withProviderFallback(
-      (provider) =>
-        generateObject({
-          model: provider(model),
-          schema: ReasoningResultSchema,
-          system: systemPrompt,
-          prompt: userPrompt,
-          temperature: 0.2,
-          abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
-        }),
-      AGENT_NAME,
-    );
+    const result = await generateObject({
+      model: openai(model),
+      schema: ReasoningResultSchema,
+      system: systemPrompt,
+      prompt: userPrompt,
+      temperature: 0.2,
+      abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
+    });
 
     const reasoningResult = result.object;
 

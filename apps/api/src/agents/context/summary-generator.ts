@@ -6,9 +6,18 @@
  * for planning and reasoning without loading full data.
  */
 
+import { createOpenAI } from "@ai-sdk/openai";
 import { generateObject } from "ai";
 import { z } from "zod";
-import { withProviderFallback, LLM_TIMEOUT_MS } from "../../lib/llm-utils";
+import { LLM_TIMEOUT_MS } from "../../lib/llm-utils";
+
+// ===================
+// Client Initialization
+// ===================
+
+const openai = createOpenAI({
+  apiKey: process.env.OPENAI_API_KEY || "",
+});
 
 // Agent name for logging
 const AGENT_NAME = "Summary Generator";
@@ -26,9 +35,11 @@ const AgentSummarySchema = z.object({
     .optional()
     .describe("Top 3-5 key findings or insights"),
   metrics: z
-    .record(z.number())
+    .record(z.string(), z.any())
     .optional()
-    .describe("Key numeric metrics extracted from the result"),
+    .describe(
+      "Key metrics extracted from the result (can be numbers, strings, arrays, or objects)",
+    ),
   status: z
     .enum(["completed", "partial", "failed"])
     .optional()
@@ -43,7 +54,7 @@ const AgentSummarySchema = z.object({
 function normalizeAgentSummary(data: z.infer<typeof AgentSummarySchema>): {
   summary: string;
   keyFindings: string[];
-  metrics: Record<string, number>;
+  metrics: Record<string, unknown>;
   status: "completed" | "partial" | "failed";
   nextSteps?: string[];
 } {
@@ -72,7 +83,7 @@ export async function generateAgentSummary(
 ): Promise<{
   summary: string;
   keyFindings: string[];
-  metrics: Record<string, number>;
+  metrics: Record<string, unknown>;
   status: "completed" | "partial" | "failed";
   nextSteps?: string[];
 }> {
@@ -104,18 +115,14 @@ Generate a structured summary with key findings, metrics, and status.`;
       `[${AGENT_NAME}] Calling LLM for agent summary (timeout: ${LLM_TIMEOUT_MS / 1000}s)...`,
     );
 
-    const result = await withProviderFallback(
-      (provider) =>
-        generateObject({
-          model: provider(model),
-          schema: AgentSummarySchema,
-          system: systemPrompt,
-          prompt: userPrompt,
-          temperature: 0,
-          abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
-        }),
-      AGENT_NAME,
-    );
+    const result = await generateObject({
+      model: openai(model),
+      schema: AgentSummarySchema,
+      system: systemPrompt,
+      prompt: userPrompt,
+      temperature: 0,
+      abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
+    });
 
     const normalized = normalizeAgentSummary(result.object);
 
@@ -143,21 +150,15 @@ export async function generateBriefSummary(
 
     const userPrompt = `Agent: ${agentId}\nResult preview:\n${resultPreview}`;
 
-    const result = await withProviderFallback(
-      (provider) =>
-        generateObject({
-          model: provider(model),
-          schema: z.object({
-            summary: z.string().describe("One sentence summary"),
-          }),
-          system: systemPrompt,
-          prompt: userPrompt,
-          temperature: 0,
-          abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
-        }),
-      AGENT_NAME,
-    );
-
+    const result = await generateObject({
+      model: openai(model),
+      schema: z.object({
+        summary: z.string().describe("One sentence summary"),
+      }),
+      system: systemPrompt,
+      prompt: userPrompt,
+      abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
+    });
     const briefResult = result.object as { summary: string };
 
     return briefResult.summary;

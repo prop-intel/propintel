@@ -9,6 +9,7 @@
  * use business context to identify actual competitors.
  */
 
+import { createOpenAI } from "@ai-sdk/openai";
 import { generateObject } from "ai";
 import { z } from "zod";
 import {
@@ -18,10 +19,18 @@ import {
   type BusinessCategory,
 } from "../../types";
 import { searchBatch } from "../../lib/tavily";
-import { withProviderFallback, LLM_TIMEOUT_MS } from "../../lib/llm-utils";
+import { LLM_TIMEOUT_MS } from "../../lib/llm-utils";
 
 // Agent name for logging
 const AGENT_NAME = "Competitor Discovery";
+
+// ===================
+// Client Initialization
+// ===================
+
+const openai = createOpenAI({
+  apiKey: process.env.OPENAI_API_KEY || "",
+});
 
 // ===================
 // Configuration
@@ -106,25 +115,28 @@ export interface BusinessContext {
 // ===================
 
 const CompetitorValidationSchema = z.object({
-  validCompetitors: z.array(
-    z.object({
-      domain: z.string(),
-      isRealCompetitor: z
-        .boolean()
-        .describe(
-          "Is this a real business competitor where a customer could choose to go instead?",
-        ),
-      reason: z
-        .string()
-        .describe(
-          "Brief explanation of why this is or is not a real competitor",
-        ),
-      competitorType: z
-        .string()
-        .optional()
-        .describe("Type of competitor: direct, indirect, or content-only"),
-    }),
-  ),
+  validCompetitors: z
+    .array(
+      z.object({
+        domain: z.string(),
+        isRealCompetitor: z
+          .boolean()
+          .describe(
+            "Is this a real business competitor where a customer could choose to go instead?",
+          ),
+        reason: z
+          .string()
+          .describe(
+            "Brief explanation of why this is or is not a real competitor",
+          ),
+        competitorType: z
+          .string()
+          .optional()
+          .describe("Type of competitor: direct, indirect, or content-only"),
+      }),
+    )
+    .optional()
+    .describe("List of validated competitors"),
 });
 
 // ===================
@@ -143,12 +155,14 @@ export async function discoverCompetitors(
     maxCompetitors?: number;
     searchResults?: TavilySearchResult[]; // Reuse if already searched
     businessContext?: BusinessContext; // Business understanding for filtering
+    model?: string; // LLM model to use
   } = {},
 ): Promise<CompetitorVisibility[]> {
   const {
     maxCompetitors = MAX_COMPETITORS,
     searchResults,
     businessContext,
+    model = "gpt-4o-mini",
   } = options;
 
   console.log(
@@ -211,9 +225,15 @@ export async function discoverCompetitors(
     if (businessContext && competitors.length > 0) {
       console.log(`[Competitor Discovery] Validating competitors with LLM...`);
       const startTime = Date.now();
+      // Limit candidates to 10 to reduce output complexity and prevent hangs
+      const candidatesToValidate = competitors.slice(0, 10);
+      console.log(
+        `[Competitor Discovery] Passing ${candidatesToValidate.length} candidates to LLM (limited from ${competitors.length})`,
+      );
       competitors = await validateCompetitorsWithLLM(
-        competitors,
+        candidatesToValidate,
         businessContext,
+        model,
       );
       console.log(
         `[Competitor Discovery] LLM validation completed in ${Date.now() - startTime}ms, ${competitors.length} validated`,
@@ -266,6 +286,7 @@ function filterContentPlatforms(
 async function validateCompetitorsWithLLM(
   candidates: CompetitorVisibility[],
   businessContext: BusinessContext,
+  model = "gpt-4o-mini",
 ): Promise<CompetitorVisibility[]> {
   console.log(
     `[Competitor Discovery] LLM validation starting for ${candidates.length} candidates`,
@@ -307,30 +328,34 @@ For each domain, determine if it's a REAL business competitor or just a content/
     console.log(
       `[${AGENT_NAME}] Calling LLM for validation (timeout: ${LLM_TIMEOUT_MS / 1000}s)...`,
     );
+    console.log(
+      `[${AGENT_NAME}] Input prompt length: ${userPrompt.length} chars`,
+    );
+    console.log(
+      `[${AGENT_NAME}] System prompt length: ${systemPrompt.length} chars`,
+    );
+    console.log(`[${AGENT_NAME}] Model: ${model}`);
     const llmStartTime = Date.now();
 
-    const result = await withProviderFallback(
-      (provider) =>
-        generateObject({
-          model: provider("gpt-4o-mini"),
-          schema: CompetitorValidationSchema,
-          system: systemPrompt,
-          prompt: userPrompt,
-          temperature: 0,
-          abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
-        }),
-      AGENT_NAME,
-    );
+    const result = await generateObject({
+      model: openai(model),
+      schema: CompetitorValidationSchema,
+      system: systemPrompt,
+      prompt: userPrompt,
+      temperature: 0,
+      abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
+    });
 
     console.log(
       `[${AGENT_NAME}] LLM response received in ${Date.now() - llmStartTime}ms`,
     );
 
     const validationResult = result.object;
+    const validCompetitors = validationResult.validCompetitors ?? [];
 
     // Filter to only real competitors
     const validDomains = new Set(
-      validationResult.validCompetitors
+      validCompetitors
         .filter((v: { isRealCompetitor: boolean }) => v.isRealCompetitor)
         .map((v: { domain: string }) => v.domain),
     );
@@ -339,7 +364,7 @@ For each domain, determine if it's a REAL business competitor or just a content/
     return candidates
       .filter((c) => validDomains.has(c.domain))
       .map((c) => {
-        const validation = validationResult.validCompetitors.find(
+        const validation = validCompetitors.find(
           (v: { domain: string }) => v.domain === c.domain,
         );
         return {

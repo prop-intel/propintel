@@ -17,17 +17,6 @@ import { createOpenAI } from "@ai-sdk/openai";
  */
 export const LLM_TIMEOUT_MS = 60_000;
 
-/**
- * Maximum retry attempts before giving up
- */
-export const MAX_RETRIES = 3;
-
-/**
- * Base delay for exponential backoff (milliseconds)
- * Actual delays: 1s, 2s, 4s
- */
-const BASE_DELAY_MS = 1000;
-
 // ===================
 // Provider Initialization
 // ===================
@@ -48,116 +37,90 @@ export const openrouter = createOpenAI({
   baseURL: "https://openrouter.ai/api/v1",
 });
 
+export function getOpenAIClient() {
+  return createOpenAI({
+    apiKey: process.env.OPENAI_API_KEY || "",
+  });
+}
+
 /**
  * Provider type for type safety
  */
 export type LLMProvider = typeof openai;
 
 // ===================
-// Retry Logic
-// ===================
-
-/**
- * Execute a function with exponential backoff retry logic
- *
- * @param fn - The async function to execute
- * @param agentName - Name of the calling agent (for logging)
- * @param providerName - Name of the provider being used (for logging)
- * @param maxRetries - Maximum number of retry attempts
- * @returns The result of the function
- * @throws The last error if all retries fail
- *
- * @example
- * ```typescript
- * const result = await withRetry(
- *   () => generateObject({ model: openai('gpt-4o-mini'), ... }),
- *   'Page Analysis',
- *   'OpenAI'
- * );
- * ```
- */
-export async function withRetry<T>(
-  fn: () => Promise<T>,
-  agentName: string,
-  providerName: string,
-  maxRetries = MAX_RETRIES
-): Promise<T> {
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      return await fn();
-    } catch (error) {
-      const isLastAttempt = attempt === maxRetries;
-      const errorMsg = (error as Error).message;
-
-      if (isLastAttempt) {
-        console.error(
-          `[${agentName}] All ${maxRetries} attempts failed with ${providerName}`
-        );
-        throw error;
-      }
-
-      // Exponential backoff: 1s, 2s, 4s
-      const delay = BASE_DELAY_MS * Math.pow(2, attempt - 1);
-      console.log(
-        `[${agentName}] ${providerName} attempt ${attempt} failed: ${errorMsg}`
-      );
-      console.log(
-        `[${agentName}] Retrying in ${delay}ms... (${attempt}/${maxRetries})`
-      );
-      await new Promise((r) => setTimeout(r, delay));
-    }
-  }
-  // TypeScript requires this, but it's unreachable
-  throw new Error("Unreachable");
-}
-
-// ===================
 // Provider Fallback
 // ===================
 
 /**
- * Execute a function with provider fallback
- *
- * Tries the primary provider (OpenAI) first, then falls back to
- * OpenRouter if available and the primary fails.
- *
- * @param fn - Function that takes a provider and returns a promise
- * @param agentName - Name of the calling agent (for logging)
- * @returns The result of the function
- * @throws The last error if all providers fail
- *
- * @example
- * ```typescript
- * const result = await withProviderFallback(
- *   (provider) => generateObject({ model: provider('gpt-4o-mini'), ... }),
- *   'Page Analysis'
- * );
- * ```
+ * Passthrough function (fallback disabled)
  */
+// export async function withProviderFallback<T>(
+//   fn: (provider: LLMProvider) => Promise<T>,
+//   _agentName: string
+// ): Promise<T> {
+//   return fn(openai);
+// }
+
 export async function withProviderFallback<T>(
   fn: (provider: LLMProvider) => Promise<T>,
-  agentName: string
+  agentName: string,
 ): Promise<T> {
-  // Try OpenAI first with retries
+  const client = getOpenAIClient();
   try {
-    console.log(`[${agentName}] Trying OpenAI...`);
-    const result = await withRetry(() => fn(openai), agentName, "OpenAI");
-    return result;
-  } catch (openaiError) {
-    // If OpenRouter key is available, try it as fallback
-    if (process.env.OPENROUTER_API_KEY) {
-      console.log(`[${agentName}] OpenAI failed, falling back to OpenRouter...`);
-      try {
-        const result = await withRetry(() => fn(openrouter), agentName, "OpenRouter");
-        return result;
-      } catch (openrouterError) {
-        console.error(`[${agentName}] Both providers failed`);
-        throw openrouterError;
-      }
-    }
-    throw openaiError;
+    return await fn(client);
+  } catch (error) {
+    console.error(
+      `\x1b[41m\x1b[37m [${agentName}] OpenAI error: \x1b[0m`,
+      error,
+    );
+    throw error;
   }
 }
+
+// /**
+//  * Execute a function with provider fallback
+//  *
+//  * Tries the primary provider (OpenAI) first, then falls back to
+//  * OpenRouter if available and the primary fails.
+//  *
+//  * @param fn - Function that takes a provider and returns a promise
+//  * @param agentName - Name of the calling agent (for logging)
+//  * @returns The result of the function
+//  * @throws The last error if all providers fail
+//  *
+//  * @example
+//  * ```typescript
+//  * const result = await withProviderFallback(
+//  *   (provider) => generateObject({ model: provider('gpt-4o-mini'), ... }),
+//  *   'Page Analysis'
+//  * );
+//  * ```
+//  */
+// export async function withProviderFallback<T>(
+//   fn: (provider: LLMProvider) => Promise<T>,
+//   agentName: string
+// ): Promise<T> {
+//   // Try OpenAI first with retries
+//   try {
+//     console.log(`[${agentName}] Trying OpenAI...`);
+//     const result = await withRetry(() => fn(openai), agentName, "OpenAI");
+//     return result;
+//   } catch (openaiError) {
+//     // If OpenRouter key is available, try it as fallback
+//     if (process.env.OPENROUTER_API_KEY) {
+//       console.log(`[${agentName}] OpenAI failed, falling back to OpenRouter...`);
+//       try {
+//         const result = await withRetry(() => fn(openrouter), agentName, "OpenRouter");
+//         return result;
+//       } catch (openrouterError) {
+//         console.error(`[${agentName}] Both providers failed`);
+//         throw openrouterError;
+//       }
+//     }
+//     throw openaiError;
+//   }
+// }
 
 // ===================
 // Convenience Helpers
@@ -202,4 +165,3 @@ export function isRateLimitError(error: Error): boolean {
     msg.includes("too many requests")
   );
 }
-
