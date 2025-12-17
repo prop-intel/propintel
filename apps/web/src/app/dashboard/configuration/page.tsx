@@ -24,6 +24,11 @@ export default function ConfigurationPage() {
     { enabled: !!activeSite?.id },
   );
 
+  const llmsFullQuery = api.robots.fetchLlmsFullTxt.useQuery(
+    { siteId: activeSite?.id ?? "" },
+    { enabled: !!activeSite?.id },
+  );
+
   const permissionsQuery = api.robots.analyzePermissions.useQuery(
     { siteId: activeSite?.id ?? "" },
     { enabled: !!activeSite?.id },
@@ -82,11 +87,17 @@ export default function ConfigurationPage() {
                 siteId={activeSite.id}
                 siteName={activeSite.name ?? activeSite.domain}
                 domain={activeSite.domain}
-                existingContent={llmsQuery.data?.content ?? null}
-                existingFound={llmsQuery.data?.found ?? false}
-                existingError={llmsQuery.data?.error ?? null}
-                existingLoading={llmsQuery.isLoading}
-                onRefreshExisting={() => llmsQuery.refetch()}
+                existingLlmsTxtContent={llmsQuery.data?.content ?? null}
+                existingLlmsTxtFound={llmsQuery.data?.found ?? false}
+                existingLlmsTxtError={llmsQuery.data?.error ?? null}
+                existingLlmsFullTxtContent={llmsFullQuery.data?.content ?? null}
+                existingLlmsFullTxtFound={llmsFullQuery.data?.found ?? false}
+                existingLlmsFullTxtError={llmsFullQuery.data?.error ?? null}
+                existingLoading={llmsQuery.isLoading || llmsFullQuery.isLoading}
+                onRefreshExisting={() => {
+                  void llmsQuery.refetch();
+                  void llmsFullQuery.refetch();
+                }}
               />
             </div>
 

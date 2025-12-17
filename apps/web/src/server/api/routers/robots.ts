@@ -90,6 +90,44 @@ export const robotsRouter = createTRPCRouter({
       }
     }),
 
+  // Fetch llms-full.txt
+  fetchLlmsFullTxt: protectedProcedure
+    .input(z.object({ siteId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const site = await ctx.db.query.sites.findFirst({
+        where: and(
+          eq(sites.id, input.siteId),
+          eq(sites.userId, ctx.session.user.id)
+        ),
+      });
+
+      if (!site) throw new TRPCError({ code: "NOT_FOUND" });
+
+      try {
+        const response = await fetchExternal(`https://${site.domain}/llms-full.txt`, {
+          userAgent: "PropIntel-Analyzer/1.0",
+        });
+
+        if (!response.ok) {
+          if (response.status === 404) {
+            return { found: false, error: "llms-full.txt not found", content: null };
+          }
+          return { found: false, error: `HTTP ${response.status}`, content: null };
+        }
+
+        const content = await response.text();
+        return { found: true, error: null, content };
+      } catch (error) {
+        console.error(`Failed to fetch llms-full.txt for ${site.domain}:`, error);
+        const errorMessage = error instanceof Error ? error.message : "Failed to fetch";
+        return {
+          found: false,
+          error: `Failed to fetch llms-full.txt: ${errorMessage}`,
+          content: null,
+        };
+      }
+    }),
+
   // Analyze crawler permissions
   analyzePermissions: protectedProcedure
     .input(z.object({ siteId: z.string() }))

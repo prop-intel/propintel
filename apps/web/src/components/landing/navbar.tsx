@@ -13,21 +13,30 @@ export function Navbar() {
       initial={{ y: -100 }}
       animate={{ y: 0 }}
       transition={{ duration: 0.5 }}
-      className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md"
+      className="bg-background/80 fixed left-0 right-0 top-0 z-50 backdrop-blur-md"
     >
-      <div className="container relative mx-auto px-4 h-16 flex items-center justify-between">
-        <Link href="/" className="font-bold text-xl">
-          Brandsight
+      <div className="container relative mx-auto flex h-16 items-center justify-between px-4">
+        <Link href="/" className="text-xl font-bold">
+          Brand-Sight.com
         </Link>
 
-        <nav className="hidden md:flex items-center gap-5 text-sm font-medium text-muted-foreground absolute left-1/2 -translate-x-1/2">
-          <Link href="/#features" className="hover:text-foreground transition-colors">
+        <nav className="text-muted-foreground absolute left-1/2 hidden -translate-x-1/2 items-center gap-5 text-sm font-medium md:flex">
+          <Link
+            href="/#features"
+            className="hover:text-foreground transition-colors"
+          >
             Features
           </Link>
-          <Link href="/how-it-works" className="hover:text-foreground transition-colors">
+          <Link
+            href="/how-it-works"
+            className="hover:text-foreground transition-colors"
+          >
             How it Works
           </Link>
-          <Link href="/enterprise" className="hover:text-foreground transition-colors">
+          <Link
+            href="/enterprise"
+            className="hover:text-foreground transition-colors"
+          >
             Enterprise
           </Link>
         </nav>
@@ -53,7 +62,10 @@ export function Navbar() {
             </>
           ) : (
             <>
-              <Link href="/login" className="text-sm font-medium text-muted-foreground hover:text-foreground hidden sm:block">
+              <Link
+                href="/login"
+                className="text-muted-foreground hover:text-foreground hidden text-sm font-medium sm:block"
+              >
                 Sign In
               </Link>
               <Link href="/dashboard">

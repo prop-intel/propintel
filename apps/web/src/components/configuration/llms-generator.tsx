@@ -32,13 +32,18 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 
+type LlmsFileType = "llms.txt" | "llms-full.txt";
+
 interface LlmsGeneratorProps {
   siteId: string;
   siteName: string;
   domain: string;
-  existingContent: string | null;
-  existingFound: boolean;
-  existingError: string | null;
+  existingLlmsTxtContent: string | null;
+  existingLlmsTxtFound: boolean;
+  existingLlmsTxtError: string | null;
+  existingLlmsFullTxtContent: string | null;
+  existingLlmsFullTxtFound: boolean;
+  existingLlmsFullTxtError: string | null;
   existingLoading: boolean;
   onRefreshExisting: () => void;
 }
@@ -57,6 +62,8 @@ interface GeneratedContentProps {
   handleDownload: (content: string, filename: string) => void;
   handleCopy: (content: string) => Promise<void>;
   copied: boolean;
+  selectedFileType: LlmsFileType;
+  onFileTypeChange: (fileType: LlmsFileType) => void;
 }
 
 function GeneratedContent({
@@ -65,18 +72,40 @@ function GeneratedContent({
   handleDownload,
   handleCopy,
   copied,
+  selectedFileType,
+  onFileTypeChange,
 }: GeneratedContentProps) {
+  const displayContent = selectedFileType === "llms.txt" ? data.llmsTxt : data.llmsFullTxt;
+
   return (
     <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Badge variant="secondary">{data.pageCount} pages</Badge>
+          <span className="text-sm text-muted-foreground">
+            Generated from analysis on {formatJobDate(data.jobDate)}
+          </span>
+        </div>
+      </div>
+
       <div className="flex items-center gap-2">
-        <Badge variant="secondary">{data.pageCount} pages</Badge>
-        <span className="text-sm text-muted-foreground">
-          Generated from analysis on {formatJobDate(data.jobDate)}
-        </span>
+        <label className="text-sm font-medium">File:</label>
+        <Select
+          value={selectedFileType}
+          onValueChange={(value) => onFileTypeChange(value as LlmsFileType)}
+        >
+          <SelectTrigger className="w-48">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="llms.txt">llms.txt</SelectItem>
+            <SelectItem value="llms-full.txt">llms-full.txt</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-sm max-h-80 overflow-y-auto">
-        <code>{data.llmsTxt}</code>
+        <code>{displayContent}</code>
       </pre>
 
       {/* Action Buttons */}
@@ -100,7 +129,7 @@ function GeneratedContent({
         <Button
           variant="outline"
           size="sm"
-          onClick={() => handleCopy(data.llmsTxt)}
+          onClick={() => handleCopy(displayContent)}
         >
           {copied ? (
             <Check className="h-4 w-4 mr-2" />
@@ -118,9 +147,12 @@ export function LlmsGenerator({
   siteId,
   siteName: _siteName,
   domain,
-  existingContent,
-  existingFound,
-  existingError,
+  existingLlmsTxtContent,
+  existingLlmsTxtFound,
+  existingLlmsTxtError,
+  existingLlmsFullTxtContent,
+  existingLlmsFullTxtFound,
+  existingLlmsFullTxtError,
   existingLoading,
   onRefreshExisting,
 }: LlmsGeneratorProps) {
@@ -130,6 +162,8 @@ export function LlmsGenerator({
   const [generatedData, setGeneratedData] = useState<GeneratedData | null>(
     null
   );
+  const [existingFileType, setExistingFileType] = useState<LlmsFileType>("llms.txt");
+  const [generatedFileType, setGeneratedFileType] = useState<LlmsFileType>("llms.txt");
 
   // Fetch completed jobs for the dropdown
   const jobsQuery = api.llmsTxt.getCompletedJobs.useQuery(
@@ -212,7 +246,7 @@ export function LlmsGenerator({
           <TabsList className="mb-4">
             <TabsTrigger value="existing" className="gap-2">
               <Globe className="h-4 w-4" />
-              Your llms.txt
+              Your llms files
             </TabsTrigger>
             <TabsTrigger value="generate" className="gap-2">
               <Sparkles className="h-4 w-4" />
@@ -223,7 +257,22 @@ export function LlmsGenerator({
           {/* Existing llms.txt Tab */}
           <TabsContent value="existing">
             <div className="space-y-4">
-              <div className="flex justify-end">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <label className="text-sm font-medium">File:</label>
+                  <Select
+                    value={existingFileType}
+                    onValueChange={(value) => setExistingFileType(value as LlmsFileType)}
+                  >
+                    <SelectTrigger className="w-48">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="llms.txt">llms.txt</SelectItem>
+                      <SelectItem value="llms-full.txt">llms-full.txt</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
                 <Button
                   variant="outline"
                   size="sm"
@@ -237,21 +286,31 @@ export function LlmsGenerator({
                 </Button>
               </div>
 
-              {existingLoading ? (
-                <Skeleton className="h-48 w-full" />
-              ) : !existingFound ? (
-                <Alert>
-                  <AlertTitle>No llms.txt found</AlertTitle>
-                  <AlertDescription>
-                    {existingError ??
-                      `No llms.txt file found at https://${domain}/llms.txt. You can generate one from your analysis data using the "Generate from Analysis" tab.`}
-                  </AlertDescription>
-                </Alert>
-              ) : (
-                <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-sm max-h-96 overflow-y-auto">
-                  <code>{existingContent}</code>
-                </pre>
-              )}
+              {(() => {
+                const content = existingFileType === "llms.txt" ? existingLlmsTxtContent : existingLlmsFullTxtContent;
+                const found = existingFileType === "llms.txt" ? existingLlmsTxtFound : existingLlmsFullTxtFound;
+                const error = existingFileType === "llms.txt" ? existingLlmsTxtError : existingLlmsFullTxtError;
+
+                if (existingLoading) {
+                  return <Skeleton className="h-48 w-full" />;
+                }
+                if (!found) {
+                  return (
+                    <Alert>
+                      <AlertTitle>No {existingFileType} found</AlertTitle>
+                      <AlertDescription>
+                        {error ??
+                          `No ${existingFileType} file found at https://${domain}/${existingFileType}. You can generate one from your analysis data using the "Generate from Analysis" tab.`}
+                      </AlertDescription>
+                    </Alert>
+                  );
+                }
+                return (
+                  <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-sm max-h-96 overflow-y-auto">
+                    <code>{content}</code>
+                  </pre>
+                );
+              })()}
             </div>
           </TabsContent>
 
@@ -321,11 +380,13 @@ export function LlmsGenerator({
                       handleDownload={handleDownload}
                       handleCopy={handleCopy}
                       copied={copied}
+                      selectedFileType={generatedFileType}
+                      onFileTypeChange={setGeneratedFileType}
                     />
                   ) : (
                     <div className="text-center py-8 text-muted-foreground">
                       Select an analysis and click Generate to create your
-                      llms.txt file.
+                      llms.txt and llms-full.txt files.
                     </div>
                   )}
                 </>
